@@ -212,6 +212,7 @@ button.item:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); 
 .ink canvas { position: absolute; inset: 0; display: block; }
 .ink.lined { border-radius: 14px; border: 1px solid var(--line); background-color: var(--paper); background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 43px, var(--rule) 43px, var(--rule) 44px); cursor: crosshair; }
 .pdf-ink { position: absolute; inset: 0; }
+.erase-ring { position: fixed; width: 32px; height: 32px; margin: -16px 0 0 -16px; border: 2px solid #e53935; border-radius: 50%; background: rgba(229,57,53,.12); pointer-events: none; z-index: 96; display: none; }
 .pen-overlay { position: fixed; top: 64px; right: 8px; z-index: 95; margin: 0; padding: 8px 10px; max-width: 46vw; font: 11px/1.35 ui-monospace, Consolas, monospace; white-space: pre-wrap; color: #e8ffe8; background: rgba(0,0,0,.78); border-radius: 10px; pointer-events: none; }
 .upd-bar { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); z-index: 90; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 16px; background: var(--surface-hi, #2b2d33); color: var(--text, #fff); border: 1px solid var(--line); box-shadow: 0 6px 24px rgba(0,0,0,.28); max-width: calc(100vw - 24px); }
 .upd-bar span { font-size: 14px; }
@@ -365,7 +366,7 @@ ul.tight, ol.tight { margin: 0; padding-left: 1.2em; display: flex; flex-directi
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261124-2220";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261124-2223";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -2404,6 +2405,12 @@ function penLog(e) {
   PENLOG.unshift(`${e.type} ${d}`); PENLOG.length = Math.min(PENLOG.length, 10);
   penShow();
 }
+function showRing(x, y) {
+  let r = document.getElementById("erase-ring");
+  if (!r) { r = document.createElement("div"); r.id = "erase-ring"; r.className = "erase-ring"; document.body.appendChild(r); }
+  r.style.display = "block"; r.style.left = x + "px"; r.style.top = y + "px";
+}
+function hideRing() { const r = document.getElementById("erase-ring"); if (r) r.style.display = "none"; }
 // Errors the app hits are kept so they can be seen in Settings → Diagnostics instead of vanishing.
 const ERRS = [];
 const noteErr = s => { ERRS.unshift(new Date().toLocaleTimeString() + " " + String(s).slice(0, 220)); ERRS.length = Math.min(ERRS.length, 8); };
@@ -2514,7 +2521,11 @@ function attachInk(el) {
       lastErase = q;
     }
     if (changed) redraw();
+    return changed;
   }
+  // Hold the side button and hover: erase whatever the pen passes over, without touching the screen.
+  let hov = false, hovDirty = false;
+  function endHover() { if (!hov) return; hov = false; hideRing(); if (hovDirty) { hovDirty = false; inkSave(key); } }
   el.addEventListener("contextmenu", e => e.preventDefault());
   el.addEventListener("pointerdown", e => {
     INK.active = key;
@@ -2537,7 +2548,12 @@ function attachInk(el) {
       toast("Eraser: drag over your writing"); if (ui.dbgPen) penNote("held still 0.5s → ERASE");
     }, 500);
   });
+  el.addEventListener("pointerleave", e => { if (e.pointerType === "pen") endHover(); });
   el.addEventListener("pointermove", e => {
+    if (e.pointerType === "pen" && !e.buttons && mode === null) {
+      if (window.__penBtn === true) { const first = !hov; hov = true; if (eraseAt(e, first)) hovDirty = true; showRing(e.clientX, e.clientY); return; }
+      if (hov) endHover();
+    }
     if (hold0 && Math.hypot(e.clientX - hold0.x, e.clientY - hold0.y) > 5) { clearTimeout(hold); hold0 = null; } else holdEv = e;
     if (mode === "scroll") { const dy = last.y - e.clientY, dx = last.x - e.clientX; last = { x: e.clientX, y: e.clientY }; scroller.scrollBy(dx, dy); return; }
     // The side button can be pressed or released mid-stroke: switch between drawing and erasing on the fly.
