@@ -428,7 +428,7 @@ ul.tight, ol.tight { margin: 0; padding-left: 1.2em; display: flex; flex-directi
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261124-2236";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261124-2240";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -2328,6 +2328,11 @@ window.NOTES = {"phys":{"groups":[{"id":"01-Measurements-and-Errors","n":"01","t
     { t: "warn", text: "Don't say bromine 'decolourises' it. Say the colour changes from orange to colourless." }
   ];
 
+  // Short block builders and drawing helpers for the other notes-*.js files.
+  const H = text => ({ t: "h", text }), P = text => ({ t: "p", text }), D = (term, text) => ({ t: "def", term, text }),
+    E = (name, eq, vars) => ({ t: "eq", name, eq, vars }), K = (title, ...items) => ({ t: "key", title, items }), Tp = text => ({ t: "tip", text }),
+    W = text => ({ t: "warn", text }), S = (title, ...items) => ({ t: "steps", title, items }), TB = (head, ...rows) => ({ t: "table", head, rows }), F = (svg, cap) => ({ t: "fig", svg, cap });
+  window.NCH = { ln, ar, cu, badge, rc, ci, pa, tx, sv, dim, axes, tube, H, P, D, E, K, Tp, W, S, TB, F };
   window.NC = { rp: RP, topics: T };
 })();
 
@@ -3097,7 +3102,7 @@ async function initClaude() {
     if (s) { try { const l = await s.limits(); SAMPLE_IMG = !!(l && l.images); } catch (e) { /* ignore */ } }
   } catch (e) { SAMPLE = null; }
   claudeChecked = true;
-  if (["tutor", "study", "topics"].includes(view)) render();
+  if (["tutor", "practice", "topics"].includes(view)) render();
 }
 let DL = null;
 async function getDownloads() { if (DL !== null) return DL; try { DL = window.claude ? await claude.use("downloads") : false; } catch (e) { DL = false; } return DL; }
@@ -3175,16 +3180,16 @@ function weakness(t) {
 
 /* ---------- UI state ---------- */
 const VIEWS = [
-  ["home", "Home", "home"], ["practice", "Practice", "qa"], ["study", "Flashcards", "cards"], ["notes", "Notes", "book"],
+  ["home", "Home", "home"], ["practice", "Practice", "qa"], ["notes", "Notes", "book"],
   ["papers", "Past papers", "doc"], ["progress", "Exam progress", "chart"], ["reference", "Reference", "book"],
   ["tutor", "AI tutor", "spark"], ["timer", "Focus timer", "timer"], ["prefs", "Settings", "sliders"]
 ];
 if (OFFLINE) VIEWS.splice(VIEWS.findIndex(v => v[0] === "tutor"), 1);
-const RAIL = ["home", "practice", "study", "notes", "papers", "progress", "reference", "tutor"].filter(id => VIEWS.some(v => v[0] === id));
+const RAIL = ["home", "practice", "notes", "papers", "progress", "reference", "tutor"].filter(id => VIEWS.some(v => v[0] === id));
 const TABS = ["home", "practice", "papers", "progress"];
-const SHORT = { study: "Cards", papers: "Papers", tutor: "AI tutor", progress: "Progress", reference: "Reference", timer: "Timer" };
+const SHORT = { papers: "Papers", tutor: "AI tutor", progress: "Progress", reference: "Reference", timer: "Timer" };
 // Old section names now live inside the merged sections.
-const ALIAS = { bank: ["practice", "pracTab", "questions"], quiz: ["practice", "pracTab", "questions"], topics: ["notes", "noteTab", "summ"], practicals: ["notes", "noteTab", "rp"], formulas: ["reference", "refTab", "eq"], data: ["reference", "refTab", "data"], exams: ["progress", "progTab", "dates"], mistakes: ["progress", "progTab", "mistakes"] };
+const ALIAS = { study: ["practice", "pracTab", "cards"], bank: ["practice", "pracTab", "questions"], quiz: ["practice", "pracTab", "questions"], topics: ["notes", "noteTab", "summ"], practicals: ["notes", "noteTab", "rp"], formulas: ["reference", "refTab", "eq"], data: ["reference", "refTab", "data"], exams: ["progress", "progTab", "dates"], mistakes: ["progress", "progTab", "mistakes"] };
 function resolveView(v) { const a = ALIAS[v]; if (a) { ui[a[1]] = a[2]; return a[0]; } return VIEWS.some(x => x[0] === v) ? v : null; }
 let view = (location.hash || "").slice(1);
 const newTutor = () => ({ mode: "exam", topic: "", marks: 4, q: null, ans: "", mark: null, busy: false, err: "", chat: [], chatBusy: false, img: null, imgNote: "", imgOut: "" });
@@ -3260,7 +3265,7 @@ function render() {
   document.body.setAttribute("data-subj", cur());
   const n = dueCount();
   const label = id => SHORT[id] || VIEWS.find(x => x[0] === id)[1];
-  const railBtn = (id, cls) => { const v = VIEWS.find(x => x[0] === id); return `<button class="${cls}" data-act="go" data-v="${id}" ${view === id ? 'aria-current="page"' : ""}><span class="ind">${icon(v[2])}${id === "study" && n ? `<span class="badge">${n > 99 ? "99+" : n}</span>` : ""}</span><span class="lbl">${label(id)}</span></button>`; };
+  const railBtn = (id, cls) => { const v = VIEWS.find(x => x[0] === id); return `<button class="${cls}" data-act="go" data-v="${id}" ${view === id ? 'aria-current="page"' : ""}><span class="ind">${icon(v[2])}${id === "practice" && n ? `<span class="badge">${n > 99 ? "99+" : n}</span>` : ""}</span><span class="lbl">${label(id)}</span></button>`; };
   const rail = RAIL.map(id => railBtn(id, "rail-btn")).join("");
   const tabs = TABS.map(id => railBtn(id, "tab")).join("") + `<button class="tab" data-act="sheet" ${!TABS.includes(view) ? 'aria-current="page"' : ""}><span class="ind">${icon("more")}</span><span class="lbl">More</span></button>`;
   let body = "";
@@ -3595,8 +3600,12 @@ V.progress = () => {
 /* ---------- Practice (questions, bank, flashcard quiz) ---------- */
 V.practice = () => {
   if (ui.ps) return practiceSession();
-  const sub = SUBJ[cur()];
-  return pageHead(`${sub.name} ${sub.code}`, "Practice", `${qList(cur()).length} exam-style questions with mark schemes. Choose topics, write your answer, then mark it yourself or with AI.`) + practiceSetup();
+  const tab = ui.pracTab === "cards" ? "cards" : "questions";
+  if (tab === "cards" && ui.study) return V.study();
+  const sub = SUBJ[cur()], due = dueCount();
+  return pageHead(`${sub.name} ${sub.code}`, "Practice", tab === "cards" ? "Spaced-repetition flashcards. Cards you find hard come back sooner." : `${qList(cur()).length} exam-style questions with mark schemes. Choose topics, write your answer, then mark it yourself or with AI.`)
+    + tabsHTML("prac-tab", tab, [["questions", "Exam questions"], ["cards", "Flashcards", due ? (due > 99 ? "99+" : due) : ""]])
+    + (tab === "cards" ? stripTop(V.study()) : practiceSetup());
 };
 
 /* ---------- Reference (equations, data sheet, practicals) ---------- */
@@ -4214,6 +4223,7 @@ const ACT = {
   "upd-check": () => checkUpdate(true),
   "upd-apply": () => applyUpdate(),
   "upd-later": () => { const b = document.getElementById("upd-bar"); if (b) b.remove(); },
+  "prac-tab": el => { ui.pracTab = el.dataset.v; render(); },
   "nt-pick": el => { ui.noteTopic = el.dataset.v; render(); window.scrollTo(0, 0); },
   "note-open": el => openNote(NOTE_PATHS[+el.dataset.v]),
   "note-tab": el => { ui.noteTab = el.dataset.v; ui.topic = null; render(); window.scrollTo(0, 0); },
@@ -4406,7 +4416,7 @@ document.addEventListener("change", e => {
   if (e.target.id === "pp-paper") { const o = e.target.selectedOptions[0], mx = document.getElementById("pp-max"); if (o && o.dataset.max && mx) mx.value = o.dataset.max; }
 });
 document.addEventListener("keydown", e => {
-  if (view !== "study" || !ui.study || !ui.study.queue.length) return;
+  if (view !== "practice" || ui.pracTab !== "cards" || !ui.study || !ui.study.queue.length) return;
   if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement && document.activeElement.tagName)) return;
   if (e.key === " " || e.key === "Enter") { if (!ui.study.flipped) { e.preventDefault(); ACT.flip(); } }
   else if (ui.study.flipped && !ui.study.cram && "1234".includes(e.key)) { e.preventDefault(); grade(+e.key - 1); }
