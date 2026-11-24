@@ -370,6 +370,8 @@ ul.tight, ol.tight { margin: 0; padding-left: 1.2em; display: flex; flex-directi
 .vw-help .seg-btn, .vw-help button { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
 .vw-panel { width: min(46%, 520px); flex: none; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px)); background: var(--bg); border-left: 1px solid var(--line); min-height: 0; }
 .vw-panel[hidden] { display: none; }
+@keyframes cs-spin { to { transform: rotate(360deg); } }
+.sync-btn.spin svg { animation: cs-spin 1s linear infinite; }
 .chip.ps-timer { font-size: .95rem; padding: 6px 12px; }
 .chip.ps-timer.over { background: var(--red-soft); color: var(--red); }
 #cp-slider { width: 100%; accent-color: var(--accent); }
@@ -459,7 +461,7 @@ body.ps-open .penbar { left: calc((100% - min(46%, 520px)) / 2); }
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261124-2335";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261124-2344";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -3806,6 +3808,15 @@ for (const s of [P, C]) for (const t of s.topics) {
 }
 const PRACS = [...P.practicals.map(p => ({ ...p, subj: "phys" })), ...C.practicals.map(p => ({ ...p, subj: "chem" }))];
 const OFFLINE = !!window.OFFLINE;
+// Which device this is. The phone edition (Galaxy S25 FE) has no S Pen, so answers are typed and the pen tools are hidden.
+// The phone app opens the site with ?edition=phone; the choice is remembered, and can be changed in Settings.
+const EDITION = (() => {
+  try {
+    const q = new URLSearchParams(location.search).get("edition"); if (q === "phone" || q === "tablet") localStorage.setItem("labbook-edition", q);
+    return localStorage.getItem("labbook-edition") || (matchMedia("(max-width: 700px) and (pointer: coarse)").matches ? "phone" : "tablet");
+  } catch (e) { return "tablet"; }
+})();
+const PHONE = EDITION === "phone";
 
 /* ---------- Offline paper store (IndexedDB) ---------- */
 const KIND_FILE = ["Question-paper", "Mark-scheme", "Examiner-report", "Insert"];
@@ -3911,11 +3922,11 @@ function drawViewerChrome() {
   if (VW.note) {
     el.innerHTML = `<div class="vw-bar">
       <button class="btn small" data-act="vw-close">${icon("back").replace("<svg", '<svg style="width:18px"')} Close</button>
-      <div class="vw-title"><b>${esc(VW.note.title)}</b><span class="muted small">Physics &amp; Maths Tutor notes · write or highlight with the S Pen</span></div>
-      <div class="row vw-tools" style="gap:6px"><button class="btn small ghost" data-act="vw-clear-ink">Clear writing</button><span class="mono small muted" id="vw-page"></span><button class="btn small" data-act="vw-zoom" data-v="-1" aria-label="Zoom out">−</button><button class="btn small" data-act="vw-zoom" data-v="1" aria-label="Zoom in">+</button></div>
+      <div class="vw-title"><b>${esc(VW.note.title)}</b><span class="muted small">Physics &amp; Maths Tutor notes${PHONE ? "" : " · write or highlight with the S Pen"}</span></div>
+      <div class="row vw-tools" style="gap:6px">${PHONE ? "" : `<button class="btn small ghost" data-act="vw-clear-ink">Clear writing</button>`}<span class="mono small muted" id="vw-page"></span><button class="btn small" data-act="vw-zoom" data-v="-1" aria-label="Zoom out">−</button><button class="btn small" data-act="vw-zoom" data-v="1" aria-label="Zoom in">+</button></div>
     </div>
     <div class="vw-pages" id="vw-pages"><div class="empty" style="margin:24px">Opening…</div></div>
-    ${penBar()}`;
+    ${PHONE ? "" : penBar()}`;
     document.getElementById("vw-pages").addEventListener("scroll", vwPageIndicator, { passive: true });
     document.body.style.overflow = "hidden";
     return;
@@ -3930,10 +3941,10 @@ function drawViewerChrome() {
     <div class="vw-sub">
       <div class="seg">${kinds.map(i => `<button data-act="vw-kind" data-v="${i}" aria-pressed="${i === k}" ${PDB.have.has(paperFile(subj, ser, label, i)) ? "" : 'style="opacity:.45"'}>${KIND_LABEL[i]}</button>`).join("")}</div>
       <div class="seg vw-help"><button data-act="vwp-toggle" data-v="notes" aria-pressed="${VWP.mode === "notes"}">${icon("book").replace("<svg", '<svg style="width:18px"')} Notes</button><button data-act="vwp-toggle" data-v="ai" aria-pressed="${VWP.mode === "ai"}">${icon("spark").replace("<svg", '<svg style="width:18px"')} Ask Gemini</button></div>
-      <div class="row" style="gap:6px">${S.marked[key] ? `<button class="btn small" data-act="ai-result" data-v="${esc(key)}">Result: ${S.marked[key].total}/${S.marked[key].max}</button>` : ""}<button class="btn small primary" data-act="vw-ai">${icon("spark")}Mark with AI</button><button class="btn small ${done ? "" : "ghost"}" data-act="vw-done">${done ? "✓ Done" : "Mark done"}</button><button class="btn small ghost" data-act="vw-clear-ink">Clear writing</button></div>
+      <div class="row" style="gap:6px">${S.marked[key] ? `<button class="btn small" data-act="ai-result" data-v="${esc(key)}">Result: ${S.marked[key].total}/${S.marked[key].max}</button>` : ""}${PHONE ? "" : `<button class="btn small primary" data-act="vw-ai">${icon("spark")}Mark with AI</button>`}<button class="btn small ${done ? "" : "ghost"}" data-act="vw-done">${done ? "✓ Done" : "Mark done"}</button>${PHONE ? "" : `<button class="btn small ghost" data-act="vw-clear-ink">Clear writing</button>`}</div>
     </div>
     <div class="vw-body"><div class="vw-pages" id="vw-pages"><div class="empty" style="margin:24px">Opening…</div></div><aside class="vw-panel" id="vw-panel" aria-label="Help panel" hidden></aside></div>
-    ${penBar()}`;
+    ${PHONE ? "" : penBar()}`;
   vtDraw();
   const pages = document.getElementById("vw-pages");
   pages.addEventListener("scroll", vwPageIndicator, { passive: true });
@@ -3976,7 +3987,7 @@ async function renderPage(div) {
     await page.render({ canvasContext: c.getContext("2d"), viewport: page.getViewport({ scale: scale * dpr }) }).promise;
     if (div.dataset.state !== "busy" || !div.isConnected) return;
     div.innerHTML = ""; div.appendChild(c); div.dataset.state = "done";
-    const ink = document.createElement("div"); ink.className = "ink pdf-ink"; ink.dataset.ink = "pdf:" + VW.name + ":" + div.dataset.n; div.appendChild(ink); attachInk(ink);
+    const ink = document.createElement("div"); ink.className = "ink pdf-ink"; ink.dataset.ink = "pdf:" + VW.name + ":" + div.dataset.n; if (!PHONE) { div.appendChild(ink); attachInk(ink); }
   } catch (e) { delete div.dataset.state; }
 }
 function unrenderPage(div) { if (div.dataset.state === "done") { div.innerHTML = ""; delete div.dataset.state; } }
@@ -4320,7 +4331,7 @@ async function markQuestionAI() {
     for (let pi = 0; pi < q.p.length; pi++) {
       const key = id + ":" + pi, typed = (S.qtext[key] || "").trim();
       parts.push({ text: `Student's answer to part (${LETTERS[pi]}):` });
-      if (ps.kb[key] && typed) { parts.push({ text: typed }); continue; }
+      if ((PHONE || ps.kb[key]) && typed) { parts.push({ text: typed }); continue; }
       const el = document.querySelector(`.ink[data-ink="${CSS.escape("q:" + key)}"]`);
       const img = await answerImage("q:" + key, el ? el.clientHeight / Math.max(1, el.clientWidth) : 0.3);
       if (img) parts.push({ inline_data: { mime_type: "image/jpeg", data: img } }); else parts.push({ text: typed || "(no answer given)" });
@@ -4438,7 +4449,7 @@ function drawVwPanel() {
     p.innerHTML = `<div class="vwp-head"><b>${icon("spark").replace("<svg", '<svg style="width:18px;vertical-align:-3px"')} Ask Gemini</b>${close}</div>
       ${ready ? `<div class="vwp-opts">${VW.open ? `<span class="muted small">Gemini looks at</span><div class="seg"><button data-act="vwp-pages" data-v="1" aria-pressed="${VWP.pages === 1}">This page</button><button data-act="vwp-pages" data-v="2" aria-pressed="${VWP.pages === 2}">This + next page</button></div>` : `<span class="muted small">Gemini sees this question and everything you have written for it, typed or in ink.</span>`}
         <label class="small row" style="gap:8px"><input type="checkbox" data-change="vwp-ms" ${VWP.useMs ? "checked" : ""}> Let it use the mark scheme <span class="muted">(it may give answers away)</span></label></div>
-      <div class="vwp-scroll" id="vwp-chat">${msgs || `<p class="muted small" style="padding:6px 2px">It sees the page you are on, including everything you have written on it with the S Pen. Ask about the question you are working on.</p>`}${VWP.busy ? `<div class="gm m"><span class="spinner" style="width:16px;height:16px;display:inline-block;vertical-align:-3px"></span> Gemini is looking at your page…</div>` : ""}</div>
+      <div class="vwp-scroll" id="vwp-chat">${msgs || `<p class="muted small" style="padding:6px 2px">It sees the page you are on${PHONE ? "" : ", including everything you have written on it with the S Pen"}. Ask about the question you are working on.</p>`}${VWP.busy ? `<div class="gm m"><span class="spinner" style="width:16px;height:16px;display:inline-block;vertical-align:-3px"></span> Gemini is looking at your page…</div>` : ""}</div>
       <div class="vwp-chips">${chips.map(c => `<button class="chip-btn" data-act="vwp-chip" data-v="${esc(c)}" ${VWP.busy ? "disabled" : ""}>${esc(c)}</button>`).join("")}</div>
       <form class="vwp-form" data-form="vwp-ask"><textarea id="vwp-input" name="q" rows="2" data-input="vwp-draft" placeholder="Ask about this question…" ${VWP.busy ? "disabled" : ""}>${esc(VWP.draft)}</textarea><div class="row" style="justify-content:space-between"><button class="btn small ghost" type="button" data-act="vwp-clear">Clear chat</button><button class="btn small primary" type="submit" ${VWP.busy ? "disabled" : ""}>Send</button></div></form>`
       : `<div class="vwp-scroll"><div class="stack" style="padding:8px 2px"><p>To ask Gemini about a question, add your free Gemini key first.</p><div><button class="btn primary" data-act="vwp-setup">Set up Gemini</button></div></div></div>`}`;
@@ -4513,7 +4524,7 @@ async function vwpAskQuestion(text) {
       for (let pi = 0; pi < q.p.length; pi++) {
         const p = q.p[pi], k2 = id + ":" + pi, typed = (S.qtext[k2] || "").trim();
         parts.push({ text: `\nPart (${LETTERS[pi]}) [${p.m} mark${p.m === 1 ? "" : "s"}]: ${p.q}${p.u ? " (unit: " + p.u + ")" : ""}${VWP.useMs ? "\nMark scheme points: " + p.s.map((m, i) => `${i + 1}. ${m}`).join(" ") : ""}\nStudent's answer to part (${LETTERS[pi]}):` });
-        if (ps.kb[k2] && typed) { parts.push({ text: typed }); continue; }
+        if ((PHONE || ps.kb[k2]) && typed) { parts.push({ text: typed }); continue; }
         const el = document.querySelector(`.ink[data-ink="${CSS.escape("q:" + k2)}"]`);
         const img = await answerImage("q:" + k2, el ? el.clientHeight / Math.max(1, el.clientWidth) : 0.3);
         if (img) parts.push({ inline_data: { mime_type: "image/jpeg", data: img } }); else parts.push({ text: typed || "(nothing written yet)" });
@@ -4574,6 +4585,77 @@ async function applyUpdate() {
 if (OFFLINE) {
   setTimeout(() => checkUpdate(false), 2500);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) checkUpdate(false); });
+}
+
+/* ---------- Cloud sync between devices (a private GitHub gist that only you can open) ---------- */
+// Each device keeps working offline. Pressing Sync downloads the other device's copy, MERGES it with this one (so nothing is
+// overwritten), saves the result here and uploads it. Question results and flashcards keep whichever side has done more;
+// days of study keep the higher count; lists (papers, mistakes, exams, cards) are combined. Papers, notes PDFs, handwriting
+// and per-device settings are not synced.
+const CS_KEY = "labbook-cloud", CS_DESC = "Lab Book sync (do not delete)", CS_FILE = "labbook-sync.json";
+const csGet = () => { try { return JSON.parse(localStorage.getItem(CS_KEY) || "null") || {}; } catch (e) { return {}; } };
+const csPut = o => { try { if (o) localStorage.setItem(CS_KEY, JSON.stringify(o)); else localStorage.removeItem(CS_KEY); } catch (e) { /* ignore */ } };
+const CSX = { busy: false, msg: "" };
+function mergeStates(a, b) {
+  const out = JSON.parse(JSON.stringify(a)), aNewer = (a.updated || 0) >= (b.updated || 0), keys = (x, y) => new Set([...Object.keys(x || {}), ...Object.keys(y || {})]);
+  ["conf", "notes", "rp", "ppDone", "marked", "qtext"].forEach(k => { const A = a[k] || {}, B = b[k] || {}, o = {}; for (const id of keys(A, B)) o[id] = id in A && id in B ? (aNewer ? A[id] : B[id]) : (id in A ? A[id] : B[id]); out[k] = o; });
+  ["log", "newLog", "focus"].forEach(k => { const A = a[k] || {}, B = b[k] || {}, o = {}; for (const id of keys(A, B)) o[id] = Math.max(+A[id] || 0, +B[id] || 0); out[k] = o; });
+  out.srs = {}; for (const id of keys(a.srs, b.srs)) { const x = (a.srs || {})[id], y = (b.srs || {})[id]; out.srs[id] = !x ? y : !y ? x : ((y.r || 0) > (x.r || 0) || ((y.r || 0) === (x.r || 0) && (y.d || 0) > (x.d || 0))) ? y : x; }
+  out.qs = {}; for (const id of keys(a.qs, b.qs)) { const x = (a.qs || {})[id], y = (b.qs || {})[id]; out.qs[id] = !x ? y : !y ? x : ((y.n || 0) > (x.n || 0) ? y : x); }
+  ["custom", "exams", "papers", "mistakes"].forEach(k => { const m = new Map(), first = aNewer ? b[k] : a[k], second = aNewer ? a[k] : b[k]; for (const it of [].concat(first || [], second || [])) m.set(it.id, it); out[k] = [...m.values()]; });
+  const seen = new Set(); out.quiz = [].concat(a.quiz || [], b.quiz || []).filter(q => { const j = JSON.stringify(q); if (seen.has(j)) return false; seen.add(j); return true; }).slice(-50);
+  out.pred = {}; for (const id of keys(a.pred, b.pred)) { const x = (a.pred || {})[id], y = (b.pred || {})[id]; out.pred[id] = !x ? y : !y ? x : String(y.built) > String(x.built) ? y : x; }
+  out.settings = Object.assign({}, a.settings); if (!out.settings.physOpt && b.settings && b.settings.physOpt) out.settings.physOpt = b.settings.physOpt;
+  out.updated = Math.max(a.updated || 0, b.updated || 0);
+  return out;
+}
+const stripForCloud = st => { const c = JSON.parse(JSON.stringify(st)); c.settings = { physOpt: st.settings.physOpt, newPerDay: st.settings.newPerDay }; delete c.pen; return c; };
+async function ghApi(path, opt) {
+  const c = csGet(); let r;
+  try { r = await fetch("https://api.github.com" + path, Object.assign({}, opt, { headers: Object.assign({ Authorization: "Bearer " + c.token, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" }, opt && opt.body ? { "Content-Type": "application/json" } : {}) })); }
+  catch (e) { throw new Error("Couldn't reach GitHub. Check you're online."); }
+  if (r.status === 401) { const e = new Error("GitHub didn't accept the token. Create a new one and paste it in Settings."); e.code = 401; throw e; }
+  if (r.status === 403) throw new Error("GitHub refused. The token may be missing the gist permission, or a limit was reached. Try again in a minute.");
+  if (!r.ok) throw new Error("GitHub error " + r.status + ". Try again.");
+  return r.json();
+}
+async function cloudSync() {
+  if (CSX.busy) return;
+  const c = csGet(); if (!c.token) { go("prefs"); toast("Connect cloud sync first."); return; }
+  CSX.busy = true; CSX.msg = "Syncing…"; render();
+  try {
+    let id = c.gistId, remote = null;
+    if (!id) { const list = await ghApi("/gists?per_page=100"); const g = list.find(x => x.description === CS_DESC && x.files && x.files[CS_FILE]); if (g) id = g.id; }
+    if (id) {
+      const g = await ghApi("/gists/" + id), f = g.files && g.files[CS_FILE];
+      if (f) { let txt = f.content; if (f.truncated || txt == null) txt = await (await fetch(f.raw_url)).text(); try { remote = JSON.parse(txt).data; } catch (e) { remote = null; } }
+    }
+    const before = Object.values(S.qs).filter(x => x.n).length;
+    if (remote) S = normalise(mergeStates(S, normalise(remote)));
+    S.updated = Date.now(); indexCustom(); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignore */ }
+    const payload = JSON.stringify({ v: 1, at: Date.now(), from: EDITION, data: stripForCloud(S) });
+    if (id) await ghApi("/gists/" + id, { method: "PATCH", body: JSON.stringify({ files: { [CS_FILE]: { content: payload } } }) });
+    else id = (await ghApi("/gists", { method: "POST", body: JSON.stringify({ description: CS_DESC, public: false, files: { [CS_FILE]: { content: payload } } }) })).id;
+    csPut(Object.assign({}, csGet(), { gistId: id, last: Date.now() }));
+    const gained = Object.values(S.qs).filter(x => x.n).length - before;
+    CSX.msg = "Synced just now" + (gained > 0 ? `, ${gained} question result${gained === 1 ? "" : "s"} brought in` : "");
+    toast("Synced with your other device");
+  } catch (e) { CSX.msg = e.message; toast(e.message); if (e.code === 401) csPut(null); }
+  CSX.busy = false; render();
+}
+function cloudPanel() {
+  const c = csGet(), ok = !!c.token, when = c.last ? new Date(c.last).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+  return `<section class="panel"><div class="panel-head"><div class="stack" style="gap:2px"><h2>Cloud sync</h2><span class="muted small">${ok ? (when ? "Last synced " + when : "Connected. Not synced yet.") : "Keep your tablet and phone in step"}</span></div>${ok ? `<button class="btn primary" data-act="cloud-sync" ${CSX.busy ? "disabled" : ""}>${CSX.busy ? "Syncing…" : "Sync now"}</button>` : ""}</div>
+    <p class="small">Press Sync on each device. It merges both copies, so finishing a question on the tablet and syncing shows it as done on the phone. It syncs your flashcard progress, question results, marks, ratings, notes, typed answers, exams and mistakes. It does not copy papers, notes PDFs or handwriting, and your theme stays per device.</p>
+    ${CSX.msg ? `<p class="small" id="cs-msg">${esc(CSX.msg)}</p>` : ""}
+    ${ok ? `<div class="row"><button class="btn small ghost" data-act="cloud-off">Disconnect this device</button></div><p class="muted small">Your data is saved in a private GitHub gist called "Lab Book sync". Delete that gist on github.com to remove it.</p>`
+    : `<ol class="tight small"><li>Tap <b>Create a sync token</b>, sign in to GitHub and tap <b>Generate token</b>. It is already limited to the <b>gist</b> permission, which only reaches your gists.</li><li>Copy the token and paste it below. Do the same on your other device with the same token.</li></ol>
+      <div class="row"><a class="btn small" href="https://github.com/settings/tokens/new?description=Lab%20Book%20sync&scopes=gist" target="_blank" rel="noopener">Create a sync token</a></div>
+      <form class="stack" data-form="cloud-connect"><label class="field" for="cs-token">Token<input id="cs-token" name="token" type="password" autocomplete="off" placeholder="ghp_…" required></label><div><button class="btn primary" type="submit">Connect and sync</button></div></form>`}
+  </section>`;
+}
+function devicePanel() {
+  return `<section class="panel"><h2>This device</h2><div class="seg" role="group" aria-label="Device">${[["tablet", "Tablet with S Pen"], ["phone", "Phone"]].map(([v, l]) => `<button data-act="edition" data-v="${v}" aria-pressed="${EDITION === v}">${l}</button>`).join("")}</div><p class="muted small">The phone version has no S Pen tools: answers are typed and papers are read-only. The Lab Book Phone app sets this for you.</p></section>`;
 }
 
 /* ---------- Exam timer (paper viewer) ---------- */
@@ -4782,6 +4864,7 @@ Object.defineProperty(ui, "tutor", { get: () => ui.tutors[cur()] });
 view = resolveView(view) || "home";
 
 const ICON = {
+  sync: '<path d="M20 12a8 8 0 0 1-14.5 4.6M4 12A8 8 0 0 1 18.5 7.4"/><path d="M18.5 3v4.4h-4.4M5.5 21v-4.4h4.4"/>',
   home: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
   cards: '<rect x="3" y="7" width="14" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/>',
   list: '<path d="M10 6h11M10 12h11M10 18h11"/><path d="M3.5 6l1.5 1.5L8 4.5M3.5 12l1.5 1.5L8 10.5M3.5 18l1.5 1.5L8 16.5"/>',
@@ -4859,6 +4942,7 @@ function render() {
     <header class="appbar">
       <button class="appbar-title" data-act="subj" data-v="${other}" title="Switch to ${SUBJ[other].name}">A-Level ${SUBJ[cur()].name}</button>
       <span class="appbar-sync" id="syncline">${syncHTML()}</span>
+      ${OFFLINE ? `<button class="icon-btn sync-btn ${CSX.busy ? "spin" : ""}" data-act="cloud-sync" aria-label="Sync with your other device" title="${csGet().last ? "Synced " + new Date(csGet().last).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "Sync with your other device"}">${icon("sync")}</button>` : ""}
       ${view === "timer" ? "" : `<button class="icon-btn" data-act="go" data-v="timer" aria-label="Focus timer" title="Focus timer">${icon("timer")}</button>`}
       <button class="icon-btn" data-act="go" data-v="prefs" aria-label="Settings" title="Settings">${icon("gear")}</button>
     </header>
@@ -5004,7 +5088,7 @@ V.home = () => {
     <div class="actions">
       ${action("practice-setup", "qa", "Practise by topic and difficulty")}
       ${action("quick10", "qa", "Quick 10 multiple choice")}
-      ${action("written3", "pen", "Three written questions (S Pen)")}
+      ${action("written3", "pen", PHONE ? "Three written questions" : "Three written questions (S Pen)")}
       ${action("study-start", "cards", due ? `Review flashcards (${due} ready)` : "Flashcards: all caught up", sc)}
       ${action("go", "doc", "AQA past papers and mark schemes", "papers")}
       ${!OFFLINE && SAMPLE ? action("tutor-new", "spark", "AI tutor: make a new question") : ""}
@@ -5013,7 +5097,7 @@ V.home = () => {
     </div>
   </section>
   ${work.length ? `<section class="card"><div class="panel-head"><h2 class="card-title">Revise next</h2><button class="btn small ghost" data-act="prog-tab" data-v="priorities">Priority list</button></div><div class="list">${work.map(w => `<button class="item" data-act="practise-topic" data-v="${w.t.id}">${chipT(w.t)}<span class="item-main"><b>${esc(w.t.t)}</b><span class="muted small">${esc(w.why)}</span></span><span class="go-arrow" aria-hidden="true">›</span></button>`).join("")}</div></section>` : ""}
-  <p class="hint">Write answers with the S Pen as you would in the exam: the pen writes, your finger scrolls, and holding the S Pen side button rubs out.</p>`;
+  <p class="hint">${PHONE ? "Type your answers, then check them against the mark scheme or mark them with AI." : "Write answers with the S Pen as you would in the exam: the pen writes, your finger scrolls, and holding the S Pen side button rubs out."}</p>`;
 };
 
 function practiceSession() {
@@ -5036,9 +5120,9 @@ function practiceSession() {
       const lines = Math.max(3, p.l || 3) + (ps.lines[key] || 0);
       return `<div class="q-part">
         <div class="q-part-head"><span class="mono part-l">(${LETTERS[pi]})</span><p>${esc(p.q)}</p><span class="part-m mono">[${p.m} mark${p.m === 1 ? "" : "s"}]</span></div>
-        ${ps.kb[key] ? `<textarea class="answer-box" data-input="qtext" data-v="${esc(key)}" style="min-height:${lines * 30}px" placeholder="Type your answer${p.u ? " (unit: " + esc(p.u) + ")" : ""}">${esc(S.qtext[key] || "")}</textarea>`
+        ${(PHONE || ps.kb[key]) ? `<textarea class="answer-box" data-input="qtext" data-v="${esc(key)}" style="min-height:${lines * 30}px" placeholder="Type your answer${p.u ? " (unit: " + esc(p.u) + ")" : ""}">${esc(S.qtext[key] || "")}</textarea>`
           : `<div class="ink lined" data-ink="${esc(inkKey)}" style="height:${lines * 44}px"></div>`}
-        <div class="row part-tools"><button class="btn small ghost" data-act="ps-lines" data-v="${esc(key)}">More lines</button><button class="btn small ghost" data-act="ps-kb" data-v="${esc(key)}">${ps.kb[key] ? icon("pen") + "Write with S Pen" : icon("keyboard") + "Type instead"}</button>${ps.kb[key] ? "" : `<button class="btn small ghost" data-act="ink-clear" data-v="${esc(inkKey)}">Clear this answer</button>`}${p.u ? `<span class="muted small">Unit: ${esc(p.u)}</span>` : ""}</div>
+        <div class="row part-tools"><button class="btn small ghost" data-act="ps-lines" data-v="${esc(key)}">More lines</button>${PHONE ? "" : `<button class="btn small ghost" data-act="ps-kb" data-v="${esc(key)}">${ps.kb[key] ? icon("pen") + "Write with S Pen" : icon("keyboard") + "Type instead"}</button>${ps.kb[key] ? "" : `<button class="btn small ghost" data-act="ink-clear" data-v="${esc(inkKey)}">Clear this answer</button>`}`}${p.u ? `<span class="muted small">Unit: ${esc(p.u)}</span>` : ""}</div>
         ${shown ? `<div class="scheme"><div class="row" style="justify-content:space-between"><b>Mark scheme</b><span class="mono">${got} / ${p.m}</span></div>
           ${p.s.map((m, mi) => `<label class="tick"><input type="checkbox" data-change="ps-tick" data-k="${esc(key)}" data-i="${mi}" ${ticks[mi] ? "checked" : ""} ${saved ? "disabled" : ""}><span>${esc(m)}</span></label>`).join("")}
           ${ai && ai.parts && ai.parts[pi] && ai.parts[pi].feedback ? `<div class="ai-note">${icon("spark")}<p>${esc(ai.parts[pi].feedback)}</p></div>` : ""}
@@ -5059,7 +5143,7 @@ function practiceSession() {
     ${body}
   </article>
   <div class="row" style="justify-content:space-between"><button class="btn" data-act="ps-prev" ${ps.i === 0 ? "disabled" : ""}>Previous</button><button class="btn primary" data-act="ps-next">${last ? "Finish" : "Next question"}</button></div>
-  ${q.k === "w" && !ps.kbAll ? penBar() : ""}`;
+  ${q.k === "w" && !ps.kbAll && !PHONE ? penBar() : ""}`;
 };
 const segHTML = (act, val, opts, label) => `<div class="seg" role="group" ${label ? `aria-label="${label}"` : ""}>${opts.map(([v, l]) => `<button data-act="${act}" data-v="${v}" aria-pressed="${String(val) === String(v)}">${l}</button>`).join("")}</div>`;
 function practiceSetup() {
@@ -5089,7 +5173,7 @@ function practiceSetup() {
   </section>
   <section class="card"><h2 class="card-title">Quick starts</h2><div class="actions">
     <button class="tonal-btn" data-act="quick10">${icon("qa")}<span>Quick 10 multiple choice</span></button>
-    <button class="tonal-btn" data-act="written3">${icon("pen")}<span>Three written questions (S Pen)</span></button>
+    <button class="tonal-btn" data-act="written3">${icon("pen")}<span>Three written questions${PHONE ? "" : " (S Pen)"}</span></button>
     ${flagged ? `<button class="tonal-btn" data-act="flagged-go">${icon("flag")}<span>Practise flagged questions (${flagged})</span></button>` : ""}
   </div></section>`;
 }
@@ -5303,7 +5387,7 @@ function rpTab() {
   const sc = cur(), N = (window.NOTES || {})[sc] || {}, list = PRACS.filter(p => p.subj === sc), done = list.filter(p => S.rp[p.id]).length;
   const pdf = n => OFFLINE ? [].concat(N.rp || []).find(r => r.n === n) : null;
   const skills = OFFLINE ? [].concat(N.skills || []) : [];
-  return (OFFLINE ? notesImportPanel() : "") + `<p class="muted">${done} of ${list.length} marked confident. Paper 3 tests these directly, and practical questions appear on every paper. Learn the method, the measurements and how to reduce uncertainty.${OFFLINE ? " Each practical has Physics &amp; Maths Tutor's annotated write-up with diagrams: open it and annotate it with the S Pen." : ""}</p>
+  return (OFFLINE ? notesImportPanel() : "") + `<p class="muted">${done} of ${list.length} marked confident. Paper 3 tests these directly, and practical questions appear on every paper. Learn the method, the measurements and how to reduce uncertainty.${OFFLINE ? ` Each practical has Physics &amp; Maths Tutor's annotated write-up with diagrams: open it${PHONE ? "" : " and annotate it with the S Pen"}.` : ""}</p>
   <div class="stack">${list.map(p => { const f = pdf(p.n); return `<details class="disc"><summary><span class="chip ${p.subj}">RP${p.n}</span><span class="item-main"><b>${esc(p.t)}</b></span>${S.rp[p.id] ? '<span class="chip green">Confident</span>' : ""}</summary>
     <div class="body nt-rp">${rpBlocks(p, ((window.NC || {}).rp || {})[p.id])}${f ? `<div class="list">${noteBtn(f.p, "Annotated notes and diagrams", "Physics & Maths Tutor · RP " + f.n + " · " + (f.kb >= 1024 ? (f.kb / 1024).toFixed(1) + " MB" : f.kb + " KB"))}</div>` : ""}
       <div class="row"><button class="btn small ${S.rp[p.id] ? "" : "primary"}" data-act="rp" data-v="${p.id}">${S.rp[p.id] ? "Mark as not confident" : "Mark as confident"}</button><button class="btn small" data-act="open-topic" data-v="${p.topic}">Go to topic</button></div></div></details>`; }).join("")}</div>
@@ -5600,7 +5684,7 @@ V.papers = () => {
   if (tab === "custom") return head + customTab(s);
   return `${head}
   ${OFFLINE ? importPanel(s) : ""}
-  ${OFFLINE ? aiPaperIntro() : ""}
+  ${OFFLINE && !PHONE ? aiPaperIntro() : ""}
   ${paperLibrary(s)}
   <section class="panel"><h2>Official documents</h2><div class="row">${ext(DOCS[s].spec, "Specification (PDF)")}${ext(DOCS[s].booklet, DOCS[s].bookletName + " (PDF)")}${ext(DOCS[s].resources, "All AQA resources")}</div>${OFFLINE ? `<p class="muted small">These open on aqa.org.uk and need internet.</p>` : ""}</section>`;
 };
@@ -5968,10 +6052,10 @@ V.prefs = () => {
     </div>
     <p class="muted small">There are ${Object.keys(CARDS).length} flashcards in total. At 20 new cards a day you'll have seen them all in about ${Math.ceil(Object.keys(CARDS).length / Math.max(1, st.newPerDay))} days; raise the number if your exams are sooner.</p>
   </section>
-  ${OFFLINE ? geminiPanel() : ""}
-  <section class="panel"><h2>S Pen check</h2><p class="muted small">Touch this box with your S Pen, then try again while holding the side button. If the side button works, it says so below and erases ink in papers and answers.</p>
+  ${OFFLINE ? devicePanel() + cloudPanel() + geminiPanel() : ""}
+  ${PHONE ? "" : `<section class="panel"><h2>S Pen check</h2><p class="muted small">Touch this box with your S Pen, then try again while holding the side button. If the side button works, it says so below and erases ink in papers and answers.</p>
     <div class="pen-test" id="pen-test"><div><span class="muted small" id="pen-test-out">Waiting for the pen…</span><pre class="small mono muted" id="pen-test-log" style="margin:6px 0 0;text-align:left;white-space:pre-wrap">${esc(PENLOG.join("\n"))}</pre></div></div>
-    <p class="muted small">Can't erase with the side button? Hold the pen still on the page for half a second, then drag: it switches to the eraser. The eraser button in the pen bar works too.</p></section>
+    <p class="muted small">Can't erase with the side button? Hold the pen still on the page for half a second, then drag: it switches to the eraser. The eraser button in the pen bar works too.</p></section>`}
   <section class="panel"><h2>Appearance</h2><div class="seg">${[["system", "Match device"], ["light", "Light"], ["dark", "Dark"]].map(([v, l]) => `<button data-act="theme" data-v="${v}" aria-pressed="${st.theme === v}">${l}</button>`).join("")}</div></section>
   <section class="panel"><h2>Your progress</h2>
     <div class="row" id="syncline2">${syncHTML()}</div>
@@ -6038,6 +6122,9 @@ const ACT = {
   "cp-build": () => { const s = cur(), st = cpState(s); if (!st.topics.length) { toast("Choose at least one topic"); return; } const b = buildCustom(s, st); if (!b.ids.length) { toast("There are no questions for those topics yet"); return; } st.built = b; render(); toast("Your paper is ready"); },
   "cp-shuffle": () => { const s = cur(), st = cpState(s); st.seed = (st.seed + 1) % 100000; st.built = buildCustom(s, st); render(); },
   "cp-start": () => { const s = cur(), st = cpState(s), b = st.built; if (!b) { toast("Tap Build my paper first"); return; } startPractice({ ids: b.ids, random: false, minutes: b.minutes, label: `Custom ${SUBJ[s].name} paper` }); },
+  "cloud-sync": () => cloudSync(),
+  "cloud-off": () => { csPut(null); CSX.msg = ""; render(); toast("This device is disconnected from cloud sync"); },
+  edition: el => { try { localStorage.setItem("labbook-edition", el.dataset.v); } catch (e) { /* ignore */ } location.reload(); },
   "pap-tab": el => { ui.papTab = el.dataset.v; render(); },
   "pred-run": () => analysePapers(cur()),
   "pred-build": el => { const s = cur(), name = el.dataset.v, seed = (ui.predSeed && ui.predSeed[s + name]) || 1, b = buildPredicted(s, name, seed); if (!b || !b.ids.length) { toast("Couldn't build a paper. Analyse your papers first."); return; } (ui.predBuilt = ui.predBuilt || {})[s + name] = b; render(); toast("Predicted " + name + " is ready"); },
@@ -6221,6 +6308,7 @@ const INPUT = {
   }
 };
 const FORM = {
+  "cloud-connect": (f, data) => { const t = String(data.get("token") || "").trim(); if (!t) return; csPut({ token: t }); cloudSync(); },
   "vwp-ask": (f, data) => vwpAsk(data.get("q")),
   "add-card": (f, data) => { S.custom.push({ id: "u-" + uid(), topic: f.dataset.v, q: data.get("q").trim(), a: data.get("a").trim() }); indexCustom(); save(); render(); toast("Card added"); },
   ask: (f, data) => { const q = data.get("q").trim(); if (q && !ui.tutor.chatBusy) askClaude(q); },
