@@ -366,7 +366,31 @@ ul.tight, ol.tight { margin: 0; padding-left: 1.2em; display: flex; flex-directi
 .vw-timer { min-width: 108px; }
 .vw-timer.running { background: var(--accent-soft) !important; }
 .vw-timer.over { color: var(--red); }
-.vw-pages { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; padding: 12px 12px calc(96px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.vw-body { flex: 1; min-height: 0; display: flex; position: relative; }
+.vw-help .seg-btn, .vw-help button { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.vw-panel { width: min(46%, 520px); flex: none; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px)); background: var(--bg); border-left: 1px solid var(--line); min-height: 0; }
+.vw-panel[hidden] { display: none; }
+.viewer.vp-open .penbar { left: calc((100% - min(46%, 520px)) / 2); }
+.vwp-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.vwp-head b { font-size: 1.05rem; font-weight: 600; }
+.vwp-pick select { width: 100%; }
+.vwp-scroll { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 8px; }
+.vwp-opts { display: flex; flex-direction: column; gap: 6px; }
+.nt-compact { padding: 14px 14px 18px; border-radius: 16px; gap: 12px; }
+.nt-compact .nt-title { font-size: 1.4rem; }
+.nt-compact .nt-nav, .nt-compact .nt-acts { display: none; }
+.gm { padding: 10px 14px; border-radius: 16px; max-width: 94%; line-height: 1.5; font-size: .95rem; overflow-wrap: anywhere; }
+.gm.u { align-self: flex-end; background: var(--accent-soft); border-bottom-right-radius: 4px; }
+.gm.m { align-self: flex-start; background: var(--surface); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+.gm.err { color: var(--red); }
+.vwp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-btn { border: 1px solid var(--line); background: var(--surface); border-radius: 16px; padding: 6px 12px; font-size: .84rem; cursor: pointer; }
+.chip-btn:hover:not(:disabled) { background: var(--accent-soft); }
+.chip-btn:disabled { opacity: .5; }
+.vwp-form { display: flex; flex-direction: column; gap: 6px; }
+.vwp-form textarea { width: 100%; min-height: 56px; resize: none; border: 1px solid var(--line); background: var(--surface); border-radius: 14px; padding: 10px 12px; }
+@media (max-width: 760px) { .vw-body { flex-direction: column; } .vw-panel { width: 100%; height: 52%; border-left: 0; border-top: 1px solid var(--line); } .viewer.vp-open .penbar { left: 50%; bottom: calc(52% + 16px); } }
+.vw-pages { flex: 1; min-width: 0; overflow: auto; -webkit-overflow-scrolling: touch; padding: 12px 12px calc(96px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .vw-page { position: relative; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.18); flex: none; }
 .vw-page canvas { display: block; }
 
@@ -428,7 +452,7 @@ ul.tight, ol.tight { margin: 0; padding-left: 1.2em; display: flex; flex-directi
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261124-2257";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261124-2309";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -3858,14 +3882,16 @@ function drawViewerChrome() {
     </div>
     <div class="vw-sub">
       <div class="seg">${kinds.map(i => `<button data-act="vw-kind" data-v="${i}" aria-pressed="${i === k}" ${PDB.have.has(paperFile(subj, ser, label, i)) ? "" : 'style="opacity:.45"'}>${KIND_LABEL[i]}</button>`).join("")}</div>
+      <div class="seg vw-help"><button data-act="vwp-toggle" data-v="notes" aria-pressed="${VWP.mode === "notes"}">${icon("book").replace("<svg", '<svg style="width:18px"')} Notes</button><button data-act="vwp-toggle" data-v="ai" aria-pressed="${VWP.mode === "ai"}">${icon("spark").replace("<svg", '<svg style="width:18px"')} Ask Gemini</button></div>
       <div class="row" style="gap:6px">${S.marked[key] ? `<button class="btn small" data-act="ai-result" data-v="${esc(key)}">Result: ${S.marked[key].total}/${S.marked[key].max}</button>` : ""}<button class="btn small primary" data-act="vw-ai">${icon("spark")}Mark with AI</button><button class="btn small ${done ? "" : "ghost"}" data-act="vw-done">${done ? "✓ Done" : "Mark done"}</button><button class="btn small ghost" data-act="vw-clear-ink">Clear writing</button></div>
     </div>
-    <div class="vw-pages" id="vw-pages"><div class="empty" style="margin:24px">Opening…</div></div>
+    <div class="vw-body"><div class="vw-pages" id="vw-pages"><div class="empty" style="margin:24px">Opening…</div></div><aside class="vw-panel" id="vw-panel" aria-label="Help panel" hidden></aside></div>
     ${penBar()}`;
   vtDraw();
   const pages = document.getElementById("vw-pages");
   pages.addEventListener("scroll", vwPageIndicator, { passive: true });
   document.body.style.overflow = "hidden";
+  if (VWP.mode) { el.classList.add("vp-open"); document.getElementById("vw-panel").hidden = false; drawVwPanel(); }
 }
 async function loadPdf(name) {
   const token = ++VW.token;
@@ -3915,7 +3941,7 @@ function vwPageIndicator() {
 }
 function closeViewer(fromPop) {
   if (!VW.open) return;
-  VW.open = false; VW.token++;
+  VW.open = false; VW.token++; VWP.mode = null;
   if (VW.io) VW.io.disconnect();
   if (VW.doc) { VW.doc.destroy(); VW.doc = null; }
   vtStop();
@@ -4317,6 +4343,98 @@ ${ms.slice(0, 180000)}`;
     S.ppDone[key] = S.ppDone[key] || dayKey();
     save(); aiOverlay(null); showAIResult(key);
   } catch (e) { aiOverlay(null); toast(e.message || "AI marking didn't work. Try again."); }
+}
+/* ---------- Notes and Gemini help inside the paper viewer ---------- */
+const VWP = { mode: null, topic: "", chat: {}, busy: false, pages: 1, useMs: false, draft: "", ms: {} };
+const vwKey = () => VW.cur ? VW.cur.subj + "|" + VW.cur.ser + "|" + VW.cur.label : "";
+function vwPageNow() {
+  const cont = document.getElementById("vw-pages"); if (!cont || !VW.doc) return 1;
+  let n = 1; for (const p of cont.querySelectorAll(".vw-page")) { if (p.offsetTop - cont.scrollTop <= cont.clientHeight / 3) n = +p.dataset.n; else break; }
+  return n;
+}
+function vwPanelApply() {
+  const v = document.getElementById("viewer"), p = document.getElementById("vw-panel"); if (!v || !p) return;
+  v.classList.toggle("vp-open", !!VWP.mode); p.hidden = !VWP.mode;
+  v.querySelectorAll('[data-act="vwp-toggle"]').forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === VWP.mode)));
+  if (VWP.mode) drawVwPanel();
+  const c = document.getElementById("vw-pages"), f = c ? c.scrollTop / Math.max(1, c.scrollHeight) : 0;
+  setTimeout(() => layoutPages(f), 80);
+}
+function drawVwPanel() {
+  const p = document.getElementById("vw-panel"); if (!p || !VWP.mode) return;
+  const keep = p.querySelector(".vwp-scroll"), top = keep ? keep.scrollTop : 0;
+  const sc = VW.cur ? VW.cur.subj : cur(), s = SUBJ[sc];
+  const close = `<button class="icon-btn" data-act="vwp-toggle" data-v="${VWP.mode}" aria-label="Close">✕</button>`;
+  if (VWP.mode === "notes") {
+    const NT = (window.NC || {}).topics || {};
+    let id = VWP.topic; if (!id || !TOPICS[id] || TOPICS[id].subj !== sc) id = (s.topics.find(t => NT[t.id]) || s.topics[0]).id; VWP.topic = id;
+    const opts = s.sections.map(sec => `<optgroup label="${esc(sec.name)}">${s.topics.filter(t => t.sec === sec.id).map(t => `<option value="${t.id}" ${t.id === id ? "selected" : ""}>${esc(t.code)} ${esc(t.t)}</option>`).join("")}</optgroup>`).join("");
+    p.innerHTML = `<div class="vwp-head"><b>Notes</b>${close}</div>
+      <label class="field vwp-pick"><span class="muted small">Topic (pick the one this question is about)</span><select data-change="vwp-topic">${opts}</select></label>
+      <div class="vwp-scroll"><div class="nt-article nt-compact">${noteArticle(TOPICS[id], true)}</div></div>`;
+  } else {
+    const key = vwKey(), chat = VWP.chat[key] || [], ready = gemReady();
+    const msgs = chat.map(m => `<div class="gm ${m.r} ${m.err ? "err" : ""}">${(m.r === "m" ? mdb(m.t) : esc(m.t)).replace(/\n/g, "<br>")}</div>`).join("");
+    const chips = ["Explain what this question wants", "Give me a hint", "Check what I've written", "Show the full answer"];
+    p.innerHTML = `<div class="vwp-head"><b>${icon("spark").replace("<svg", '<svg style="width:18px;vertical-align:-3px"')} Ask Gemini</b>${close}</div>
+      ${ready ? `<div class="vwp-opts"><span class="muted small">Gemini looks at</span><div class="seg"><button data-act="vwp-pages" data-v="1" aria-pressed="${VWP.pages === 1}">This page</button><button data-act="vwp-pages" data-v="2" aria-pressed="${VWP.pages === 2}">This + next page</button></div>
+        <label class="small row" style="gap:8px"><input type="checkbox" data-change="vwp-ms" ${VWP.useMs ? "checked" : ""}> Let it use the mark scheme <span class="muted">(it may give answers away)</span></label></div>
+      <div class="vwp-scroll" id="vwp-chat">${msgs || `<p class="muted small" style="padding:6px 2px">It sees the page you are on, including everything you have written on it with the S Pen. Ask about the question you are working on.</p>`}${VWP.busy ? `<div class="gm m"><span class="spinner" style="width:16px;height:16px;display:inline-block;vertical-align:-3px"></span> Gemini is looking at your page…</div>` : ""}</div>
+      <div class="vwp-chips">${chips.map(c => `<button class="chip-btn" data-act="vwp-chip" data-v="${esc(c)}" ${VWP.busy ? "disabled" : ""}>${esc(c)}</button>`).join("")}</div>
+      <form class="vwp-form" data-form="vwp-ask"><textarea id="vwp-input" name="q" rows="2" data-input="vwp-draft" placeholder="Ask about this question…" ${VWP.busy ? "disabled" : ""}>${esc(VWP.draft)}</textarea><div class="row" style="justify-content:space-between"><button class="btn small ghost" type="button" data-act="vwp-clear">Clear chat</button><button class="btn small primary" type="submit" ${VWP.busy ? "disabled" : ""}>Send</button></div></form>`
+      : `<div class="vwp-scroll"><div class="stack" style="padding:8px 2px"><p>To ask Gemini about a question, add your free Gemini key first.</p><div><button class="btn primary" data-act="vwp-setup">Set up Gemini</button></div></div></div>`}`;
+  }
+  const sc2 = p.querySelector(".vwp-scroll"); if (sc2) sc2.scrollTop = VWP.mode === "ai" ? sc2.scrollHeight : top;
+}
+async function gemChat(system, contents) {
+  const g = gem(); if (!g.key || !g.model) throw new Error("Add your Gemini key in Settings first.");
+  let r;
+  try {
+    r = await fetch(GAPI + "models/" + encodeURIComponent(g.model) + ":generateContent", { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": g.key },
+      body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents, generationConfig: { temperature: 0.4 } }) });
+  } catch (e) { throw new Error("Couldn't reach Gemini. Check you're online."); }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { const msg = (j.error && j.error.message) || ""; throw new Error(r.status === 429 ? "Gemini's usage limit was reached. Wait a minute and try again." : r.status === 403 || (r.status === 400 && /key/i.test(msg)) ? "Gemini didn't accept your key. Check it in Settings." : "Gemini couldn't answer (error " + r.status + "). " + msg.slice(0, 160)); }
+  const text = (((j.candidates || [])[0] || {}).content || { parts: [] }).parts.map(p => p.text || "").join("").trim();
+  if (!text) throw new Error("Gemini sent back an empty answer. Try again.");
+  return text;
+}
+async function vwPageImage(pn) {
+  const page = await VW.doc.getPage(pn), base = page.getViewport({ scale: 1 }), vp = page.getViewport({ scale: 1100 / base.width });
+  const cv = document.createElement("canvas"); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+  const ctx = cv.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height);
+  await page.render({ canvasContext: ctx, viewport: vp }).promise;
+  strokesTo(ctx, await inkReady("pdf:" + VW.name + ":" + pn), cv.width);
+  return cv.toDataURL("image/jpeg", 0.75).split(",")[1];
+}
+async function vwMarkScheme(c) {
+  const name = paperFile(c.subj, c.ser, c.label, 1);
+  if (VWP.ms[name]) return VWP.ms[name];
+  if (!PDB.have.has(name)) throw new Error("This paper's mark scheme isn't stored. Import the papers zip, or turn off 'use the mark scheme'.");
+  const doc = await window.pdfjsLib.getDocument({ data: await (await pdbGet(name)).arrayBuffer() }).promise; let ms = "";
+  for (let n = 1; n <= doc.numPages; n++) { const tc = await (await doc.getPage(n)).getTextContent(); ms += `\n[Mark scheme page ${n}]\n` + tc.items.map(i => i.str + (i.hasEOL ? "\n" : " ")).join(""); }
+  doc.destroy(); return (VWP.ms[name] = ms.slice(0, 120000));
+}
+async function vwpAsk(text) {
+  text = String(text || "").trim(); if (!text || VWP.busy) return;
+  if (!gemReady()) { toast("Add your Gemini key in Settings first."); return; }
+  if (!VW.doc) { toast("Wait for the paper to open."); return; }
+  const key = vwKey() || "note", chat = VWP.chat[key] || (VWP.chat[key] = []);
+  chat.push({ r: "u", t: text }); VWP.busy = true; VWP.draft = ""; drawVwPanel();
+  try {
+    const c = VW.cur, sub = SUBJ[c ? c.subj : cur()], n = vwPageNow(), pages = [n];
+    if (VWP.pages === 2 && n < VW.doc.numPages) pages.push(n + 1);
+    const images = []; for (const pn of pages) images.push({ n: pn, data: await vwPageImage(pn) });
+    const ms = VWP.useMs && c ? await vwMarkScheme(c) : "";
+    const sys = `You are a friendly, precise tutor helping a student revise AQA A-level ${sub.name} (${sub.code}) by working through a past paper. You can see the page of the paper they are on. Their handwriting is drawn in ink on top of the printed paper (blue, black, red or highlighter). Work out which question they are on from the page and from what they have written. If it is unclear, ask which question they mean.
+Help without just handing over the answer: by default give hints, explain the idea, say what the question is really asking, and point out exactly what is right or missing in their working. Give a full worked answer only when they ask for it, with every step, the units and the physics or chemistry reasoning. Stay within the AQA specification, use UK spelling and AQA terminology, keep replies under about 180 words unless they ask for more, and use plain text (no Markdown tables or headings; **bold** is fine for key words).${ms ? "\nThe mark scheme is provided to guide you. Use it to judge their answer, but don't quote marks or paste it unless they ask for the answer." : "\nYou don't have the mark scheme, so rely on your own knowledge and say if you are unsure."}`;
+    const hist = chat.slice(0, -1).slice(-10).map(m => ({ role: m.r === "u" ? "user" : "model", parts: [{ text: m.t }] }));
+    const parts = [{ text: `${c ? `Paper: ${sub.name} ${c.ser} ${c.label}. ` : ""}The student is viewing page ${pages.join(" and ")} of ${VW.doc.numPages}.${ms ? `\n\nMARK SCHEME:\n${ms}\n` : ""}` }];
+    images.forEach(im => parts.push({ text: `Page ${im.n} of the paper (with the student's writing):` }, { inline_data: { mime_type: "image/jpeg", data: im.data } }));
+    parts.push({ text: "Student: " + text });
+    chat.push({ r: "m", t: await gemChat(sys, hist.concat([{ role: "user", parts }])) });
+  } catch (e) { chat.push({ r: "m", t: "⚠ " + (e.message || "Couldn't get an answer."), err: true }); }
+  VWP.busy = false; drawVwPanel();
 }
 function showAIResult(key) {
   const m = S.marked[key]; if (!m) return;
@@ -5109,20 +5227,20 @@ function blocksHTML(blocks) {
     }
   }).join("");
 }
-function noteArticle(t) {
+function noteArticle(t, compact) {
   const NT = (window.NC || {}).topics || {}, blocks = NT[t.id], s = SUBJ[t.subj], sec = s.sections.find(x => x.id === t.sec);
   const i = s.topics.findIndex(x => x.id === t.id), prev = s.topics[i - 1], next = s.topics[i + 1];
   const head = `<div class="nt-eyebrow">${esc(t.code)} · ${esc(sec ? sec.name : "")}</div><h1 class="nt-title">${esc(t.t)}</h1>`;
   const acts = `<div class="row nt-acts"><button class="btn small primary" data-act="cram" data-v="${t.id}">Flashcards</button><button class="btn small" data-act="practise-topic" data-v="${t.id}">Practise questions</button><button class="btn small" data-act="open-topic" data-v="${t.id}">Rate spec points</button></div>`;
   const nav = `<div class="nt-nav">${prev ? `<button class="btn small ghost" data-act="nt-pick" data-v="${prev.id}">← ${esc(prev.t)}</button>` : "<span></span>"}${next ? `<button class="btn small ghost" data-act="nt-pick" data-v="${next.id}">${esc(next.t)} →</button>` : ""}</div>`;
-  if (!blocks) return head + `<div class="nb key"><span class="lbl">Coming soon</span><p>Colour-coded notes for this topic are still being written. Meanwhile use the flashcards and spec points, or ${OFFLINE ? "the PMT notes tab" : "the Practice section"}.</p></div>` + acts + nav;
+  if (!blocks) return head + `<div class="nb key"><span class="lbl">Coming soon</span><p>Colour-coded notes for this topic are still being written. Meanwhile use the flashcards and spec points, or ${OFFLINE ? "the PMT notes tab" : "the Practice section"}.</p></div>` + (compact ? "" : acts + nav);
   const terms = blocks.filter(b => b.t === "def").map(b => b.term);
   const cards = (t.cardIds || []).slice(0, 3).map(id => CARDS[id]).filter(Boolean);
   const words = blocks.reduce((n, b) => n + JSON.stringify(b).replace(/<svg.*?<\/svg>/g, "").split(/\s+/).length, 0);
   return head + `<div class="row nt-meta"><span class="muted small">${Math.max(1, Math.round(words / 180))} min read</span>${terms.length ? `<span class="nt-terms">${terms.map(x => `<span class="chip">${esc(x)}</span>`).join("")}</span>` : ""}</div>`
     + blocksHTML(blocks)
     + (cards.length ? `<div class="nb quick"><span class="lbl">Quick check · tap to reveal</span>${cards.map(c => `<details class="qc"><summary>${esc(c.q)}</summary><p>${esc(c.a)}</p></details>`).join("")}</div>` : "")
-    + acts + nav;
+    + (compact ? "" : acts + nav);
 }
 function studyTab() {
   const sc = cur(), s = SUBJ[sc], NT = (window.NC || {}).topics || {}, open = ui.noteOpen || (ui.noteOpen = {});
@@ -5660,6 +5778,11 @@ const ACT = {
   "vw-clear-ink": () => { if (!VW.name || !VW.doc) return; for (let n = 1; n <= VW.doc.numPages; n++) inkClear("pdf:" + VW.name + ":" + n); toast("Your writing on this paper was cleared"); },
   "pdf-open": el => openPaper(el.dataset.s, el.dataset.ser, el.dataset.l, +el.dataset.k),
   "vw-close": () => closeViewer(false),
+  "vwp-toggle": el => { VWP.mode = VWP.mode === el.dataset.v ? null : el.dataset.v; vwPanelApply(); },
+  "vwp-chip": el => vwpAsk(el.dataset.v),
+  "vwp-pages": el => { VWP.pages = +el.dataset.v; drawVwPanel(); },
+  "vwp-clear": () => { VWP.chat[vwKey() || "note"] = []; drawVwPanel(); },
+  "vwp-setup": () => { leaveViewer(() => { go("prefs"); toast("Add your Gemini key, then come back to the paper."); }); },
   "vw-kind": el => { const c = VW.cur; openPaper(c.subj, c.ser, c.label, +el.dataset.v); },
   "vw-zoom": el => { const c = document.getElementById("vw-pages"); const f = c ? c.scrollTop / Math.max(1, c.scrollHeight) : 0; VW.zoom = Math.max(0.6, Math.min(3, VW.zoom * (el.dataset.v === "1" ? 1.25 : 0.8))); layoutPages(f); },
   "vw-done": () => { const c = VW.cur, k = c.subj + "|" + c.ser + "|" + c.label; if (S.ppDone[k]) delete S.ppDone[k]; else S.ppDone[k] = dayKey(); save(); const b = document.querySelector('[data-act="vw-done"]'); if (b) { b.textContent = S.ppDone[k] ? "✓ Done" : "Mark done"; b.classList.toggle("ghost", !S.ppDone[k]); } render(); },
@@ -5726,6 +5849,8 @@ const ACT = {
   "reset-yes": () => { const th = S.settings.theme; S = fresh(); S.settings.theme = th; indexCustom(); ui.confirmReset = false; ui.study = null; ui.quiz = null; save(); render(); toast("Progress erased"); }
 };
 const CHANGE = {
+  "vwp-topic": el => { VWP.topic = el.value; drawVwPanel(); },
+  "vwp-ms": el => { VWP.useMs = !!el.checked; },
   "study-topic": el => { ui.studyTopic = el.value; render(); },
   "tutor-topic": el => { ui.tutor.topic = el.value; ui.tutor.q = null; ui.tutor.mark = null; render(); },
   "tutor-marks": el => { ui.tutor.marks = +el.value; },
@@ -5747,6 +5872,7 @@ const CHANGE = {
 };
 let notesTimer = null;
 const INPUT = {
+  "vwp-draft": el => { VWP.draft = el.value; },
   notes: el => { S.notes[el.dataset.v] = el.value; clearTimeout(notesTimer); notesTimer = setTimeout(save, 600); },
   "tutor-ans": el => { ui.tutor.ans = el.value; },
   qtext: el => { S.qtext[el.dataset.v] = el.value; clearTimeout(notesTimer); notesTimer = setTimeout(save, 600); },
@@ -5758,6 +5884,7 @@ const INPUT = {
   }
 };
 const FORM = {
+  "vwp-ask": (f, data) => vwpAsk(data.get("q")),
   "add-card": (f, data) => { S.custom.push({ id: "u-" + uid(), topic: f.dataset.v, q: data.get("q").trim(), a: data.get("a").trim() }); indexCustom(); save(); render(); toast("Card added"); },
   ask: (f, data) => { const q = data.get("q").trim(); if (q && !ui.tutor.chatBusy) askClaude(q); },
   paper: (f, data) => {
@@ -5791,6 +5918,7 @@ document.addEventListener("change", e => {
   if (e.target.id === "pp-paper") { const o = e.target.selectedOptions[0], mx = document.getElementById("pp-max"); if (o && o.dataset.max && mx) mx.value = o.dataset.max; }
 });
 document.addEventListener("keydown", e => {
+  if (e.target && e.target.id === "vwp-input" && e.key === "Enter" && !e.shiftKey) { e.preventDefault(); vwpAsk(e.target.value); return; }
   if (view !== "practice" || ui.pracTab !== "cards" || !ui.study || !ui.study.queue.length) return;
   if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement && document.activeElement.tagName)) return;
   if (e.key === " " || e.key === "Enter") { if (!ui.study.flipped) { e.preventDefault(); ACT.flip(); } }
