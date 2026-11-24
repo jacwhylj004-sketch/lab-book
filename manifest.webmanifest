@@ -1,15 +1,18 @@
 {
+  "id": "/lab-book/",
   "name": "Lab Book: AQA Physics and Chemistry",
   "short_name": "Lab Book",
-  "description": "AQA A-level Physics and Chemistry revision that works offline.",
+  "description": "AQA A-level Physics and Chemistry revision that works offline: exam questions, S Pen writing, flashcards and past papers.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#f3f5f8",
-  "theme_color": "#2b50cf",
+  "background_color": "#f8f9fd",
+  "theme_color": "#f8f9fd",
+  "categories": ["education"],
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
