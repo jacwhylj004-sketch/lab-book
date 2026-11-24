@@ -365,7 +365,7 @@ ul.tight, ol.tight { margin: 0; padding-left: 1.2em; display: flex; flex-directi
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261124-2123";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261124-2133";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -2368,6 +2368,7 @@ const INK = { cache: new Map(), timers: {}, els: new Map(), active: null };
 // S Pen side button. Browsers report it in different ways (buttons bit 2 = barrel, 32 = eraser, button 2 or 5), and on some
 // Samsung builds it only shows while the pen hovers. So we remember the last state seen on any pen event, anywhere on the page.
 const SIDE = { btn: false, seen: "", at: 0 };
+const PENONLY = [];
 function sideBtn(e) {
   if (e.pointerType === "mouse") return false;
   const raw = (e.buttons & 34) !== 0 || e.button === 2 || e.button === 5 || (e.pointerType === "pen" && e.buttons > 1);
@@ -2378,6 +2379,9 @@ function trackSide(e) {
   const down = (e.buttons & 34) !== 0 || (e.pointerType === "pen" && e.buttons > 1);
   if (down) { SIDE.btn = true; SIDE.at = Date.now(); } else if (e.type === "pointerup" || e.type === "pointercancel" || (e.type === "pointermove" && e.buttons === 0)) SIDE.btn = false;
   SIDE.seen = `${e.pointerType} · button ${e.button} · buttons ${e.buttons} · pressure ${(e.pressure || 0).toFixed(2)}`;
+  // Pen-only history, kept apart so finger taps can't push it out. Repeated identical moves are merged.
+  const pl = `${e.type.replace("pointer", "")} btn ${e.button} btns ${e.buttons} p ${(e.pressure || 0).toFixed(2)}`;
+  if (PENONLY[0] !== pl) { PENONLY.unshift(pl); PENONLY.length = Math.min(PENONLY.length, 24); }
   const el = document.getElementById("pen-test-out"); if (el) el.textContent = SIDE.seen + (SIDE.btn ? "  ✓ side button detected" : "");
 }
 // Everything the pen or screen sends over the S Pen check box, newest first, so a button that is reported oddly can be seen.
@@ -2412,7 +2416,8 @@ function diagReport() {
     "Papers stored: " + storedCount() + "/" + totalCount() + ", notes: " + noteStored() + "/" + noteTotal(),
     "Screen: " + innerWidth + "x" + innerHeight + " @" + (devicePixelRatio || 1), "Pointer: " + (navigator.maxTouchPoints || 0) + " touch points",
     "Last pen event: " + (SIDE.seen || "none yet") + (SIDE.btn ? " (side button seen)" : ""),
-    "Pen log:", ...(PENLOG.length ? PENLOG : ["(none)"]), "Errors:", ...(ERRS.length ? ERRS : ["(none)"]), "UA: " + navigator.userAgent
+    "Pen-only events (newest first):", ...(PENONLY.length ? PENONLY : ["(none: the app has received no pen events yet)"]),
+    "Mixed log:", ...(PENLOG.length ? PENLOG : ["(none)"]), "Errors:", ...(ERRS.length ? ERRS : ["(none)"]), "UA: " + navigator.userAgent
   ];
   return lines.join("\n");
 }
@@ -3858,7 +3863,8 @@ V.prefs = () => {
   </section>
   <section class="panel"><h2>Diagnostics</h2><p class="muted small">See what the app is doing and why something isn't working. Turn on the live pen log to watch every pen event on screen while you write or erase in a paper.</p>
     <div class="row"><button class="btn ${ui.dbgPen ? "primary" : ""}" data-act="dbg-pen">${ui.dbgPen ? "Live pen log: on" : "Show live pen log"}</button><button class="btn" data-act="dbg-copy">Copy report</button></div>
-    <pre class="small mono muted" style="white-space:pre-wrap;margin:0;overflow-wrap:anywhere">${esc(diagReport())}</pre></section>
+    <div class="row"><button class="btn small" data-act="dbg-refresh">Refresh report</button></div>
+    <pre class="small mono muted" id="diag-report" style="white-space:pre-wrap;margin:0;overflow-wrap:anywhere">${esc(diagReport())}</pre></section>
   ${OFFLINE ? `<section class="panel"><h2>App updates</h2><p class="small">Version ${esc(window.BUILD || "")}. The app checks for a newer version whenever you open it with internet, and shows a bar at the bottom when one is ready. Your progress, papers, notes and handwriting are kept.</p>
     <div class="row"><button class="btn" data-act="upd-check">Check for updates</button><span class="muted small" id="upd-msg">${esc(UPD.msg)}</span></div></section>
   <p class="muted small">The Claude tutor is only in the claude.ai version.</p>` : ""}
@@ -3896,6 +3902,7 @@ const ACT = {
   "study-end": () => { ui.study = null; render(); },
   explain: () => { const s = ui.study; if (s && s.queue[0]) explainCard(s.queue[0]); },
   "dbg-pen": () => { ui.dbgPen = !ui.dbgPen; penShow(); render(); toast(ui.dbgPen ? "Pen log is on. It shows on every page until you turn it off." : "Pen log off"); },
+  "dbg-refresh": () => { const p = document.getElementById("diag-report"); if (p) p.textContent = diagReport(); },
   "dbg-copy": async () => { const t = diagReport(); try { await navigator.clipboard.writeText(t); toast("Report copied. Paste it to Claude."); } catch (e) { ui.backup = ""; toast("Couldn't copy. Select the text in Diagnostics instead."); } },
   "upd-check": () => checkUpdate(true),
   "upd-apply": () => applyUpdate(),
