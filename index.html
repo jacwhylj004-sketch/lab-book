@@ -212,6 +212,9 @@ button.item:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); 
 .ink canvas { position: absolute; inset: 0; display: block; }
 .ink.lined { border-radius: 14px; border: 1px solid var(--line); background-color: var(--paper); background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 43px, var(--rule) 43px, var(--rule) 44px); cursor: crosshair; }
 .pdf-ink { position: absolute; inset: 0; }
+.pen-overlay { position: fixed; top: 64px; right: 8px; z-index: 95; margin: 0; padding: 8px 10px; max-width: 46vw; font: 11px/1.35 ui-monospace, Consolas, monospace; white-space: pre-wrap; color: #e8ffe8; background: rgba(0,0,0,.78); border-radius: 10px; pointer-events: none; }
+.upd-bar { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); z-index: 90; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 16px; background: var(--surface-hi, #2b2d33); color: var(--text, #fff); border: 1px solid var(--line); box-shadow: 0 6px 24px rgba(0,0,0,.28); max-width: calc(100vw - 24px); }
+.upd-bar span { font-size: 14px; }
 .pen-test { touch-action: none; user-select: none; -webkit-user-select: none; display: flex; align-items: center; justify-content: center; min-height: 96px; border: 1.5px dashed var(--line); border-radius: 14px; padding: 12px; text-align: center; }
 .note-item svg { width: 22px; height: 22px; flex: none; color: var(--accent, currentColor); }
 .note-item { text-align: left; width: 100%; }
@@ -362,7 +365,7 @@ ul.tight, ol.tight { margin: 0; padding-left: 1.2em; display: flex; flex-directi
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261124-2110";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261124-2123";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -2379,12 +2382,39 @@ function trackSide(e) {
 }
 // Everything the pen or screen sends over the S Pen check box, newest first, so a button that is reported oddly can be seen.
 const PENLOG = [];
+function penShow() {
+  const txt = PENLOG.join("\n"), out = document.getElementById("pen-test-log"); if (out) out.textContent = txt;
+  let ov = document.getElementById("pen-overlay");
+  if (typeof ui !== "undefined" && ui.dbgPen) { if (!ov) { ov = document.createElement("pre"); ov.id = "pen-overlay"; ov.className = "pen-overlay"; document.body.appendChild(ov); } ov.textContent = "PEN LOG\n" + txt; }
+  else if (ov) ov.remove();
+}
+function penNote(s) { PENLOG.unshift("» " + s); PENLOG.length = Math.min(PENLOG.length, 10); penShow(); }
 function penLog(e) {
-  const box = document.getElementById("pen-test"); if (!box || !box.contains(e.target)) return;
+  const box = document.getElementById("pen-test"), on = typeof ui !== "undefined" && ui.dbgPen;
+  if (!on && !(box && box.contains(e.target))) return;
+  if (e.target.closest && e.target.closest("#pen-overlay")) return;
   if (e.type === "pointermove" && !e.buttons && PENLOG.length && /pointermove/.test(PENLOG[0])) return;
+  if (e.type === "pointermove" && e.buttons && PENLOG.length && PENLOG[0].startsWith("pointermove") && PENLOG[0].endsWith(`btns ${e.buttons}`)) return;
   const d = e.pointerType ? `${e.pointerType} btn ${e.button} btns ${e.buttons}` : e.touches ? `touch ${[...e.touches].map(t => t.touchType || "?").join(",")}` : "";
-  PENLOG.unshift(`${e.type} ${d}`); PENLOG.length = Math.min(PENLOG.length, 8);
-  const out = document.getElementById("pen-test-log"); if (out) out.textContent = PENLOG.join("\n");
+  PENLOG.unshift(`${e.type} ${d}`); PENLOG.length = Math.min(PENLOG.length, 10);
+  penShow();
+}
+// Errors the app hits are kept so they can be seen in Settings → Diagnostics instead of vanishing.
+const ERRS = [];
+const noteErr = s => { ERRS.unshift(new Date().toLocaleTimeString() + " " + String(s).slice(0, 220)); ERRS.length = Math.min(ERRS.length, 8); };
+addEventListener("error", e => noteErr((e.message || "error") + (e.lineno ? " (line " + e.lineno + ")" : "")));
+addEventListener("unhandledrejection", e => noteErr("promise: " + ((e.reason && e.reason.message) || e.reason)));
+function diagReport() {
+  const sw = navigator.serviceWorker && navigator.serviceWorker.controller ? "active" : "none";
+  const lines = [
+    "Lab Book diagnostics", "Build: " + (window.BUILD || "?") + (UPD.ready ? " (newer ready: " + UPD.ready + ")" : ""),
+    "Online: " + navigator.onLine, "Installed window: " + (matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches), "Service worker: " + sw,
+    "Papers stored: " + storedCount() + "/" + totalCount() + ", notes: " + noteStored() + "/" + noteTotal(),
+    "Screen: " + innerWidth + "x" + innerHeight + " @" + (devicePixelRatio || 1), "Pointer: " + (navigator.maxTouchPoints || 0) + " touch points",
+    "Last pen event: " + (SIDE.seen || "none yet") + (SIDE.btn ? " (side button seen)" : ""),
+    "Pen log:", ...(PENLOG.length ? PENLOG : ["(none)"]), "Errors:", ...(ERRS.length ? ERRS : ["(none)"]), "UA: " + navigator.userAgent
+  ];
+  return lines.join("\n");
 }
 ["pointerdown", "pointermove", "pointerup", "pointercancel", "contextmenu", "touchstart", "touchend", "mousedown", "auxclick"].forEach(t => document.addEventListener(t, penLog, true));
 ["pointerdown", "pointermove", "pointerup", "pointerover", "pointerenter"].forEach(t => document.addEventListener(t, trackSide, true));
@@ -2461,6 +2491,7 @@ function attachInk(el) {
     if (e.button > 0 && e.pointerType === "mouse") return;
     e.preventDefault(); try { el.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
     const ps = penState(), erase = ps.tool === "eraser" || sideBtn(e);
+    if (typeof ui !== "undefined" && ui.dbgPen) penNote(`down ${e.pointerType} → ${erase ? "ERASE" : "draw"} (tool ${ps.tool}, side button ${sideBtn(e)})`);
     if (erase) { mode = "erase"; eraseAt(e); return; }
     mode = "draw";
     const hl = ps.tool === "hl";
@@ -2472,7 +2503,7 @@ function attachInk(el) {
       if (mode !== "draw" || !cur || cur.p.length > 12) return;
       const i = strokes.indexOf(cur); if (i >= 0) strokes.splice(i, 1); cur = null; mode = "erase"; held = true; redraw(); eraseAt(holdEv);
       try { navigator.vibrate && navigator.vibrate(25); } catch (err) { /* ignore */ }
-      toast("Eraser: drag over your writing");
+      toast("Eraser: drag over your writing"); if (ui.dbgPen) penNote("held still 0.5s → ERASE");
     }, 500);
   });
   el.addEventListener("pointermove", e => {
@@ -2664,6 +2695,37 @@ function showAIResult(key) {
 }
 function aiPaperIntro() {
   return gemReady() ? "" : `<section class="panel tint"><div class="row" style="justify-content:space-between"><div class="stack" style="gap:4px"><h2>Mark whole papers with AI</h2><p class="small">Answer a paper with the S Pen in the viewer, then tap <b>Mark with AI</b>. Gemini marks every question against the official mark scheme and tells you which topics lost you marks.</p></div><button class="btn primary" data-act="go" data-v="prefs">Set up Gemini</button></div></section>`;
+}
+
+/* ---------- Updates over the web (offline edition) ---------- */
+// The app is a website, so a new version only has to be published. We look for version.json (never cached), and offer a reload.
+const UPD = { msg: "", ready: "", busy: false };
+async function checkUpdate(manual) {
+  if (!OFFLINE || UPD.busy || location.protocol === "file:") return;
+  UPD.busy = true; if (manual) { UPD.msg = "Checking…"; const m = document.getElementById("upd-msg"); if (m) m.textContent = UPD.msg; }
+  try {
+    const r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
+    const j = await r.json();
+    if (j && j.build && j.build !== window.BUILD) { UPD.ready = j.build; showUpdateBar(); UPD.msg = "A new version is ready."; }
+    else UPD.msg = manual ? "You have the latest version." : "";
+  } catch (e) { UPD.msg = manual ? "Couldn't check. Are you online?" : ""; }
+  UPD.busy = false;
+  const m = document.getElementById("upd-msg"); if (m) m.textContent = UPD.msg;
+}
+function showUpdateBar() {
+  if (document.getElementById("upd-bar")) return;
+  const b = document.createElement("div"); b.id = "upd-bar"; b.className = "upd-bar"; b.setAttribute("role", "status");
+  b.innerHTML = `<span>A new version of Lab Book is ready.</span><button class="btn small primary" data-act="upd-apply">Update now</button><button class="btn small ghost" data-act="upd-later">Later</button>`;
+  document.body.appendChild(b);
+}
+async function applyUpdate() {
+  try { if (navigator.serviceWorker) for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); } catch (e) { /* ignore */ }
+  try { for (const k of await caches.keys()) if (k.startsWith("labbook-") && k !== "labbook-fonts") await caches.delete(k); } catch (e) { /* ignore */ }
+  location.replace(location.pathname + "?v=" + Date.now() + location.hash);
+}
+if (OFFLINE) {
+  setTimeout(() => checkUpdate(false), 2500);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) checkUpdate(false); });
 }
 
 /* ---------- Exam timer (paper viewer) ---------- */
@@ -3794,7 +3856,12 @@ V.prefs = () => {
   <section class="panel"><h2>Start again</h2>
     ${ui.confirmReset ? `<div class="confirm"><b>Erase all progress?</b><span class="small">This deletes your flashcard history, ratings, notes, papers, exams and mistakes on every device. It can't be undone.</span><div class="row"><button class="btn danger" data-act="reset-yes">Erase everything</button><button class="btn" data-act="reset-no">Cancel</button></div></div>` : `<div><button class="btn danger" data-act="reset">Erase all progress</button></div>`}
   </section>
-  ${OFFLINE ? `<p class="muted small">Offline edition, build ${esc(window.BUILD || "")}. The Claude tutor is only in the claude.ai version.</p>` : ""}
+  <section class="panel"><h2>Diagnostics</h2><p class="muted small">See what the app is doing and why something isn't working. Turn on the live pen log to watch every pen event on screen while you write or erase in a paper.</p>
+    <div class="row"><button class="btn ${ui.dbgPen ? "primary" : ""}" data-act="dbg-pen">${ui.dbgPen ? "Live pen log: on" : "Show live pen log"}</button><button class="btn" data-act="dbg-copy">Copy report</button></div>
+    <pre class="small mono muted" style="white-space:pre-wrap;margin:0;overflow-wrap:anywhere">${esc(diagReport())}</pre></section>
+  ${OFFLINE ? `<section class="panel"><h2>App updates</h2><p class="small">Version ${esc(window.BUILD || "")}. The app checks for a newer version whenever you open it with internet, and shows a bar at the bottom when one is ready. Your progress, papers, notes and handwriting are kept.</p>
+    <div class="row"><button class="btn" data-act="upd-check">Check for updates</button><span class="muted small" id="upd-msg">${esc(UPD.msg)}</span></div></section>
+  <p class="muted small">The Claude tutor is only in the claude.ai version.</p>` : ""}
   <p class="muted small">Content written for AQA A-level Physics 7408 and Chemistry 7405. Always check the latest specification and your exam board's data sheets.</p>`;
 };
 
@@ -3828,6 +3895,11 @@ const ACT = {
   "cram-grade": el => { const s = ui.study, id = s.queue.shift(); s.res[el.dataset.v === "1" ? 2 : 0]++; s.done++; s.flipped = false; if (el.dataset.v === "0") s.queue.splice(Math.min(3, s.queue.length), 0, id); render(); },
   "study-end": () => { ui.study = null; render(); },
   explain: () => { const s = ui.study; if (s && s.queue[0]) explainCard(s.queue[0]); },
+  "dbg-pen": () => { ui.dbgPen = !ui.dbgPen; penShow(); render(); toast(ui.dbgPen ? "Pen log is on. It shows on every page until you turn it off." : "Pen log off"); },
+  "dbg-copy": async () => { const t = diagReport(); try { await navigator.clipboard.writeText(t); toast("Report copied. Paste it to Claude."); } catch (e) { ui.backup = ""; toast("Couldn't copy. Select the text in Diagnostics instead."); } },
+  "upd-check": () => checkUpdate(true),
+  "upd-apply": () => applyUpdate(),
+  "upd-later": () => { const b = document.getElementById("upd-bar"); if (b) b.remove(); },
   "note-open": el => openNote(NOTE_PATHS[+el.dataset.v]),
   "note-tab": el => { ui.noteTab = el.dataset.v; ui.topic = null; render(); window.scrollTo(0, 0); },
   "open-topic": el => { ui.topic = el.dataset.v; ui.noteTab = "summ"; go("notes"); },
