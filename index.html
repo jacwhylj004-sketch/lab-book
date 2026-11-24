@@ -362,7 +362,7 @@ ul.tight, ol.tight { margin: 0; padding-left: 1.2em; display: flex; flex-directi
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261124-2048";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261124-2110";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -2377,6 +2377,16 @@ function trackSide(e) {
   SIDE.seen = `${e.pointerType} · button ${e.button} · buttons ${e.buttons} · pressure ${(e.pressure || 0).toFixed(2)}`;
   const el = document.getElementById("pen-test-out"); if (el) el.textContent = SIDE.seen + (SIDE.btn ? "  ✓ side button detected" : "");
 }
+// Everything the pen or screen sends over the S Pen check box, newest first, so a button that is reported oddly can be seen.
+const PENLOG = [];
+function penLog(e) {
+  const box = document.getElementById("pen-test"); if (!box || !box.contains(e.target)) return;
+  if (e.type === "pointermove" && !e.buttons && PENLOG.length && /pointermove/.test(PENLOG[0])) return;
+  const d = e.pointerType ? `${e.pointerType} btn ${e.button} btns ${e.buttons}` : e.touches ? `touch ${[...e.touches].map(t => t.touchType || "?").join(",")}` : "";
+  PENLOG.unshift(`${e.type} ${d}`); PENLOG.length = Math.min(PENLOG.length, 8);
+  const out = document.getElementById("pen-test-log"); if (out) out.textContent = PENLOG.join("\n");
+}
+["pointerdown", "pointermove", "pointerup", "pointercancel", "contextmenu", "touchstart", "touchend", "mousedown", "auxclick"].forEach(t => document.addEventListener(t, penLog, true));
 ["pointerdown", "pointermove", "pointerup", "pointerover", "pointerenter"].forEach(t => document.addEventListener(t, trackSide, true));
 document.addEventListener("contextmenu", e => { if (e.target.closest && e.target.closest(".ink, .pdf-ink, .pen-test")) e.preventDefault(); }, true);
 function penState() { if (!S.pen || typeof S.pen !== "object") S.pen = { tool: "pen", color: 0, size: 1 }; return S.pen; }
@@ -2410,7 +2420,7 @@ function attachInk(el) {
   el.dataset.mounted = "1";
   const key = el.dataset.ink, cv = document.createElement("canvas"), ctx = cv.getContext("2d");
   el.appendChild(cv);
-  let strokes = [], cur = null, mode = null, last = null, scroller = null, dpr = 1;
+  let strokes = [], cur = null, mode = null, last = null, scroller = null, dpr = 1, hold = null, hold0 = null, holdEv = null, held = false;
   const W = () => el.clientWidth || 1;
   function size() {
     const w = el.clientWidth, h = el.clientHeight; if (!w || !h) return;
@@ -2456,11 +2466,20 @@ function attachInk(el) {
     const hl = ps.tool === "hl";
     cur = { t: hl ? "hl" : "pen", c: (hl ? PEN_COLORS.hl : PEN_COLORS.pen)[ps.color] || PEN_COLORS.pen[0], w: (hl ? 16 : PEN_SIZES[ps.size] || 2.2) / W(), p: pt(e) };
     strokes.push(cur); drawStroke(cur);
+    // Fallback that needs no side button: hold the pen still for half a second to erase instead of draw.
+    clearTimeout(hold); hold0 = { x: e.clientX, y: e.clientY }; holdEv = e;
+    if (e.pointerType === "pen") hold = setTimeout(() => {
+      if (mode !== "draw" || !cur || cur.p.length > 12) return;
+      const i = strokes.indexOf(cur); if (i >= 0) strokes.splice(i, 1); cur = null; mode = "erase"; held = true; redraw(); eraseAt(holdEv);
+      try { navigator.vibrate && navigator.vibrate(25); } catch (err) { /* ignore */ }
+      toast("Eraser: drag over your writing");
+    }, 500);
   });
   el.addEventListener("pointermove", e => {
+    if (hold0 && Math.hypot(e.clientX - hold0.x, e.clientY - hold0.y) > 5) { clearTimeout(hold); hold0 = null; } else holdEv = e;
     if (mode === "scroll") { const dy = last.y - e.clientY, dx = last.x - e.clientX; last = { x: e.clientX, y: e.clientY }; scroller.scrollBy(dx, dy); return; }
     // The side button can be pressed or released mid-stroke: switch between drawing and erasing on the fly.
-    if ((mode === "draw" || mode === "erase") && e.pointerType !== "mouse") {
+    if ((mode === "draw" || mode === "erase") && e.pointerType !== "mouse" && !held) {
       const sb = sideBtn(e) || penState().tool === "eraser";
       if (sb && mode === "draw") { mode = "erase"; cur = null; }
       else if (!sb && mode === "erase" && !SIDE.btn) { mode = null; return; }
@@ -2474,7 +2493,7 @@ function attachInk(el) {
     }
     if (cur.t === "hl") redraw();
   });
-  const end = () => { if (mode === "draw" || mode === "erase") inkSave(key); mode = null; cur = null; };
+  const end = () => { clearTimeout(hold); hold0 = null; held = false; if (mode === "draw" || mode === "erase") inkSave(key); mode = null; cur = null; };
   el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end); el.addEventListener("lostpointercapture", end);
   strokes = inkArr(key);
   INK.els.set(key, { redraw: () => { strokes = inkArr(key); redraw(); }, el });
@@ -3760,7 +3779,8 @@ V.prefs = () => {
   </section>
   ${OFFLINE ? geminiPanel() : ""}
   <section class="panel"><h2>S Pen check</h2><p class="muted small">Touch this box with your S Pen, then try again while holding the side button. If the side button works, it says so below and erases ink in papers and answers.</p>
-    <div class="pen-test" id="pen-test"><span class="muted small" id="pen-test-out">Waiting for the pen…</span></div></section>
+    <div class="pen-test" id="pen-test"><div><span class="muted small" id="pen-test-out">Waiting for the pen…</span><pre class="small mono muted" id="pen-test-log" style="margin:6px 0 0;text-align:left;white-space:pre-wrap">${esc(PENLOG.join("\n"))}</pre></div></div>
+    <p class="muted small">Can't erase with the side button? Hold the pen still on the page for half a second, then drag: it switches to the eraser. The eraser button in the pen bar works too.</p></section>
   <section class="panel"><h2>Appearance</h2><div class="seg">${[["system", "Match device"], ["light", "Light"], ["dark", "Dark"]].map(([v, l]) => `<button data-act="theme" data-v="${v}" aria-pressed="${st.theme === v}">${l}</button>`).join("")}</div></section>
   <section class="panel"><h2>Your progress</h2>
     <div class="row" id="syncline2">${syncHTML()}</div>
