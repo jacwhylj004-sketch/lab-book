@@ -365,7 +365,7 @@ ul.tight, ol.tight { margin: 0; padding-left: 1.2em; display: flex; flex-directi
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261124-2133";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261124-2206";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -2371,7 +2371,8 @@ const SIDE = { btn: false, seen: "", at: 0 };
 const PENONLY = [];
 function sideBtn(e) {
   if (e.pointerType === "mouse") return false;
-  const raw = (e.buttons & 34) !== 0 || e.button === 2 || e.button === 5 || (e.pointerType === "pen" && e.buttons > 1);
+  // window.__penBtn is set by the Android app (it can see the S Pen side button; Chrome can't).
+  const raw = window.__penBtn === true || (e.buttons & 34) !== 0 || e.button === 2 || e.button === 5 || (e.pointerType === "pen" && e.buttons > 1);
   return raw || (SIDE.btn && Date.now() - SIDE.at < 1500);
 }
 function trackSide(e) {
@@ -2382,7 +2383,7 @@ function trackSide(e) {
   // Pen-only history, kept apart so finger taps can't push it out. Repeated identical moves are merged.
   const pl = `${e.type.replace("pointer", "")} btn ${e.button} btns ${e.buttons} p ${(e.pressure || 0).toFixed(2)}`;
   if (PENONLY[0] !== pl) { PENONLY.unshift(pl); PENONLY.length = Math.min(PENONLY.length, 24); }
-  const el = document.getElementById("pen-test-out"); if (el) el.textContent = SIDE.seen + (SIDE.btn ? "  ✓ side button detected" : "");
+  const el = document.getElementById("pen-test-out"); if (el) el.textContent = SIDE.seen + (SIDE.btn || window.__penBtn === true ? "  ✓ side button detected" : "");
 }
 // Everything the pen or screen sends over the S Pen check box, newest first, so a button that is reported oddly can be seen.
 const PENLOG = [];
@@ -2415,6 +2416,7 @@ function diagReport() {
     "Online: " + navigator.onLine, "Installed window: " + (matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches), "Service worker: " + sw,
     "Papers stored: " + storedCount() + "/" + totalCount() + ", notes: " + noteStored() + "/" + noteTotal(),
     "Screen: " + innerWidth + "x" + innerHeight + " @" + (devicePixelRatio || 1), "Pointer: " + (navigator.maxTouchPoints || 0) + " touch points",
+    "Android app bridge: " + (window.LabBookNative ? "yes (S Pen button " + (window.__penBtn === true ? "PRESSED" : window.__penBtn === false ? "released" : "no signal yet") + ")" : "no (running in a browser)"),
     "Last pen event: " + (SIDE.seen || "none yet") + (SIDE.btn ? " (side button seen)" : ""),
     "Pen-only events (newest first):", ...(PENONLY.length ? PENONLY : ["(none: the app has received no pen events yet)"]),
     "Mixed log:", ...(PENLOG.length ? PENLOG : ["(none)"]), "Errors:", ...(ERRS.length ? ERRS : ["(none)"]), "UA: " + navigator.userAgent
