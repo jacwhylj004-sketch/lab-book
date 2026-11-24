@@ -452,7 +452,7 @@ ul.tight, ol.tight { margin: 0; padding-left: 1.2em; display: flex; flex-directi
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261124-2309";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261124-2321";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -3735,6 +3735,46 @@ window.NOTES = {"phys":{"groups":[{"id":"01-Measurements-and-Errors","n":"01","t
   Object.assign(window.NC.topics, T);
 })();
 
+/* Latest information used by the Predicted paper section. Claude updates this file when you ask for a refresh
+   (use the "Ask for an update" button on Past papers > Predicted paper). `boosts` raise or lower a topic's likelihood. */
+window.INTEL = {
+  updated: "2026-11-24",
+  exam: "June 2027",
+  status: "No official AQA advance information has been published for the 2027 A-level Physics (7408) and Chemistry (7405) exams. AQA's own pages and timetable were checked on 24 November 2026, so the predictions come only from patterns in past papers and examiner reports.",
+  dates: {
+    chem: [["Paper 1 (Inorganic and Physical)", "28 May 2027"], ["Paper 2 (Organic and Physical)", "10 June 2027"], ["Paper 3", "17 June 2027"]],
+    phys: [["Check the exact Physics paper dates on AQA's key dates page", ""]]
+  },
+  sources: [
+    { t: "AQA Chemistry 7405: general administration and exam timetable", u: "https://www.aqa.org.uk/subjects/chemistry/a-level/chemistry-7405/specification/general-administration" },
+    { t: "AQA Physics 7408: news", u: "https://www.aqa.org.uk/subjects/physics/a-level/physics-7408/news" },
+    { t: "AQA key dates", u: "https://www.aqa.org.uk/key-dates" },
+    { t: "Examiner report: Physics Paper 1, June 2022", u: "https://filestore.aqa.org.uk/sample-papers-and-mark-schemes/2022/june/AQA-74081-WRE-JUN22.PDF" },
+    { t: "Examiner report: Physics Paper 2, June 2019", u: "https://filestore.aqa.org.uk/sample-papers-and-mark-schemes/2019/june/AQA-74082-WRE-JUN19.PDF" }
+  ],
+  themes: {
+    phys: [
+      "Unit conversions (MeV to J, cm² to m², minutes to seconds) lose easy marks, so write the units on every line.",
+      "Vague practical answers earn nothing. Say what you measure, with which instrument, and how you reduce the uncertainty.",
+      "Multi-step calculations: show every step so you can pick up 'error carried forward' marks.",
+      "Explain questions need cause then effect in physics terms (for example 'greater change in momentum per second').",
+      "Graph questions ask for the meaning of the gradient and intercept, with units.",
+      "Required practicals, uncertainties and data analysis appear in every series."
+    ],
+    chem: [
+      "Mechanisms: curly arrows start at a lone pair or bond and end at an atom or bond, and polar bonds need partial charges.",
+      "Calculations (moles, yield, Kc and Kp, pH, rate) always need units and the right significant figures.",
+      "Organic synthesis routes need reagents and conditions for every step.",
+      "Observations must be exact (orange to green, white precipitate), not 'it changes colour'.",
+      "Practical and analysis questions: titration technique, uncertainties, and interpreting IR, NMR and mass spectra.",
+      "Extended-response questions are marked on a level scheme, so link your points together and finish the argument."
+    ]
+  },
+  // A topic that is tested in every paper but spread across other questions (so a page-by-page count under-reads it).
+  floors: { p1: { share: 0.06, why: "units, uncertainties and practical skills are tested in every paper" } },
+  boosts: {}
+};
+
 (() => {
 "use strict";
 const P = window.PHYS, C = window.CHEM, R = window.REF;
@@ -4509,7 +4549,7 @@ const OPTS = { astro: "Astrophysics", medical: "Medical physics", engineering: "
 
 /* ---------- State ---------- */
 function fresh() {
-  return { v: 1, updated: 0, srs: {}, conf: {}, custom: [], log: {}, newLog: {}, exams: [], papers: [], mistakes: [], notes: {}, rp: {}, quiz: [], focus: {}, ppDone: {}, qs: {}, qtext: {}, marked: {},
+  return { v: 1, updated: 0, srs: {}, conf: {}, custom: [], log: {}, newLog: {}, exams: [], papers: [], mistakes: [], notes: {}, rp: {}, quiz: [], focus: {}, ppDone: {}, qs: {}, qtext: {}, marked: {}, pred: {},
     pen: { tool: "pen", color: 0, size: 1 },
     settings: { theme: "system", physOpt: "", newPerDay: 20, subj: "phys" } };
 }
@@ -5492,13 +5532,163 @@ V.data = () => {
 
 /* ---------- Past papers ---------- */
 V.papers = () => {
-  const s = cur(), sub = SUBJ[s];
-  return `${pageHead(`${sub.name} ${sub.code}`, "Past papers", "Every AQA paper since 2017, with mark schemes, examiner reports and inserts.")}
+  const s = cur(), sub = SUBJ[s], tab = OFFLINE && ui.papTab === "pred" ? "pred" : "past";
+  const head = pageHead(`${sub.name} ${sub.code}`, tab === "pred" ? "Predicted paper" : "Past papers", tab === "pred" ? "Which topics are most likely in the next exams, and a mock paper built from them." : "Every AQA paper since 2017, with mark schemes, examiner reports and inserts.")
+    + (OFFLINE ? tabsHTML("pap-tab", tab, [["past", "Past papers"], ["pred", "Predicted paper"]]) : "");
+  if (tab === "pred") return head + predictedTab(s);
+  return `${head}
   ${OFFLINE ? importPanel(s) : ""}
   ${OFFLINE ? aiPaperIntro() : ""}
   ${paperLibrary(s)}
   <section class="panel"><h2>Official documents</h2><div class="row">${ext(DOCS[s].spec, "Specification (PDF)")}${ext(DOCS[s].booklet, DOCS[s].bookletName + " (PDF)")}${ext(DOCS[s].resources, "All AQA resources")}</div>${OFFLINE ? `<p class="muted small">These open on aqa.org.uk and need internet.</p>` : ""}</section>`;
 };
+
+/* ---------- Predicted paper ---------- */
+// AQA doesn't say what will come up, so this is a statistical estimate: every stored past question paper is read page by page,
+// each page is matched to the spec topic it is mostly about (using the words in your notes, spec points and flashcards), and the
+// share of each topic over the years, with more weight on recent series, gives a likelihood. A mock paper is then built from the question bank.
+const PRED_PAPERS = { phys: ["Paper 1", "Paper 2"], chem: ["Paper 1", "Paper 2", "Paper 3"] };
+const STOPW = new Set("the of and an to in is are for with by on as at that this it be from or which what how why when where their its into than then these those can will may not has have had was were each both one two three give state explain describe calculate determine show suggest name identify mark marks answer question figure table use using used value values between about above below more less also only other such any all your you they them there our out up down per if so but do does".split(" "));
+const toks = str => (String(str).toLowerCase().match(/[a-z][a-z0-9]{2,}/g) || []).filter(w => !STOPW.has(w));
+const seriesKey = ser => { const m = String(ser).match(/^(June|November) (\d{4})$/); return m ? +m[2] * 100 + (m[1] === "June" ? 6 : 11) : 0; };
+const paperNums = t => String(t.paper).split(/[,\s]+/).filter(Boolean);
+const eligible = (s, t, num) => (s === "chem" && num === "3") || paperNums(t).includes(num);
+function blockWords(b) {
+  const o = []; for (const k of ["term", "text", "name", "eq", "vars", "title"]) if (b[k]) o.push(b[k]);
+  if (b.items) o.push(b.items.join(" ")); if (b.head) o.push(b.head.join(" ")); if (b.rows) o.push(b.rows.flat().join(" "));
+  return o.join(" ");
+}
+function topicProfiles(elig) {
+  const NT = (window.NC || {}).topics || {};
+  const docs = elig.map(t => t.t + " " + t.t + " " + t.pts.join(" ") + " " + (t.cardIds || []).map(id => CARDS[id] ? CARDS[id].q + " " + CARDS[id].a : "").join(" ") + " " + (NT[t.id] ? NT[t.id].map(blockWords).join(" ") : ""));
+  const tf = docs.map(d => { const m = new Map(); toks(d).forEach(w => m.set(w, (m.get(w) || 0) + 1)); return m; });
+  const df = new Map(); tf.forEach(m => m.forEach((_, w) => df.set(w, (df.get(w) || 0) + 1)));
+  const N = docs.length;
+  return tf.map(m => { const v = new Map(); let n2 = 0; m.forEach((c, w) => { const x = (1 + Math.log(c)) * Math.log(1 + N / df.get(w)); v.set(w, x); n2 += x * x; }); const n = Math.sqrt(n2) || 1; v.forEach((x, w) => v.set(w, x / n)); return v; });
+}
+function pageTopic(text, vecs) {
+  const m = new Map(); toks(text).forEach(w => m.set(w, (m.get(w) || 0) + 1));
+  if (m.size < 14) return -1;
+  const pv = new Map(); let pn = 0; m.forEach((c, w) => { const x = 1 + Math.log(c); pv.set(w, x); pn += x * x; }); pn = Math.sqrt(pn) || 1;
+  let best = -1, bs = 0, second = 0;
+  vecs.forEach((v, i) => { let sc = 0; pv.forEach((x, w) => { const y = v.get(w); if (y) sc += x * y; }); sc /= pn; if (sc > bs) { second = bs; bs = sc; best = i; } else if (sc > second) second = sc; });
+  return bs >= 0.05 && bs > second * 1.05 ? best : -1;
+}
+async function analysePapers(s) {
+  if (ui.predBusy) return;
+  try { await pdbOpen(); } catch (e) { toast("Papers can't be read in this browser."); return; }
+  const files = [...ALL_FILES.entries()].filter(([n, v]) => v.subj === s && v.k === 0 && PRED_PAPERS[s].includes(v.label) && PDB.have.has(n) && seriesKey(v.ser));
+  if (!files.length) { toast("Import the past papers first (Past papers tab)."); return; }
+  ui.predBusy = { done: 0, total: files.length }; render();
+  const out = {}; PRED_PAPERS[s].forEach(p => out[p] = []); const cache = {};
+  for (const [name, v] of files) {
+    try {
+      const num = v.label.replace("Paper ", ""), elig = SUBJ[s].topics.filter(t => eligible(s, t, num));
+      const prof = cache[num] || (cache[num] = topicProfiles(elig));
+      const doc = await window.pdfjsLib.getDocument({ data: await (await pdbGet(name)).arrayBuffer() }).promise;
+      const cnt = {}; let n = 0;
+      for (let pn = 3; pn <= doc.numPages; pn++) {
+        const tc = await (await doc.getPage(pn)).getTextContent();
+        const i = pageTopic(tc.items.map(x => x.str).join(" "), prof); if (i < 0) continue;
+        cnt[elig[i].id] = (cnt[elig[i].id] || 0) + 1; n++;
+      }
+      doc.destroy();
+      if (n) { const sh = {}; for (const id in cnt) sh[id] = Math.round(cnt[id] / n * 1000) / 1000; out[v.label].push({ ser: v.ser, key: seriesKey(v.ser), n, sh }); }
+    } catch (e) { /* skip a paper that can't be read */ }
+    ui.predBusy.done++; const el = document.getElementById("pred-progress"); if (el) el.textContent = `Reading papers… ${ui.predBusy.done} of ${ui.predBusy.total}`;
+  }
+  for (const p in out) out[p].sort((a, b) => b.key - a.key);
+  (S.pred = S.pred || {})[s] = { built: dayKey(), papers: out }; save(); ui.predBusy = null; render();
+  toast(`Analysed ${files.length} papers`);
+}
+function predictFor(s, name) {
+  const P = S.pred && S.pred[s], arr = P && P.papers && P.papers[name]; if (!arr || !arr.length) return null;
+  const num = name.replace("Paper ", ""), elig = SUBJ[s].topics.filter(t => eligible(s, t, num));
+  const intel = (window.INTEL && window.INTEL.boosts) || {};
+  const rows = elig.map(t => {
+    const a = arr.map(r => r.sh[t.id] || 0); let sw = 0, sv = 0; a.forEach((x, i) => { const w = Math.pow(0.88, i); sw += w; sv += w * x; });
+    let long = sv / sw; const recent = (a[0] + (a.length > 1 ? a[1] : a[0])) / 2, seen = a.filter(x => x > 0).length, why = []; let mult = 1;
+    const fl = ((window.INTEL && window.INTEL.floors) || {})[t.id]; let floored = false; if (fl && long < fl.share) { long = fl.share; floored = true; why.push(fl.why); }
+    if (long > 0.02 && recent < long * 0.5) { mult *= 1.25; why.push("not much recently, so it may be due"); }
+    if (recent > long * 1.6 && recent > 0.04) why.push("examined heavily in recent papers");
+    if (intel[t.id]) { mult *= intel[t.id].x; why.push(intel[t.id].why); }
+    return { t, long, seen, of: a.length, f: floored ? Math.max(0.7, seen / a.length) : seen / a.length, recent, score: long * mult, why };
+  });
+  const tot = rows.reduce((n, r) => n + r.score, 0) || 1; rows.forEach(r => { r.pct = r.score / tot; });
+  rows.sort((a, b) => b.score - a.score);
+  rows.forEach(r => { const ratio = r.pct * rows.length; r.tier = ratio >= 1.25 && r.f >= 0.7 ? "Very likely" : ratio >= 0.75 && r.f >= 0.4 ? "Likely" : r.f >= 0.2 ? "Possible" : "Unlikely"; });
+  return { rows, n: arr.length, from: arr[arr.length - 1].ser, to: arr[0].ser };
+}
+function rngSeed(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const shuffleWith = (a, r) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+function buildPredicted(s, name, seed) {
+  const pr = predictFor(s, name); if (!pr) return null;
+  const sub = SUBJ[s], paper = sub.papers.find(p => p.name === name), M = paper ? paper.marks : 85, r = rngSeed(seed);
+  const nMc = s === "phys" ? 25 : 0, W = M - nMc, pool = (tid, k) => qList(s).filter(q => q.t === tid && q.k === k);
+  const mcLeft = {}, wl = {}, target = {}, got = {}; pr.rows.forEach(x => { mcLeft[x.t.id] = shuffleWith(pool(x.t.id, "mcq"), r); wl[x.t.id] = shuffleWith(pool(x.t.id, "w"), r).sort((a, b) => (b.d >= 2) - (a.d >= 2)); target[x.t.id] = x.pct * W; got[x.t.id] = 0; });
+  const mc = [];
+  while (mc.length < nMc) {
+    const live = pr.rows.filter(x => mcLeft[x.t.id].length); if (!live.length) break;
+    let pick = r() * live.reduce((n, x) => n + x.score + 0.001, 0), ch = live[0]; for (const x of live) { pick -= x.score + 0.001; if (pick <= 0) { ch = x; break; } }
+    mc.push(mcLeft[ch.t.id].pop());
+  }
+  const wr = []; let total = 0;
+  for (const x of pr.rows) { const list = wl[x.t.id]; let k = 0; while (list.length && got[x.t.id] < target[x.t.id] - 2 && k++ < 3) { const q = list.shift(); wr.push(q); got[x.t.id] += q.m; total += q.m; } }
+  for (let g = 0; total < W - 4 && g < 300; g++) { const x = pr.rows.find(x => wl[x.t.id].length && got[x.t.id] < target[x.t.id] + 6) || pr.rows.find(x => wl[x.t.id].length); if (!x) break; const q = wl[x.t.id].shift(); wr.push(q); got[x.t.id] += q.m; total += q.m; }
+  // Fine-tune the total: swap, add or drop one written question at a time while that gets closer to the target marks.
+  for (let g = 0; Math.abs(total - W) > 1 && g < 80; g++) {
+    const diff = total - W; let best = null, bestErr = Math.abs(diff);
+    wr.forEach((q, i) => { const e = Math.abs(diff - q.m); if (e < bestErr) { bestErr = e; best = { rem: i }; } });
+    pr.rows.forEach(x => { const q = wl[x.t.id][0]; if (!q) return; const e = Math.abs(diff + q.m); if (e < bestErr) { bestErr = e; best = { add: x.t.id }; } });
+    wr.forEach((q, i) => pr.rows.forEach(x => { const c = wl[x.t.id][0]; if (!c) return; const e = Math.abs(diff - q.m + c.m); if (e < bestErr) { bestErr = e; best = { rem: i, add: x.t.id }; } }));
+    if (!best) break;
+    if (best.rem != null) { total -= wr[best.rem].m; wr.splice(best.rem, 1); }
+    if (best.add) { const q = wl[best.add].shift(); wr.push(q); total += q.m; }
+  }
+  const order = id => sub.topics.findIndex(t => t.id === id); mc.sort((a, b) => order(a.t) - order(b.t)); wr.sort((a, b) => order(a.t) - order(b.t));
+  return { ids: mc.concat(wr).map(q => q.id), marks: mc.reduce((n, q) => n + q.m, 0) + total, mc: mc.length, w: wr.length, max: M, time: paper ? paper.time : "2 h" };
+}
+function intelPanel(s) {
+  const I = window.INTEL; if (!I) return "";
+  const when = new Date(I.updated + "T12:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  const dates = (I.dates && I.dates[s]) || [];
+  return `<section class="panel"><div class="panel-head"><div class="stack" style="gap:2px"><h2>Latest information</h2><span class="muted small">Updated ${when} · for ${esc(I.exam)}</span></div><button class="btn small" data-act="intel-ask">Ask for an update</button></div>
+    <p class="small">${esc(I.status)}</p>
+    ${dates.length ? `<div class="table-wrap"><table><tbody>${dates.map(d => `<tr><td>${esc(d[0])}</td><td class="mono">${esc(d[1])}</td></tr>`).join("")}</tbody></table></div>` : ""}
+    ${Object.keys(I.boosts || {}).length ? `<div class="stack"><b>What changed the prediction</b><ul class="tight">${Object.entries(I.boosts).map(([id, b]) => TOPICS[id] ? `<li>${esc(TOPICS[id].t)}: ${esc(b.why)}</li>` : "").join("")}</ul></div>` : ""}
+    <details class="disc"><summary><span class="item-main"><b>Sources</b></span></summary><div class="body"><ul class="tight">${(I.sources || []).map(x => `<li><a href="${esc(x.u)}" target="_blank" rel="noopener">${esc(x.t)}</a></li>`).join("")}</ul></div></details>
+    ${ui.intelAsk ? `<div class="stack"><p class="small">Copy this and paste it to Claude. The updated app arrives on this tablet by itself the next time you open it online.</p><textarea readonly id="intel-text" style="min-height:96px">${esc(intelPrompt())}</textarea><div class="row"><button class="btn small primary" data-act="intel-copy">Copy request</button><button class="btn small ghost" data-act="intel-ask">Close</button></div></div>` : ""}
+  </section>`;
+}
+function intelPrompt() {
+  const I = window.INTEL || {};
+  return `Please update the Lab Book predicted papers with the latest information about the ${I.exam || "next"} AQA A-level Physics (7408) and Chemistry (7405) exams. The predictions were last updated on ${I.updated || "an earlier date"}. Search for anything new (AQA advance information, timetable or specification changes, new examiner reports, trend analyses), update src/predict-intel.js with the sources, dates and any topic boosts, rebuild, and publish the app.`;
+}
+function predictedTab(s) {
+  const sub = SUBJ[s], P = S.pred && S.pred[s], stored = [...ALL_FILES.entries()].filter(([n, v]) => v.subj === s && v.k === 0 && PDB.have.has(n)).length, busy = ui.predBusy;
+  const papers = PRED_PAPERS[s];
+  const top = `<section class="panel"><div class="panel-head"><div class="stack" style="gap:2px"><h2>How this works</h2><span class="muted small">${P ? `Based on ${papers.reduce((n, p) => n + ((P.papers[p] || []).length), 0)} question papers read on ${fmtDate(P.built)}` : "Not analysed yet"}</span></div>
+      <button class="btn ${P ? "" : "primary"}" data-act="pred-run" ${busy || !stored ? "disabled" : ""}>${P ? "Re-analyse my papers" : "Analyse my papers"}</button></div>
+    ${busy ? `<p class="small" id="pred-progress">Reading papers… ${busy.done} of ${busy.total}</p><div class="m3-progress"><i style="width:${busy.total ? busy.done / busy.total * 100 : 0}%"></i></div>` : ""}
+    <p class="small">AQA does not release what is coming, so nobody can truly predict the paper. This reads every ${sub.name} question paper stored on your tablet, matches each page to its specification topic, and counts how often each topic is examined, giving more weight to recent years and a small boost to topics that have been absent for a while. Treat it as a guide for where to spend revision time, and still revise everything.</p>
+    ${stored ? "" : `<p class="small"><b>Import the ${sub.name} papers first.</b> Use the Past papers tab and pick ${sub.name} papers.zip. The papers stay on your tablet.</p>`}
+  </section>`;
+  if (!P) return top + intelPanel(s);
+  const cards = papers.map(name => {
+    const pr = predictFor(s, name); if (!pr) return "";
+    const paper = sub.papers.find(p => p.name === name), M = paper ? paper.marks : 0, seed = (ui.predSeed && ui.predSeed[s + name]) || 1, built = ui.predBuilt && ui.predBuilt[s + name];
+    const tierCls = { "Very likely": "green", Likely: "amber", Possible: "", Unlikely: "" };
+    return `<section class="panel"><div class="panel-head"><div class="stack" style="gap:2px"><h2>${esc(name)}</h2><span class="muted small">${esc(paper ? paper.covers : "")}</span></div></div>
+      <p class="small muted">From ${pr.n} papers, ${esc(pr.from)} to ${esc(pr.to)}.</p>
+      <div class="table-wrap"><table><thead><tr><th>Topic</th><th>Likelihood</th><th>Seen</th><th>Expect</th></tr></thead><tbody>${pr.rows.slice(0, 14).map(r => `<tr><td><b>${esc(r.t.code)}</b> ${esc(r.t.t)}${r.why.length ? `<div class="muted small">${esc(r.why.join("; "))}</div>` : ""}</td><td><span class="chip ${tierCls[r.tier]}">${r.tier}</span></td><td class="mono" style="white-space:nowrap">${r.seen}/${r.of}</td><td class="mono" style="white-space:nowrap">~${Math.max(1, Math.round(r.pct * M))} marks</td></tr>`).join("")}</tbody></table></div>
+      ${pr.rows.length > 14 ? `<details class="disc"><summary><span class="item-main"><b>All other topics</b></span></summary><div class="body"><div class="table-wrap"><table><tbody>${pr.rows.slice(14).map(r => `<tr><td>${esc(r.t.code)} ${esc(r.t.t)}</td><td><span class="chip ${tierCls[r.tier]}">${r.tier}</span></td><td class="mono">${r.seen}/${r.of}</td></tr>`).join("")}</tbody></table></div></div></details>` : ""}
+      <div class="row"><button class="btn primary" data-act="pred-build" data-v="${esc(name)}">Build predicted ${esc(name)}</button>${built ? `<button class="btn" data-act="pred-start" data-v="${esc(name)}">Start it (${built.marks} marks)</button><button class="btn ghost" data-act="pred-shuffle" data-v="${esc(name)}">Different questions</button>` : ""}</div>
+      ${built ? `<p class="small muted">${built.mc ? built.mc + " multiple choice and " : ""}${built.w} written questions, ${built.marks} marks out of ${built.max}. Allow ${esc(built.time)}. It is built from the question bank, weighted to the topics above.</p>` : ""}
+    </section>`;
+  }).join("");
+  const themes = ((window.INTEL && window.INTEL.themes) || {})[s] || [];
+  return top + cards + (themes.length ? `<section class="panel"><h2>What examiners keep flagging</h2><p class="muted small">Recurring points from AQA's published examiner reports.</p><ul class="tight">${themes.map(t => `<li>${esc(t)}</li>`).join("")}</ul></section>` : "") + intelPanel(s);
+}
 function paperLog(s) {
   const sub = SUBJ[s], pre = (ui.prefill && ui.prefill.subj === s) ? ui.prefill : {};
   const list = S.papers.filter(p => p.subj === s).sort((a, b) => b.date.localeCompare(a.date));
@@ -5716,6 +5906,13 @@ const ACT = {
   "upd-check": () => checkUpdate(true),
   "upd-apply": () => applyUpdate(),
   "upd-later": () => { const b = document.getElementById("upd-bar"); if (b) b.remove(); },
+  "pap-tab": el => { ui.papTab = el.dataset.v; render(); },
+  "pred-run": () => analysePapers(cur()),
+  "pred-build": el => { const s = cur(), name = el.dataset.v, seed = (ui.predSeed && ui.predSeed[s + name]) || 1, b = buildPredicted(s, name, seed); if (!b || !b.ids.length) { toast("Couldn't build a paper. Analyse your papers first."); return; } (ui.predBuilt = ui.predBuilt || {})[s + name] = b; render(); toast("Predicted " + name + " is ready"); },
+  "pred-shuffle": el => { const s = cur(), name = el.dataset.v; (ui.predSeed = ui.predSeed || {})[s + name] = ((ui.predSeed[s + name] || 1) + 1) % 100000; ACT["pred-build"](el); },
+  "pred-start": el => { const s = cur(), b = ui.predBuilt && ui.predBuilt[s + el.dataset.v]; if (!b) return; startPractice({ ids: b.ids, random: false, label: `Predicted ${SUBJ[s].name} ${el.dataset.v}` }); },
+  "intel-ask": () => { ui.intelAsk = !ui.intelAsk; render(); },
+  "intel-copy": async () => { const t = intelPrompt(); try { await navigator.clipboard.writeText(t); toast("Request copied. Paste it to Claude."); } catch (e) { const n = document.getElementById("intel-text"); if (n) { n.focus(); n.select(); } toast("Select the text and copy it."); } },
   "prac-tab": el => { ui.pracTab = el.dataset.v; render(); },
   "nt-pick": el => { ui.noteTopic = el.dataset.v; render(); window.scrollTo(0, 0); },
   "note-open": el => openNote(NOTE_PATHS[+el.dataset.v]),
