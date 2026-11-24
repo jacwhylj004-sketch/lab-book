@@ -365,7 +365,7 @@ ul.tight, ol.tight { margin: 0; padding-left: 1.2em; display: flex; flex-directi
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261124-2206";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261124-2220";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -2486,10 +2486,34 @@ function attachInk(el) {
   }
   function redraw() { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); for (const s of strokes) drawStroke(s); }
   function pt(e) { const r = cv.getBoundingClientRect(), w = W(); return [(e.clientX - r.left) / w, (e.clientY - r.top) / w, e.pressure || 0.5]; }
-  function eraseAt(e) {
-    const [x, y] = pt(e), rad = 14 / W(), before = strokes.length;
-    for (let j = strokes.length - 1; j >= 0; j--) { const p = strokes[j].p; for (let i = 0; i < p.length; i += 3) { if (Math.abs(p[i] - x) < rad && Math.abs(p[i + 1] - y) < rad) { strokes.splice(j, 1); break; } } }
-    if (strokes.length !== before) redraw();
+  // The eraser removes any stroke whose line passes within ~16px of the pen. It checks the whole line between points
+  // (not just the points) and every spot the pen passed since the last event, so a fast drag can't skip over writing.
+  let lastErase = null;
+  function hitXY(x, y, rad) {
+    for (let j = strokes.length - 1; j >= 0; j--) {
+      const p = strokes[j].p; let hit = p.length < 6 ? Math.hypot(p[0] - x, p[1] - y) < rad : false;
+      for (let i = 3; !hit && i < p.length; i += 3) {
+        const ax = p[i - 3], ay = p[i - 2], bx = p[i], by = p[i + 1], dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+        const t = l2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / l2)) : 0;
+        if (Math.hypot(ax + t * dx - x, ay + t * dy - y) < rad) hit = true;
+      }
+      if (hit) { strokes.splice(j, 1); return true; }
+    }
+    return false;
+  }
+  function eraseAt(e, fresh) {
+    if (fresh) lastErase = null;
+    const rad = 16 / W(), evs = !fresh && e.getCoalescedEvents ? e.getCoalescedEvents() : [], list = evs.length ? evs : [e];
+    let changed = false;
+    for (const ev of list) {
+      const q = pt(ev);
+      if (lastErase) {
+        const dx = q[0] - lastErase[0], dy = q[1] - lastErase[1], n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (6 / W())));
+        for (let i = 1; i <= n; i++) if (hitXY(lastErase[0] + dx * i / n, lastErase[1] + dy * i / n, rad)) changed = true;
+      } else if (hitXY(q[0], q[1], rad)) changed = true;
+      lastErase = q;
+    }
+    if (changed) redraw();
   }
   el.addEventListener("contextmenu", e => e.preventDefault());
   el.addEventListener("pointerdown", e => {
@@ -2499,7 +2523,7 @@ function attachInk(el) {
     e.preventDefault(); try { el.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
     const ps = penState(), erase = ps.tool === "eraser" || sideBtn(e);
     if (typeof ui !== "undefined" && ui.dbgPen) penNote(`down ${e.pointerType} → ${erase ? "ERASE" : "draw"} (tool ${ps.tool}, side button ${sideBtn(e)})`);
-    if (erase) { mode = "erase"; eraseAt(e); return; }
+    if (erase) { mode = "erase"; eraseAt(e, true); return; }
     mode = "draw";
     const hl = ps.tool === "hl";
     cur = { t: hl ? "hl" : "pen", c: (hl ? PEN_COLORS.hl : PEN_COLORS.pen)[ps.color] || PEN_COLORS.pen[0], w: (hl ? 16 : PEN_SIZES[ps.size] || 2.2) / W(), p: pt(e) };
@@ -2508,7 +2532,7 @@ function attachInk(el) {
     clearTimeout(hold); hold0 = { x: e.clientX, y: e.clientY }; holdEv = e;
     if (e.pointerType === "pen") hold = setTimeout(() => {
       if (mode !== "draw" || !cur || cur.p.length > 12) return;
-      const i = strokes.indexOf(cur); if (i >= 0) strokes.splice(i, 1); cur = null; mode = "erase"; held = true; redraw(); eraseAt(holdEv);
+      const i = strokes.indexOf(cur); if (i >= 0) strokes.splice(i, 1); cur = null; mode = "erase"; held = true; redraw(); eraseAt(holdEv, true);
       try { navigator.vibrate && navigator.vibrate(25); } catch (err) { /* ignore */ }
       toast("Eraser: drag over your writing"); if (ui.dbgPen) penNote("held still 0.5s → ERASE");
     }, 500);
@@ -2518,9 +2542,16 @@ function attachInk(el) {
     if (mode === "scroll") { const dy = last.y - e.clientY, dx = last.x - e.clientX; last = { x: e.clientX, y: e.clientY }; scroller.scrollBy(dx, dy); return; }
     // The side button can be pressed or released mid-stroke: switch between drawing and erasing on the fly.
     if ((mode === "draw" || mode === "erase") && e.pointerType !== "mouse" && !held) {
+      // The button signal can reach the page a split second after the pen touches down, so the first bit may have been drawn:
+      // take that bit back and erase from where the stroke began. Once erasing, keep erasing until the pen lifts (no flicker).
       const sb = sideBtn(e) || penState().tool === "eraser";
-      if (sb && mode === "draw") { mode = "erase"; cur = null; }
-      else if (!sb && mode === "erase" && !SIDE.btn) { mode = null; return; }
+      if (sb && mode === "draw") {
+        clearTimeout(hold); hold0 = null;
+        const p0 = cur ? cur.p.slice(0, 2) : null;
+        if (cur) { const i = strokes.indexOf(cur); if (i >= 0) strokes.splice(i, 1); }
+        cur = null; mode = "erase"; redraw(); lastErase = p0 ? [p0[0], p0[1]] : null;
+        if (typeof ui !== "undefined" && ui.dbgPen) penNote("button arrived mid-stroke → ERASE");
+      }
     }
     if (mode === "erase") { eraseAt(e); return; }
     if (mode !== "draw" || !cur) return;
