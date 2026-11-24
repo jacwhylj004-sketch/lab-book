@@ -461,7 +461,7 @@ body.ps-open .penbar { left: calc((100% - min(46%, 520px)) / 2); }
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261124-2344";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261124-2358";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -4587,6 +4587,22 @@ if (OFFLINE) {
   document.addEventListener("visibilitychange", () => { if (!document.hidden) checkUpdate(false); });
 }
 
+/* ---------- Removing things safely (and making removals sync) ---------- */
+// Removing an exam date, result, mistake, card or question result leaves a small "removed" marker, so syncing does not bring it
+// back from the other device. Every removal also offers Undo for a few seconds.
+let UNDO = null, undoTimer = null;
+function tomb(kind, id) {
+  const d = S.del || (S.del = {}); d[kind + ":" + id] = Date.now();
+  const ks = Object.keys(d); if (ks.length > 1500) ks.sort((x, y) => d[x] - d[y]).slice(0, ks.length - 1500).forEach(k => delete d[k]);
+}
+function untomb(kind, id) { if (S.del) delete S.del[kind + ":" + id]; }
+function offerUndo(msg, fn) {
+  const old = document.getElementById("undo-bar"); if (old) old.remove(); clearTimeout(undoTimer); UNDO = fn;
+  const b = document.createElement("div"); b.id = "undo-bar"; b.className = "upd-bar"; b.setAttribute("role", "status");
+  b.innerHTML = `<span>${esc(msg)}</span><button class="btn small primary" data-act="undo-del">Undo</button>`; document.body.appendChild(b);
+  undoTimer = setTimeout(() => { b.remove(); UNDO = null; }, 8000);
+}
+
 /* ---------- Cloud sync between devices (a private GitHub gist that only you can open) ---------- */
 // Each device keeps working offline. Pressing Sync downloads the other device's copy, MERGES it with this one (so nothing is
 // overwritten), saves the result here and uploads it. Question results and flashcards keep whichever side has done more;
@@ -4600,9 +4616,13 @@ function mergeStates(a, b) {
   const out = JSON.parse(JSON.stringify(a)), aNewer = (a.updated || 0) >= (b.updated || 0), keys = (x, y) => new Set([...Object.keys(x || {}), ...Object.keys(y || {})]);
   ["conf", "notes", "rp", "ppDone", "marked", "qtext"].forEach(k => { const A = a[k] || {}, B = b[k] || {}, o = {}; for (const id of keys(A, B)) o[id] = id in A && id in B ? (aNewer ? A[id] : B[id]) : (id in A ? A[id] : B[id]); out[k] = o; });
   ["log", "newLog", "focus"].forEach(k => { const A = a[k] || {}, B = b[k] || {}, o = {}; for (const id of keys(A, B)) o[id] = Math.max(+A[id] || 0, +B[id] || 0); out[k] = o; });
-  out.srs = {}; for (const id of keys(a.srs, b.srs)) { const x = (a.srs || {})[id], y = (b.srs || {})[id]; out.srs[id] = !x ? y : !y ? x : ((y.r || 0) > (x.r || 0) || ((y.r || 0) === (x.r || 0) && (y.d || 0) > (x.d || 0))) ? y : x; }
-  out.qs = {}; for (const id of keys(a.qs, b.qs)) { const x = (a.qs || {})[id], y = (b.qs || {})[id]; out.qs[id] = !x ? y : !y ? x : ((y.n || 0) > (x.n || 0) ? y : x); }
-  ["custom", "exams", "papers", "mistakes"].forEach(k => { const m = new Map(), first = aNewer ? b[k] : a[k], second = aNewer ? a[k] : b[k]; for (const it of [].concat(first || [], second || [])) m.set(it.id, it); out[k] = [...m.values()]; });
+  // things removed on either device stay removed (a result removed and then done again later is kept)
+  const del = {}; for (const k of keys(a.del, b.del)) del[k] = Math.max(+(a.del || {})[k] || 0, +(b.del || {})[k] || 0); out.del = del;
+  const aliveQ = (x, id) => { const t = del["qs:" + id]; return x && !(t && (x.ts || 0) <= t) ? x : null; };
+  out.srs = {}; for (const id of keys(a.srs, b.srs)) { if (del["card:" + id]) continue; const x = (a.srs || {})[id], y = (b.srs || {})[id]; out.srs[id] = !x ? y : !y ? x : ((y.r || 0) > (x.r || 0) || ((y.r || 0) === (x.r || 0) && (y.d || 0) > (x.d || 0))) ? y : x; }
+  out.qs = {}; for (const id of keys(a.qs, b.qs)) { const x = aliveQ((a.qs || {})[id], id), y = aliveQ((b.qs || {})[id], id); const v = !x ? y : !y ? x : ((y.n || 0) > (x.n || 0) ? y : x); if (v) out.qs[id] = v; }
+  const kindOf = { custom: "card", exams: "exam", papers: "paper", mistakes: "mistake" };
+  ["custom", "exams", "papers", "mistakes"].forEach(k => { const m = new Map(), first = aNewer ? b[k] : a[k], second = aNewer ? a[k] : b[k]; for (const it of [].concat(first || [], second || [])) m.set(it.id, it); out[k] = [...m.values()].filter(it => !del[kindOf[k] + ":" + it.id]); });
   const seen = new Set(); out.quiz = [].concat(a.quiz || [], b.quiz || []).filter(q => { const j = JSON.stringify(q); if (seen.has(j)) return false; seen.add(j); return true; }).slice(-50);
   out.pred = {}; for (const id of keys(a.pred, b.pred)) { const x = (a.pred || {})[id], y = (b.pred || {})[id]; out.pred[id] = !x ? y : !y ? x : String(y.built) > String(x.built) ? y : x; }
   out.settings = Object.assign({}, a.settings); if (!out.settings.physOpt && b.settings && b.settings.physOpt) out.settings.physOpt = b.settings.physOpt;
@@ -4630,7 +4650,9 @@ async function cloudSync() {
       const g = await ghApi("/gists/" + id), f = g.files && g.files[CS_FILE];
       if (f) { let txt = f.content; if (f.truncated || txt == null) txt = await (await fetch(f.raw_url)).text(); try { remote = JSON.parse(txt).data; } catch (e) { remote = null; } }
     }
+    if (remote && (typeof remote !== "object" || !remote.srs || !remote.qs)) throw new Error("The copy in the cloud looks damaged, so nothing was changed. Your data on this device is safe.");
     const before = Object.values(S.qs).filter(x => x.n).length;
+    snapshotBeforeSync();
     if (remote) S = normalise(mergeStates(S, normalise(remote)));
     S.updated = Date.now(); indexCustom(); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignore */ }
     const payload = JSON.stringify({ v: 1, at: Date.now(), from: EDITION, data: stripForCloud(S) });
@@ -4643,12 +4665,21 @@ async function cloudSync() {
   } catch (e) { CSX.msg = e.message; toast(e.message); if (e.code === 401) csPut(null); }
   CSX.busy = false; render();
 }
+// A safety copy of this device's data is kept just before every sync (the last 3), so a sync can always be undone.
+const SNAP_KEY = "labbook-presync";
+const snaps = () => { try { return JSON.parse(localStorage.getItem(SNAP_KEY) || "[]"); } catch (e) { return []; } };
+function snapshotBeforeSync() {
+  let list = snaps(); list.push({ at: Date.now(), data: JSON.stringify(S) }); list = list.slice(-3);
+  for (let i = 0; i < 3; i++) { try { localStorage.setItem(SNAP_KEY, JSON.stringify(list)); return; } catch (e) { list = list.slice(1); if (!list.length) return; } }
+}
 function cloudPanel() {
   const c = csGet(), ok = !!c.token, when = c.last ? new Date(c.last).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
   return `<section class="panel"><div class="panel-head"><div class="stack" style="gap:2px"><h2>Cloud sync</h2><span class="muted small">${ok ? (when ? "Last synced " + when : "Connected. Not synced yet.") : "Keep your tablet and phone in step"}</span></div>${ok ? `<button class="btn primary" data-act="cloud-sync" ${CSX.busy ? "disabled" : ""}>${CSX.busy ? "Syncing…" : "Sync now"}</button>` : ""}</div>
     <p class="small">Press Sync on each device. It merges both copies, so finishing a question on the tablet and syncing shows it as done on the phone. It syncs your flashcard progress, question results, marks, ratings, notes, typed answers, exams and mistakes. It does not copy papers, notes PDFs or handwriting, and your theme stays per device.</p>
     ${CSX.msg ? `<p class="small" id="cs-msg">${esc(CSX.msg)}</p>` : ""}
-    ${ok ? `<div class="row"><button class="btn small ghost" data-act="cloud-off">Disconnect this device</button></div><p class="muted small">Your data is saved in a private GitHub gist called "Lab Book sync". Delete that gist on github.com to remove it.</p>`
+    ${ok ? `<p class="small"><b>Removing things:</b> if you remove an exam date, a result, a mistake or a card, or a question result (the Remove my result button on a question), it is removed on your other device too after you sync. Each removal has an Undo for a few seconds.</p>
+      ${snaps().length ? `<div class="row"><button class="btn small" data-act="cloud-restore">Undo the last sync on this device</button><span class="muted small">Restores the copy saved at ${new Date(snaps().slice(-1)[0].at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span></div>` : ""}
+      <div class="row"><button class="btn small ghost" data-act="cloud-off">Disconnect this device</button></div><p class="muted small">Your data is saved in a private GitHub gist called "Lab Book sync". GitHub keeps every earlier version of it, and a safety copy of this device is kept before each sync. You can also save a backup file below.</p>`
     : `<ol class="tight small"><li>Tap <b>Create a sync token</b>, sign in to GitHub and tap <b>Generate token</b>. It is already limited to the <b>gist</b> permission, which only reaches your gists.</li><li>Copy the token and paste it below. Do the same on your other device with the same token.</li></ol>
       <div class="row"><a class="btn small" href="https://github.com/settings/tokens/new?description=Lab%20Book%20sync&scopes=gist" target="_blank" rel="noopener">Create a sync token</a></div>
       <form class="stack" data-form="cloud-connect"><label class="field" for="cs-token">Token<input id="cs-token" name="token" type="password" autocomplete="off" placeholder="ghp_…" required></label><div><button class="btn primary" type="submit">Connect and sync</button></div></form>`}
@@ -4682,7 +4713,7 @@ const OPTS = { astro: "Astrophysics", medical: "Medical physics", engineering: "
 
 /* ---------- State ---------- */
 function fresh() {
-  return { v: 1, updated: 0, srs: {}, conf: {}, custom: [], log: {}, newLog: {}, exams: [], papers: [], mistakes: [], notes: {}, rp: {}, quiz: [], focus: {}, ppDone: {}, qs: {}, qtext: {}, marked: {}, pred: {},
+  return { v: 1, updated: 0, srs: {}, conf: {}, custom: [], log: {}, newLog: {}, exams: [], papers: [], mistakes: [], notes: {}, rp: {}, quiz: [], focus: {}, ppDone: {}, qs: {}, qtext: {}, marked: {}, pred: {}, del: {},
     pen: { tool: "pen", color: 0, size: 1 },
     settings: { theme: "system", physOpt: "", newPerDay: 20, subj: "phys" } };
 }
@@ -5139,7 +5170,7 @@ function practiceSession() {
   return `<div class="topbar"><div class="title"><span class="eyebrow">Question ${ps.i + 1} of ${ps.ids.length}</span><h1>${esc(ps.label)}</h1></div><div class="row" style="gap:8px">${ps.minutes ? `<span class="chip mono ps-timer" id="ps-timer" role="timer" aria-label="Time left"></span>` : ""}${OFFLINE ? `<div class="seg vw-help"><button data-act="vwp-toggle" data-v="notes" aria-pressed="${VWP.mode === "notes"}">${icon("book").replace("<svg", '<svg style="width:18px"')} Notes</button><button data-act="vwp-toggle" data-v="ai" aria-pressed="${VWP.mode === "ai"}">${icon("spark").replace("<svg", '<svg style="width:18px"')} Ask Gemini</button></div>` : ""}<button class="btn small" data-act="ps-end">Finish session</button></div></div>
   <div class="m3-progress"><i style="width:${(ps.i + 1) / ps.ids.length * 100}%"></i></div>
   <article class="card q-card">
-    <div class="row q-meta">${chipT(t)}<span class="small">${esc(t.t)}</span>${diffDots(q.d)}<span class="chip">${q.k === "mcq" ? "Multiple choice" : "Written"} · ${q.m} mark${q.m === 1 ? "" : "s"}</span>${st.n ? `<span class="chip ${st.of && st.got / st.of >= 0.6 ? "green" : "amber"}">Last: ${st.got}/${st.of}</span>` : ""}<button class="icon-btn flag ${st.f ? "on" : ""}" data-act="ps-flag" aria-pressed="${!!st.f}" aria-label="${st.f ? "Remove flag" : "Flag this question"}" title="Flag">${icon("flag")}</button></div>
+    <div class="row q-meta">${chipT(t)}<span class="small">${esc(t.t)}</span>${diffDots(q.d)}<span class="chip">${q.k === "mcq" ? "Multiple choice" : "Written"} · ${q.m} mark${q.m === 1 ? "" : "s"}</span>${st.n ? `<span class="chip ${st.of && st.got / st.of >= 0.6 ? "green" : "amber"}">Last: ${st.got}/${st.of}</span>` : ""}${st.n ? `<button class="btn small ghost" data-act="qs-del" data-v="${esc(id)}" title="Removes the saved mark for this question, here and on your other device after a sync">${ui.confirmQ === id ? "Tap again to remove" : "Remove my result"}</button>` : ""}<button class="icon-btn flag ${st.f ? "on" : ""}" data-act="ps-flag" aria-pressed="${!!st.f}" aria-label="${st.f ? "Remove flag" : "Flag this question"}" title="Flag">${icon("flag")}</button></div>
     ${body}
   </article>
   <div class="row" style="justify-content:space-between"><button class="btn" data-act="ps-prev" ${ps.i === 0 ? "disabled" : ""}>Previous</button><button class="btn primary" data-act="ps-next">${last ? "Finish" : "Next question"}</button></div>
@@ -6123,6 +6154,7 @@ const ACT = {
   "cp-shuffle": () => { const s = cur(), st = cpState(s); st.seed = (st.seed + 1) % 100000; st.built = buildCustom(s, st); render(); },
   "cp-start": () => { const s = cur(), st = cpState(s), b = st.built; if (!b) { toast("Tap Build my paper first"); return; } startPractice({ ids: b.ids, random: false, minutes: b.minutes, label: `Custom ${SUBJ[s].name} paper` }); },
   "cloud-sync": () => cloudSync(),
+  "cloud-restore": () => { const l = snaps(), last = l[l.length - 1]; if (!last) return; if (ui.confirmRestore !== true) { ui.confirmRestore = true; toast("Tap again to restore the copy from before the last sync"); setTimeout(() => { ui.confirmRestore = false; }, 4000); return; } ui.confirmRestore = false; snapshotBeforeSync(); try { S = normalise(JSON.parse(last.data)); indexCustom(); save(); render(); toast("Restored the copy from before the last sync"); } catch (e) { toast("That safety copy couldn't be read"); } },
   "cloud-off": () => { csPut(null); CSX.msg = ""; render(); toast("This device is disconnected from cloud sync"); },
   edition: el => { try { localStorage.setItem("labbook-edition", el.dataset.v); } catch (e) { /* ignore */ } location.reload(); },
   "pap-tab": el => { ui.papTab = el.dataset.v; render(); },
@@ -6139,7 +6171,7 @@ const ACT = {
   "open-topic": el => { ui.topic = el.dataset.v; ui.noteTab = "summ"; go("notes"); },
   "close-topic": () => { ui.topic = null; render(); window.scrollTo(0, 0); },
   rag: el => { const id = el.dataset.v, n = +el.dataset.n; if (S.conf[id] === n) delete S.conf[id]; else S.conf[id] = n; save(); render(); },
-  "del-card": el => { S.custom = S.custom.filter(c => c.id !== el.dataset.v); delete S.srs[el.dataset.v]; indexCustom(); save(); render(); toast("Card deleted"); },
+  "del-card": el => { const id = el.dataset.v, item = S.custom.find(c => c.id === id), sr = S.srs[id]; if (!item) return; S.custom = S.custom.filter(c => c.id !== id); delete S.srs[id]; tomb("card", id); indexCustom(); save(); render(); offerUndo("Card deleted", () => { S.custom.push(item); if (sr) S.srs[id] = sr; untomb("card", id); indexCustom(); save(); render(); }); },
   "tutor-mode": el => { ui.tutor.mode = el.dataset.v; ui.tutor.err = ""; render(); },
   "tutor-topic": el => { ui.tutor.mode = "exam"; ui.tutor.topic = el.dataset.v; ui.tutor.q = null; ui.tutor.mark = null; go("tutor"); },
   "tutor-gen": () => tutorGenerate(),
@@ -6235,11 +6267,13 @@ const ACT = {
   },
   "gem-remove": () => { gemSet(null); ui.gemMsg = "Key removed from this device."; render(); },
   "pp-score-focus": () => {},
-  "del-paper": el => { S.papers = S.papers.filter(p => p.id !== el.dataset.v); save(); render(); },
-  "del-exam": el => { S.exams = S.exams.filter(p => p.id !== el.dataset.v); save(); render(); },
+  "del-paper": el => { const id = el.dataset.v, item = S.papers.find(p => p.id === id); if (!item) return; S.papers = S.papers.filter(p => p.id !== id); tomb("paper", id); save(); render(); offerUndo("Result removed", () => { S.papers.push(item); untomb("paper", id); save(); render(); }); },
+  "del-exam": el => { const id = el.dataset.v, item = S.exams.find(p => p.id === id); if (!item) return; S.exams = S.exams.filter(p => p.id !== id); tomb("exam", id); save(); render(); offerUndo("Exam date removed", () => { S.exams.push(item); untomb("exam", id); save(); render(); }); },
   "mk-filter": el => { ui.mistakeFilter = el.dataset.v; render(); },
   "mk-done": el => { const m = S.mistakes.find(x => x.id === el.dataset.v); if (m) { m.done = !m.done; save(); render(); } },
-  "mk-del": el => { S.mistakes = S.mistakes.filter(x => x.id !== el.dataset.v); save(); render(); },
+  "mk-del": el => { const id = el.dataset.v, item = S.mistakes.find(x => x.id === id); if (!item) return; S.mistakes = S.mistakes.filter(x => x.id !== id); tomb("mistake", id); save(); render(); offerUndo("Mistake removed", () => { S.mistakes.push(item); untomb("mistake", id); save(); render(); }); },
+  "qs-del": el => { const id = el.dataset.v; if (ui.confirmQ !== id) { ui.confirmQ = id; render(); setTimeout(() => { if (ui.confirmQ === id) { ui.confirmQ = null; render(); } }, 4000); return; } ui.confirmQ = null; const old = S.qs[id]; if (!old) { render(); return; } delete S.qs[id]; tomb("qs", id); save(); render(); offerUndo("Result removed", () => { S.qs[id] = old; untomb("qs", id); save(); render(); }); },
+  "undo-del": () => { const f = UNDO; UNDO = null; const b = document.getElementById("undo-bar"); if (b) b.remove(); if (f) f(); },
   "mk-card": el => { const m = S.mistakes.find(x => x.id === el.dataset.v); if (!m || !TOPICS[m.topic]) return; S.custom.push({ id: "u-" + uid(), topic: m.topic, q: "Avoid this mistake: " + m.what, a: m.fix }); m.card = true; indexCustom(); save(); render(); toast("Flashcard added to " + TOPICS[m.topic].t); },
   "tm-mode": el => { tmStop(); TM.mode = el.dataset.v; TM.left = TM.len[TM.mode] * 60; render(); },
   "tm-toggle": () => { if (TM.running) { tmStop(); TM.left = (TM.end - Date.now()) / 1000; } else { tmStart(); } render(); },
