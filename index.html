@@ -93,6 +93,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 760px) { .g2, .g3 { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 1000px) { .card-pair { grid-template-columns: minmax(0, 1fr); } }
 .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .stack { display: flex; flex-direction: column; gap: 10px; }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 20px; border-radius: 22px; border: 0; background: var(--card-2); font-weight: 500; cursor: pointer; text-decoration: none; color: var(--ink); }
@@ -116,6 +117,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .seg button:first-child { border-left: 0; }
 .seg button[aria-pressed="true"] { background: var(--accent-soft); }
 .chip { display: inline-flex; align-items: center; gap: 6px; font: 500 .75rem/1 var(--f-mono); padding: 6px 9px; border-radius: 8px; background: var(--card-2); color: var(--muted); white-space: nowrap; }
+.list .item > .chip.phys:first-child, .list .item > .chip.chem:first-child { min-width: 78px; justify-content: center; }
 .chip.phys { background: var(--phys-soft); color: var(--ink); }
 .chip.chem { background: var(--chem-soft); color: var(--ink); }
 .chip.red { background: var(--red-soft); color: var(--red); }
@@ -299,13 +301,65 @@ ul.tight, ol.tight { margin: 0; padding-left: 1.2em; display: flex; flex-directi
 .vw-page { position: relative; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.18); flex: none; }
 .vw-page canvas { display: block; }
 
+/* Page headers and tabs */
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-top: 4px; }
+.page-head-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.page-head h1 { font-size: 1.75rem; font-weight: 400; letter-spacing: -.005em; }
+.page-sub { color: var(--muted); max-width: 62ch; }
+.topbar h1 { font-size: 1.55rem; font-weight: 400; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; margin-top: -4px; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs button { position: relative; border: 0; background: none; padding: 12px 16px 14px; font-weight: 500; color: var(--muted); cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 8px; border-radius: 12px 12px 0 0; }
+.tabs button:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 4%, transparent); }
+.tabs button[aria-selected="true"] { color: var(--accent); }
+.tabs button[aria-selected="true"]::after { content: ""; position: absolute; left: 14px; right: 14px; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: var(--accent); }
+.tab-n { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--red); color: #fff; font-size: .72rem; line-height: 20px; text-align: center; }
+.panel.tint { background: var(--accent-soft); }
+.bad-t { color: var(--red); }
+.go-arrow { font-size: 1.5rem; line-height: 1; color: var(--muted); padding: 0 4px; }
+.text-btn.small-tb { font-size: .82rem; padding: 0; }
+
+/* Practice setup */
+.setup-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.topic-group { display: flex; flex-direction: column; gap: 8px; padding-top: 6px; }
+.topic-group + .topic-group { border-top: 1px solid var(--line); padding-top: 12px; }
+.topic-group-head { justify-content: space-between; }
+.topic-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.topic-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 6px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; font-size: .9rem; text-align: left; }
+.topic-chip .mono { font-size: .75rem; color: var(--muted); }
+.topic-chip .tc-n { font-size: .72rem; color: var(--muted); }
+.topic-chip[aria-pressed="true"] { background: var(--accent-soft); border-color: transparent; box-shadow: inset 0 0 0 1.5px var(--accent); }
+.topic-chip[aria-pressed="true"]::before { content: "✓"; font-weight: 700; color: var(--accent); }
+
+/* Priorities */
+.prio-list { display: flex; flex-direction: column; }
+.prio { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; grid-template-areas: "n main chip" "n acts acts"; gap: 6px 12px; align-items: center; padding: 12px 0; }
+.prio + .prio { border-top: 1px solid var(--line); }
+.prio-n { grid-area: n; width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft); color: var(--ink); display: grid; place-items: center; font-size: .85rem; align-self: start; }
+.prio-main { grid-area: main; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.prio-main b { font-weight: 500; }
+.prio > .chip { grid-area: chip; }
+.prio-acts { grid-area: acts; }
+@media (min-width: 900px) { .prio { grid-template-columns: 34px minmax(0, 1fr) auto auto; grid-template-areas: "n main chip acts"; } }
+
+/* AI */
+.ai-note { display: flex; gap: 10px; align-items: flex-start; background: var(--accent-soft); border-radius: 14px; padding: 10px 14px; }
+.ai-note svg { width: 18px; height: 18px; flex: none; margin-top: 2px; color: var(--accent); }
+.modal-back { position: fixed; inset: 0; z-index: 80; background: rgba(0,0,0,.4); display: grid; place-items: center; padding: 16px; }
+.modal { background: var(--bg); border-radius: 28px; padding: 22px 24px; width: min(920px, 100%); max-height: calc(100vh - 32px); overflow: auto; display: flex; flex-direction: column; gap: 14px; box-shadow: var(--shadow); }
+.modal.busy { width: min(420px, 100%); align-items: center; text-align: center; padding: 32px; }
+.modal-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.result-score { display: flex; align-items: center; gap: 14px; }
+.spinner { width: 44px; height: 44px; border-radius: 50%; border: 4px solid var(--accent-soft); border-top-color: var(--accent); animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); z-index: 70; background: var(--ink); color: var(--bg); padding: 12px 20px; border-radius: 12px; font-weight: 500; box-shadow: var(--shadow); max-width: calc(100% - 32px); }
 .confirm { background: var(--red-soft); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261124-1705";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261124-1718";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -2158,7 +2212,7 @@ async function importFiles(files) {
 function importProgress() { const el = document.getElementById("import-progress"); if (el && ui.importing) el.textContent = `Storing papers… ${ui.importing.done} of ${ui.importing.total}`; }
 
 /* ---------- Built-in PDF viewer ---------- */
-const VW = { open: false, doc: null, token: 0, zoom: 1, base: 1, io: null, cur: null };
+const VW = { open: false, doc: null, token: 0, zoom: 1, base: 1, io: null, cur: null, after: null };
 async function openPaper(subj, ser, label, k) {
   try { await pdbOpen(); } catch (e) { /* handled below */ }
   const name = paperFile(subj, ser, label, k);
@@ -2183,7 +2237,7 @@ function drawViewerChrome() {
     </div>
     <div class="vw-sub">
       <div class="seg">${kinds.map(i => `<button data-act="vw-kind" data-v="${i}" aria-pressed="${i === k}" ${PDB.have.has(paperFile(subj, ser, label, i)) ? "" : 'style="opacity:.45"'}>${KIND_LABEL[i]}</button>`).join("")}</div>
-      <div class="row" style="gap:6px"><button class="btn small ${done ? "" : "primary"}" data-act="vw-done">${done ? "✓ Done" : "Mark done"}</button><button class="btn small" data-act="vw-log">Log mark</button><button class="btn small" data-act="vw-clear-ink">Clear my writing</button></div>
+      <div class="row" style="gap:6px">${S.marked[key] ? `<button class="btn small" data-act="ai-result" data-v="${esc(key)}">Result: ${S.marked[key].total}/${S.marked[key].max}</button>` : ""}<button class="btn small primary" data-act="vw-ai">${icon("spark")}Mark with AI</button><button class="btn small ${done ? "" : "ghost"}" data-act="vw-done">${done ? "✓ Done" : "Mark done"}</button><button class="btn small ghost" data-act="vw-clear-ink">Clear writing</button></div>
     </div>
     <div class="vw-pages" id="vw-pages"><div class="empty" style="margin:24px">Opening…</div></div>
     ${penBar()}`;
@@ -2248,7 +2302,12 @@ function closeViewer(fromPop) {
   document.body.style.overflow = "";
   if (!fromPop && history.state && history.state.viewer) { try { history.back(); } catch (e) { /* ignore */ } }
 }
-addEventListener("popstate", () => { if (VW.open) closeViewer(true); });
+addEventListener("popstate", () => { if (VW.open) closeViewer(true); if (VW.after) { const f = VW.after; VW.after = null; setTimeout(f, 0); } });
+// Close the viewer, then run fn once the browser has finished stepping back out of it.
+function leaveViewer(fn) {
+  if (VW.open && history.state && history.state.viewer) { VW.after = fn; closeViewer(false); setTimeout(() => { if (VW.after) { const f = VW.after; VW.after = null; f(); } }, 400); }
+  else { closeViewer(true); fn(); }
+}
 let vwResize = null;
 addEventListener("resize", () => { if (!VW.open || !VW.doc) return; clearTimeout(vwResize); vwResize = setTimeout(() => { const c = document.getElementById("vw-pages"); layoutPages(c ? c.scrollTop / Math.max(1, c.scrollHeight) : 0); }, 250); });
 /* ---------- S Pen ink ---------- */
@@ -2367,6 +2426,156 @@ function penBar() {
 }
 function refreshPenBars() { document.querySelectorAll(".penbar").forEach(b => { b.outerHTML = penBar(); }); }
 
+/* ---------- Gemini AI marking (offline edition; your own key, stored only on this device) ---------- */
+const GKEY = "labbook-gemini";
+const GAPI = "https://generativelanguage.googleapis.com/v1beta/";
+function gem() { try { return JSON.parse(localStorage.getItem(GKEY) || "null") || {}; } catch (e) { return {}; } }
+function gemSet(o) { try { if (o) localStorage.setItem(GKEY, JSON.stringify(o)); else localStorage.removeItem(GKEY); } catch (e) { /* ignore */ } }
+const gemReady = () => OFFLINE && !!gem().key && !!gem().model;
+async function gemModels(key) {
+  let r;
+  try { r = await fetch(GAPI + "models?pageSize=200", { headers: { "x-goog-api-key": key } }); } catch (e) { throw new Error("Couldn't reach Google. Check you're online."); }
+  if (!r.ok) throw new Error(r.status === 400 || r.status === 403 ? "Google didn't accept that key. Check you copied all of it." : "Couldn't reach Gemini (error " + r.status + ").");
+  const j = await r.json();
+  const names = (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent")).map(m => m.name.replace(/^models\//, ""))
+    .filter(n => /^gemini/.test(n) && !/(tts|image|embedding|audio|live|thinking-exp|learnlm|robotics|computer-use)/.test(n));
+  const score = n => { const v = parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) || [0, 0])[1]) || 0; return v * 10 + (/flash(?!-lite)/.test(n) ? 3 : /pro/.test(n) ? 2 : /lite/.test(n) ? 1 : 0) - (/preview|exp/.test(n) ? 0.5 : 0); };
+  return names.sort((a, b) => score(b) - score(a));
+}
+async function gemCall(parts) {
+  const g = gem(); if (!g.key || !g.model) throw new Error("Add your Gemini key in Settings first.");
+  let r;
+  try {
+    r = await fetch(GAPI + "models/" + encodeURIComponent(g.model) + ":generateContent", { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": g.key },
+      body: JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { temperature: 0.1, responseMimeType: "application/json" } }) });
+  } catch (e) { throw new Error("Couldn't reach Gemini. AI marking needs internet."); }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const msg = (j.error && j.error.message) || "";
+    throw new Error(r.status === 429 ? "Gemini's usage limit was reached. Wait a minute and try again." : (r.status === 400 && /key/i.test(msg)) || r.status === 403 ? "Gemini didn't accept your key. Check it in Settings." : "Gemini couldn't do that (error " + r.status + "). " + msg.slice(0, 160));
+  }
+  const text = (((j.candidates || [])[0] || {}).content || { parts: [] }).parts.map(p => p.text || "").join("");
+  if (!text) throw new Error("Gemini sent back an empty answer. Try again.");
+  try { return JSON.parse(text.replace(/^\s*```(?:json)?\s*|\s*```\s*$/g, "")); } catch (e) { throw new Error("Gemini's answer wasn't in the expected format. Try again."); }
+}
+function strokesTo(ctx, strokes, w) {
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  for (const s of strokes) {
+    const p = s.p; if (!p || p.length < 3) continue;
+    ctx.save(); ctx.strokeStyle = s.c; if (s.t === "hl") ctx.globalAlpha = 0.38;
+    ctx.lineWidth = Math.max(1.2, s.w * w * (s.t === "hl" ? 1 : 1.1));
+    ctx.beginPath(); ctx.moveTo(p[0] * w, p[1] * w);
+    for (let i = 3; i < p.length; i += 3) ctx.lineTo(p[i] * w, p[i + 1] * w);
+    if (p.length === 3) ctx.lineTo(p[0] * w + 0.5, p[1] * w);
+    ctx.stroke(); ctx.restore();
+  }
+}
+async function inkReady(key) { const v = inkArr(key); for (let i = 0; v.loading && i < 60; i++) await new Promise(r => setTimeout(r, 40)); return v; }
+async function answerImage(key, aspect) {
+  const v = await inkReady(key); if (!v.length) return null;
+  const w = 1000, h = Math.max(120, Math.round(w * aspect)), c = document.createElement("canvas"); c.width = w; c.height = h;
+  const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, w, h); strokesTo(x, v, w);
+  return c.toDataURL("image/jpeg", 0.82).split(",")[1];
+}
+async function markQuestionAI() {
+  const ps = ui.ps, id = ps.ids[ps.i], q = QIDX[id];
+  ps.aiBusy = id; ps.aiErr = ""; render();
+  try {
+    const parts = [{ text: `You are a strict but fair AQA A-level ${SUBJ[q.subj].name} examiner. Mark the student's answer using ONLY the mark scheme below. Award a mark scheme point only if the student clearly made it: accept equivalent wording, correct alternative methods and error carried forward in calculations, and ignore spelling. Handwritten answers are images; read them carefully, including equations and units.\n\n${q.i ? "Context: " + q.i + "\n\n" : ""}` +
+      q.p.map((p, pi) => `Part (${LETTERS[pi]}) [${p.m} mark${p.m === 1 ? "" : "s"}]: ${p.q}\nMark scheme points (numbered from 0, max ${p.m} marks):\n${p.s.map((m, mi) => `  ${mi}. ${m}`).join("\n")}`).join("\n\n") +
+      `\n\nReturn JSON only: {"parts":[{"part":"a","points_met":[numbers of the mark scheme points awarded],"feedback":"one or two sentences to the student (\\"you\\"), saying exactly what to add or fix to gain the missing marks"}],"overall":"one encouraging sentence"}` }];
+    for (let pi = 0; pi < q.p.length; pi++) {
+      const key = id + ":" + pi, typed = (S.qtext[key] || "").trim();
+      parts.push({ text: `Student's answer to part (${LETTERS[pi]}):` });
+      if (ps.kb[key] && typed) { parts.push({ text: typed }); continue; }
+      const el = document.querySelector(`.ink[data-ink="${CSS.escape("q:" + key)}"]`);
+      const img = await answerImage("q:" + key, el ? el.clientHeight / Math.max(1, el.clientWidth) : 0.3);
+      if (img) parts.push({ inline_data: { mime_type: "image/jpeg", data: img } }); else parts.push({ text: typed || "(no answer given)" });
+    }
+    const res = await gemCall(parts);
+    (res.parts || []).forEach((r, pi) => { const p = q.p[pi]; if (!p) return; const t = []; (r.points_met || []).forEach(i => { i = +i; if (i >= 0 && i < p.s.length) t[i] = true; }); ps.ticks[id + ":" + pi] = t; });
+    ps.ai[id] = res; ps.shown[id] = true;
+  } catch (e) { ps.aiErr = e.message; }
+  ps.aiBusy = null; render();
+}
+function paperMax(c) {
+  if (/^Paper 3B/.test(c.label)) return 35;
+  if (c.label === "Paper 3 Section A") return 45;
+  const p = SUBJ[c.subj].papers.find(x => x.name === c.label.slice(0, 7)); return p ? p.marks : 0;
+}
+function aiOverlay(text) {
+  let el = document.getElementById("ai-busy");
+  if (text === null) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement("div"); el.id = "ai-busy"; el.className = "modal-back"; el.innerHTML = `<div class="modal busy" role="status" aria-live="polite"><div class="spinner" aria-hidden="true"></div><p id="ai-busy-text"></p><p class="muted small">Keep the app open. This can take a minute or two.</p></div>`; document.body.appendChild(el); }
+  el.querySelector("#ai-busy-text").textContent = text;
+}
+async function markPaperAI() {
+  const c = VW.cur; if (!c || !gemReady()) { toast("Add your Gemini key in Settings to use AI marking."); return; }
+  const key = c.subj + "|" + c.ser + "|" + c.label, qpName = paperFile(c.subj, c.ser, c.label, 0), msName = paperFile(c.subj, c.ser, c.label, 1);
+  if (!PDB.have.has(qpName) || !PDB.have.has(msName)) { toast("This paper or its mark scheme isn't stored. Import the papers zip on the Past papers page."); return; }
+  aiOverlay("Getting your answers ready…");
+  try {
+    const qpDoc = await window.pdfjsLib.getDocument({ data: await (await pdbGet(qpName)).arrayBuffer() }).promise;
+    const images = [];
+    for (let n = 1; n <= qpDoc.numPages; n++) {
+      const strokes = await inkReady("pdf:" + qpName + ":" + n);
+      if (!strokes.length) continue;
+      aiOverlay(`Preparing page ${n} of ${qpDoc.numPages}…`);
+      const page = await qpDoc.getPage(n), vp = page.getViewport({ scale: 1100 / page.getViewport({ scale: 1 }).width });
+      const cv = document.createElement("canvas"); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+      const ctx = cv.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height);
+      await page.render({ canvasContext: ctx, viewport: vp }).promise;
+      strokesTo(ctx, strokes, cv.width);
+      images.push({ n, data: cv.toDataURL("image/jpeg", 0.72).split(",")[1] });
+    }
+    qpDoc.destroy();
+    if (!images.length) throw new Error("There's no writing on this paper yet. Answer the questions on the paper with the S Pen first.");
+    aiOverlay("Reading the mark scheme…");
+    const msDoc = await window.pdfjsLib.getDocument({ data: await (await pdbGet(msName)).arrayBuffer() }).promise;
+    let ms = "";
+    for (let n = 1; n <= msDoc.numPages; n++) { const tc = await (await msDoc.getPage(n)).getTextContent(); ms += `\n[Mark scheme page ${n}]\n` + tc.items.map(i => i.str + (i.hasEOL ? "\n" : " ")).join(""); }
+    msDoc.destroy();
+    const max = paperMax(c), sub = SUBJ[c.subj];
+    aiOverlay(`Gemini is marking ${images.length} page${images.length === 1 ? "" : "s"} against the mark scheme…`);
+    const prompt = `You are a senior AQA examiner for A-level ${sub.name} (${sub.code}). Below is the official mark scheme for ${c.ser} ${c.label}${max ? ` (${max} marks in total)` : ""}, followed by images of the pages of a student's script that contain their handwritten answers. Pages with no writing were left out, so any question you can't see an answer to scores 0.
+Mark EVERY question in the mark scheme strictly by it, as a real AQA examiner would: follow the scheme's own guidance, accept equivalent answers, apply error carried forward where the scheme allows, and use the level descriptors for extended-response questions. For multiple-choice questions, read which option the student marked.
+Tag each question with the ONE specification topic id from this list that it mainly tests:
+${sub.topics.map(t => `${t.id} = ${t.code} ${t.t}`).join("\n")}
+Return JSON only, in this shape: {"questions":[{"q":"01.1","max":2,"awarded":1,"topic":"${sub.topics[0].id}","feedback":"short, specific note to the student (\\"you\\") on what earned or lost marks"}],"summary":"2-3 sentences on the overall performance","strengths":["..."],"improve":["specific actions that would gain the most marks"]}
+
+MARK SCHEME:
+${ms.slice(0, 180000)}`;
+    const parts = [{ text: prompt }];
+    for (const im of images) parts.push({ text: `Student's script, page ${im.n}:` }, { inline_data: { mime_type: "image/jpeg", data: im.data } });
+    const res = await gemCall(parts);
+    const qs = (Array.isArray(res.questions) ? res.questions : []).map(x => ({ q: String(x.q || ""), max: Math.max(0, +x.max || 0), awarded: Math.max(0, Math.min(+x.awarded || 0, +x.max || 0)), topic: TOPICS[x.topic] && TOPICS[x.topic].subj === c.subj ? x.topic : "", feedback: String(x.feedback || "") }));
+    if (!qs.length) throw new Error("Gemini didn't return any marks. Try again.");
+    const total = qs.reduce((n, x) => n + x.awarded, 0), outOf = max || qs.reduce((n, x) => n + x.max, 0);
+    S.marked[key] = { subj: c.subj, ser: c.ser, label: c.label, date: dayKey(), total, max: outOf, questions: qs, summary: String(res.summary || ""), strengths: (res.strengths || []).map(String).slice(0, 5), improve: (res.improve || []).map(String).slice(0, 6), pages: images.length };
+    S.papers = S.papers.filter(p => p.ai !== key);
+    S.papers.push({ id: uid(), subj: c.subj, paper: c.label, series: c.ser, score: total, max: outOf, date: dayKey(), ai: key });
+    S.ppDone[key] = S.ppDone[key] || dayKey();
+    save(); aiOverlay(null); showAIResult(key);
+  } catch (e) { aiOverlay(null); toast(e.message || "AI marking didn't work. Try again."); }
+}
+function showAIResult(key) {
+  const m = S.marked[key]; if (!m) return;
+  const pc = m.max ? Math.round(m.total / m.max * 100) : 0;
+  let el = document.getElementById("ai-result"); if (!el) { el = document.createElement("div"); el.id = "ai-result"; el.className = "modal-back"; document.body.appendChild(el); }
+  el.innerHTML = `<div class="modal result" role="dialog" aria-label="AI marking result">
+    <div class="modal-head"><div><span class="eyebrow">${esc(SUBJ[m.subj].name)} · ${esc(m.ser)} · marked by Gemini</span><h2>${esc(m.label)}</h2></div><button class="icon-btn" data-act="ai-result-close" aria-label="Close">✕</button></div>
+    <div class="result-score"><span class="score">${m.total}<span class="muted" style="font-size:1.4rem"> / ${m.max}</span></span><span class="chip ${pc >= 70 ? "green" : pc >= 50 ? "amber" : "red"}">${pc}%</span></div>
+    ${m.summary ? `<p>${esc(m.summary)}</p>` : ""}
+    <div class="grid g2">${m.strengths.length ? `<div class="stack"><b class="good">What went well</b><ul class="tight">${m.strengths.map(s => `<li>${esc(s)}</li>`).join("")}</ul></div>` : ""}${m.improve.length ? `<div class="stack"><b>To gain more marks</b><ul class="tight">${m.improve.map(s => `<li>${esc(s)}</li>`).join("")}</ul></div>` : ""}</div>
+    <div class="table-wrap"><table><thead><tr><th>Question</th><th>Mark</th><th>Topic</th><th>Feedback</th></tr></thead><tbody>${m.questions.map(x => `<tr><td class="mono">${esc(x.q)}</td><td class="mono" style="white-space:nowrap"><span class="${x.awarded === x.max ? "good" : x.awarded === 0 ? "bad-t" : ""}">${x.awarded}/${x.max}</span></td><td>${x.topic ? `<span class="chip ${m.subj}">${esc(TOPICS[x.topic].code)}</span>` : ""}</td><td class="small">${esc(x.feedback)}</td></tr>`).join("")}</tbody></table></div>
+    <p class="muted small">AI marking is a guide. Check close calls against the mark scheme.</p>
+    <div class="row"><button class="btn primary" data-act="ai-result-progress">See revision priorities</button><button class="btn" data-act="ai-result-close">Close</button></div>
+  </div>`;
+}
+function aiPaperIntro() {
+  return gemReady() ? "" : `<section class="panel tint"><div class="row" style="justify-content:space-between"><div class="stack" style="gap:4px"><h2>Mark whole papers with AI</h2><p class="small">Answer a paper with the S Pen in the viewer, then tap <b>Mark with AI</b>. Gemini marks every question against the official mark scheme and tells you which topics lost you marks.</p></div><button class="btn primary" data-act="go" data-v="prefs">Set up Gemini</button></div></section>`;
+}
+
 /* ---------- Exam timer (paper viewer) ---------- */
 const VT = { len: 120 * 60, left: 120 * 60, running: false, end: 0, iv: null, key: null };
 const fmtClock = s => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? h + ":" + pad(m) : m) + ":" + pad(x); };
@@ -2391,7 +2600,7 @@ const OPTS = { astro: "Astrophysics", medical: "Medical physics", engineering: "
 
 /* ---------- State ---------- */
 function fresh() {
-  return { v: 1, updated: 0, srs: {}, conf: {}, custom: [], log: {}, newLog: {}, exams: [], papers: [], mistakes: [], notes: {}, rp: {}, quiz: [], focus: {}, ppDone: {}, qs: {}, qtext: {},
+  return { v: 1, updated: 0, srs: {}, conf: {}, custom: [], log: {}, newLog: {}, exams: [], papers: [], mistakes: [], notes: {}, rp: {}, quiz: [], focus: {}, ppDone: {}, qs: {}, qtext: {}, marked: {},
     pen: { tool: "pen", color: 0, size: 1 },
     settings: { theme: "system", physOpt: "", newPerDay: 20, subj: "phys" } };
 }
@@ -2556,19 +2765,21 @@ function weakness(t) {
 /* ---------- UI state ---------- */
 const VIEWS = [
   ["home", "Home", "home"], ["practice", "Practice", "qa"], ["study", "Flashcards", "cards"], ["topics", "Topics", "list"],
-  ["papers", "Past papers", "doc"], ["tutor", "AI tutor", "spark"], ["progress", "Progress", "chart"],
-  ["bank", "Question bank", "search"], ["quiz", "Card quiz", "quiz"], ["formulas", "Equations", "sigma"], ["practicals", "Required practicals", "flask"],
-  ["data", "Data sheet", "grid"], ["exams", "Exam dates", "cal"], ["mistakes", "Mistakes log", "flag"],
-  ["timer", "Focus timer", "timer"], ["prefs", "Settings", "sliders"]
+  ["papers", "Past papers", "doc"], ["progress", "Exam progress", "chart"], ["reference", "Reference", "book"],
+  ["tutor", "AI tutor", "spark"], ["timer", "Focus timer", "timer"], ["prefs", "Settings", "sliders"]
 ];
 if (OFFLINE) VIEWS.splice(VIEWS.findIndex(v => v[0] === "tutor"), 1);
-const RAIL = ["home", "practice", "study", "topics", "papers", "tutor", "progress"].filter(id => VIEWS.some(v => v[0] === id));
-const TABS = ["home", "practice", "study", "papers"];
-const SHORT = { study: "Cards", papers: "Papers", tutor: "AI tutor", progress: "Progress" };
-let view = (location.hash || "").slice(1); if (!VIEWS.some(v => v[0] === view)) view = "home";
+const RAIL = ["home", "practice", "study", "topics", "papers", "progress", "reference", "tutor"].filter(id => VIEWS.some(v => v[0] === id));
+const TABS = ["home", "practice", "papers", "progress"];
+const SHORT = { study: "Cards", papers: "Papers", tutor: "AI tutor", progress: "Progress", reference: "Reference", timer: "Timer" };
+// Old section names now live inside the merged sections.
+const ALIAS = { bank: ["practice", "pracTab", "bank"], quiz: ["practice", "pracTab", "quiz"], formulas: ["reference", "refTab", "eq"], data: ["reference", "refTab", "data"], practicals: ["reference", "refTab", "rp"], exams: ["progress", "progTab", "dates"], mistakes: ["progress", "progTab", "mistakes"] };
+function resolveView(v) { const a = ALIAS[v]; if (a) { ui[a[1]] = a[2]; return a[0]; } return VIEWS.some(x => x[0] === v) ? v : null; }
+let view = (location.hash || "").slice(1);
 const newTutor = () => ({ mode: "exam", topic: "", marks: 4, q: null, ans: "", mark: null, busy: false, err: "", chat: [], chatBusy: false, img: null, imgNote: "", imgOut: "" });
 const ui = { topic: null, study: null, quiz: null, sheet: false, fsearch: "", data: { phys: "consts", chem: "table" }, el: 26, tutors: { phys: newTutor(), chem: newTutor() }, confirmReset: false, backup: "", restoreMsg: "", mistakeFilter: "open", explain: {} };
 Object.defineProperty(ui, "tutor", { get: () => ui.tutors[cur()] });
+view = resolveView(view) || "home";
 
 const ICON = {
   home: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
@@ -2639,8 +2850,7 @@ function render() {
   const n = dueCount();
   const label = id => SHORT[id] || VIEWS.find(x => x[0] === id)[1];
   const railBtn = (id, cls) => { const v = VIEWS.find(x => x[0] === id); return `<button class="${cls}" data-act="go" data-v="${id}" ${view === id ? 'aria-current="page"' : ""}><span class="ind">${icon(v[2])}${id === "study" && n ? `<span class="badge">${n > 99 ? "99+" : n}</span>` : ""}</span><span class="lbl">${label(id)}</span></button>`; };
-  const moreOn = !RAIL.includes(view);
-  const rail = RAIL.map(id => railBtn(id, "rail-btn")).join("") + `<button class="rail-btn" data-act="sheet" ${moreOn ? 'aria-current="page"' : ""}><span class="ind">${icon("more")}</span><span class="lbl">More</span></button>`;
+  const rail = RAIL.map(id => railBtn(id, "rail-btn")).join("");
   const tabs = TABS.map(id => railBtn(id, "tab")).join("") + `<button class="tab" data-act="sheet" ${!TABS.includes(view) ? 'aria-current="page"' : ""}><span class="ind">${icon("more")}</span><span class="lbl">More</span></button>`;
   let body = "";
   try { body = (V[view] || V.home)(); } catch (e) { console.error(e); body = `<div class="panel"><h2>Something went wrong showing this page</h2><p class="muted">${esc(e.message)}</p><button class="btn" data-act="go" data-v="home">Back to Home</button></div>`; }
@@ -2650,22 +2860,23 @@ function render() {
       <button class="appbar-title" data-act="subj" data-v="${other}" title="Switch to ${SUBJ[other].name}">A-Level ${SUBJ[cur()].name}</button>
       <span class="appbar-sync" id="syncline">${syncHTML()}</span>
       <button class="icon-btn" data-act="go" data-v="bank" aria-label="Search the question bank" title="Search questions">${icon("search")}</button>
+      ${view === "timer" ? "" : `<button class="icon-btn" data-act="go" data-v="timer" aria-label="Focus timer" title="Focus timer">${icon("timer")}</button>`}
       <button class="icon-btn" data-act="go" data-v="prefs" aria-label="Settings" title="Settings">${icon("gear")}</button>
     </header>
     <nav class="rail" aria-label="Sections">${rail}</nav>
     <main class="main"><div class="wrap">${body}</div></main>
     <nav class="tabbar" aria-label="Sections">${tabs}</nav>
   </div>
-  ${ui.sheet ? `<div class="sheet-back" data-act="sheet-close"></div><div class="sheet" role="dialog" aria-label="All sections">${VIEWS.filter(v => !RAIL.includes(v[0]) || window.innerWidth < 600).map(([id, lab, ic]) => `<button class="sheet-btn" data-act="go" data-v="${id}" ${view === id ? 'aria-current="page"' : ""}>${icon(ic)}<span>${lab}</span></button>`).join("")}</div>` : ""}`;
+  ${ui.sheet ? `<div class="sheet-back" data-act="sheet-close"></div><div class="sheet" role="dialog" aria-label="All sections">${VIEWS.filter(v => !TABS.includes(v[0])).map(([id, lab, ic]) => `<button class="sheet-btn" data-act="go" data-v="${id}" ${view === id ? 'aria-current="page"' : ""}>${icon(ic)}<span>${lab}</span></button>`).join("")}</div>` : ""}`;
   if (view === "timer") drawTimer();
   mountInk(root);
 }
 function go(v) {
-  view = v; ui.sheet = false;
-  if (location.hash.slice(1) !== v) location.hash = v;
+  view = resolveView(v) || "home"; ui.sheet = false;
+  if (location.hash.slice(1) !== view) location.hash = view;
   render(); window.scrollTo(0, 0);
 }
-addEventListener("hashchange", () => { const v = location.hash.slice(1); if (v !== view && VIEWS.some(x => x[0] === v)) { view = v; ui.sheet = false; render(); } });
+addEventListener("hashchange", () => { const v = resolveView(location.hash.slice(1)); if (v && v !== view) { view = v; ui.sheet = false; render(); } });
 
 const V = {};
 
@@ -2761,14 +2972,14 @@ function startPractice(f) {
   if (!list.length) { toast("No questions match those choices"); return; }
   if (f.random !== false) shuffle(list);
   list = list.slice(0, f.n || list.length);
-  ui.ps = { ids: list.map(q => q.id), i: 0, pick: {}, ticks: {}, saved: {}, shown: {}, kb: {}, lines: {}, done: false, label: f.label || "Practice" };
+  ui.ps = { ids: list.map(q => q.id), i: 0, pick: {}, ticks: {}, saved: {}, shown: {}, kb: {}, lines: {}, ai: {}, aiBusy: null, aiErr: "", done: false, label: f.label || "Practice" };
   go("practice");
 }
 
 V.home = () => {
   const sc = cur(), s = SUBJ[sc], qp = qProgress(sc), q = queueFor(sc), due = q.due.length + q.fresh.length;
   const ex = upcomingExams().filter(e => e.subj === sc)[0];
-  const work = topicsToWork(sc).slice(0, 3);
+  const work = priorities(sc).slice(0, 3).map(p => ({ t: p.t, why: p.why.join(" · ") }));
   const nTopics = topicsIn(sc).length;
   const action = (act, ic, text, v) => `<button class="tonal-btn" data-act="${act}" ${v ? `data-v="${esc(v)}"` : ""}>${icon(ic)}<span>${text}</span></button>`;
   return `
@@ -2793,13 +3004,12 @@ V.home = () => {
     </div>
     <button class="text-btn" data-act="go" data-v="bank">${icon("search")}<span>Browse the question bank</span></button>
   </section>
-  ${work.length ? `<section class="card"><h2 class="card-title">Topics to work on</h2><div class="list">${work.map(w => `<button class="item" data-act="practise-topic" data-v="${w.t.id}">${chipT(w.t)}<span class="item-main"><b>${esc(w.t.t)}</b><span class="muted small">${esc(w.why)}</span></span><span class="muted small">Practise</span></button>`).join("")}</div></section>` : ""}
+  ${work.length ? `<section class="card"><div class="panel-head"><h2 class="card-title">Revise next</h2><button class="btn small ghost" data-act="prog-tab" data-v="priorities">Priority list</button></div><div class="list">${work.map(w => `<button class="item" data-act="practise-topic" data-v="${w.t.id}">${chipT(w.t)}<span class="item-main"><b>${esc(w.t.t)}</b><span class="muted small">${esc(w.why)}</span></span><span class="go-arrow" aria-hidden="true">›</span></button>`).join("")}</div></section>` : ""}
   <p class="hint">Write answers with the S Pen as you would in the exam: the pen writes, your finger scrolls, and holding the S Pen side button rubs out.</p>`;
 };
 
-V.practice = () => {
+function practiceSession() {
   const ps = ui.ps;
-  if (!ps) return practiceSetup();
   if (ps.done) return practiceSummary();
   const id = ps.ids[ps.i], q = QIDX[id], t = TOPICS[q.t], st = S.qs[id] || {}, last = ps.i === ps.ids.length - 1;
   let body = "";
@@ -2810,7 +3020,7 @@ V.practice = () => {
       return `<button class="opt ${cls}" data-act="ps-pick" data-v="${i}" ${picked != null ? "disabled" : ""}><span class="opt-l mono">${"ABCDEF"[i]}</span><span>${esc(o)}</span></button>`; }).join("")}</div>
       ${picked != null ? `<div class="feedback ${picked === q.a ? "ok" : "bad"}"><b>${picked === q.a ? "Correct" : "Not quite. The answer is " + "ABCDEF"[q.a]}</b>${q.x ? `<p>${esc(q.x)}</p>` : ""}</div>` : ""}`;
   } else {
-    const shown = ps.shown[id], saved = ps.saved[id];
+    const shown = ps.shown[id], saved = ps.saved[id], ai = ps.ai[id], busy = ps.aiBusy === id;
     let total = 0;
     body = (q.i ? `<p class="q-stem">${esc(q.i)}</p>` : "") + q.p.map((p, pi) => {
       const key = id + ":" + pi, inkKey = "q:" + key, ticks = ps.ticks[key] || [];
@@ -2823,9 +3033,16 @@ V.practice = () => {
         <div class="row part-tools"><button class="btn small ghost" data-act="ps-lines" data-v="${esc(key)}">More lines</button><button class="btn small ghost" data-act="ps-kb" data-v="${esc(key)}">${ps.kb[key] ? icon("pen") + "Write with S Pen" : icon("keyboard") + "Type instead"}</button>${ps.kb[key] ? "" : `<button class="btn small ghost" data-act="ink-clear" data-v="${esc(inkKey)}">Clear this answer</button>`}${p.u ? `<span class="muted small">Unit: ${esc(p.u)}</span>` : ""}</div>
         ${shown ? `<div class="scheme"><div class="row" style="justify-content:space-between"><b>Mark scheme</b><span class="mono">${got} / ${p.m}</span></div>
           ${p.s.map((m, mi) => `<label class="tick"><input type="checkbox" data-change="ps-tick" data-k="${esc(key)}" data-i="${mi}" ${ticks[mi] ? "checked" : ""} ${saved ? "disabled" : ""}><span>${esc(m)}</span></label>`).join("")}
+          ${ai && ai.parts && ai.parts[pi] && ai.parts[pi].feedback ? `<div class="ai-note">${icon("spark")}<p>${esc(ai.parts[pi].feedback)}</p></div>` : ""}
           ${p.a ? `<div class="model"><b>Model answer</b><p>${esc(p.a)}</p></div>` : ""}</div>` : ""}
       </div>`;
-    }).join("") + `<div class="row">${!shown ? `<button class="btn primary" data-act="ps-show">Show mark scheme</button>` : saved ? `<span class="feedback ok" style="margin:0"><b>Saved: ${saved.got} / ${q.m}</b></span>` : `<button class="btn primary" data-act="ps-save">Save my marks (${total} / ${q.m})</button><span class="muted small">Tick each point you made.</span>`}</div>`;
+    }).join("") +
+      (ai && ai.overall ? `<div class="ai-note">${icon("spark")}<p><b>Gemini: </b>${esc(ai.overall)} Check the ticks, then save.</p></div>` : "") +
+      (ps.aiErr ? `<p class="bad-t small">${esc(ps.aiErr)}</p>` : "") +
+      `<div class="row">${saved ? `<span class="feedback ok" style="margin:0"><b>Saved: ${saved.got} / ${q.m}</b></span>`
+        : `${gemReady() ? `<button class="btn primary" data-act="ps-ai" ${busy ? "disabled" : ""}>${icon("spark")}${busy ? "Marking…" : ai ? "Mark again with AI" : "Mark with AI"}</button>` : ""}
+           ${!shown ? `<button class="btn ${gemReady() ? "" : "primary"}" data-act="ps-show">Show mark scheme</button>` : `<button class="btn ${gemReady() && !ai ? "" : "primary"}" data-act="ps-save">Save my marks (${total} / ${q.m})</button><span class="muted small">Tick each point you made.</span>`}
+           ${OFFLINE && !gemReady() ? `<button class="btn ghost small" data-act="go" data-v="prefs">Set up AI marking</button>` : ""}`}</div>`;
   }
   return `<div class="topbar"><div class="title"><span class="eyebrow">Question ${ps.i + 1} of ${ps.ids.length}</span><h1>${esc(ps.label)}</h1></div><button class="btn small" data-act="ps-end">Finish session</button></div>
   <div class="m3-progress"><i style="width:${(ps.i + 1) / ps.ids.length * 100}%"></i></div>
@@ -2836,18 +3053,31 @@ V.practice = () => {
   <div class="row" style="justify-content:space-between"><button class="btn" data-act="ps-prev" ${ps.i === 0 ? "disabled" : ""}>Previous</button><button class="btn primary" data-act="ps-next">${last ? "Finish" : "Next question"}</button></div>
   ${q.k === "w" && !ps.kbAll ? penBar() : ""}`;
 };
+const segHTML = (act, val, opts, label) => `<div class="seg" role="group" ${label ? `aria-label="${label}"` : ""}>${opts.map(([v, l]) => `<button data-act="${act}" data-v="${v}" aria-pressed="${String(val) === String(v)}">${l}</button>`).join("")}</div>`;
 function practiceSetup() {
-  const f = ui.pf || (ui.pf = defaultPF()), count = qFilter(f).length;
-  const seg = (act, val, opts) => `<div class="seg">${opts.map(([v, l]) => `<button data-act="${act}" data-v="${v}" aria-pressed="${String(val) === String(v)}">${l}</button>`).join("")}</div>`;
+  const f = ui.pf || (ui.pf = defaultPF()), sel = new Set(f.topics || []), count = qFilter({ ...f, topics: sel.size ? [...sel] : null }).length;
   const flagged = qList(cur()).filter(q => (S.qs[q.id] || {}).f).length;
-  return `<div class="topbar"><div class="title"><span class="eyebrow">${SUBJ[cur()].name} question bank</span><h1>Practice</h1></div></div>
+  const sub = SUBJ[cur()], pri = priorities(cur()).slice(0, 5);
+  const groups = sub.sections.map(sec => {
+    const ts = sub.topics.filter(t => t.sec === sec.id && (optOK(t) || sel.has(t.id)));
+    if (!ts.length) return "";
+    const allOn = ts.every(t => sel.has(t.id));
+    return `<div class="topic-group"><div class="row topic-group-head"><span class="field-l">${esc(sec.name)}</span><button class="btn small ghost" data-act="pf-sec" data-v="${sec.id}">${allOn ? "Clear" : "Select all"}</button></div>
+      <div class="topic-chips">${ts.map(t => { const n = qList(cur()).filter(q => q.t === t.id).length; return `<button class="topic-chip" data-act="pf-tog" data-v="${t.id}" aria-pressed="${sel.has(t.id)}"><span class="mono">${esc(t.code)}</span>${esc(t.t)}<span class="tc-n">${n}</span></button>`; }).join("")}</div></div>`;
+  }).join("");
+  return `<section class="card">
+    <div class="panel-head"><div class="stack" style="gap:2px"><h2 class="card-title">Topics</h2><span class="muted small">${sel.size ? `${sel.size} topic${sel.size === 1 ? "" : "s"} selected` : "All topics. Tap topics to choose specific ones."}</span></div>
+      <div class="row" style="gap:6px">${pri.length ? `<button class="btn small" data-act="pf-weak">My 5 priority topics</button>` : ""}${sel.size ? `<button class="btn small ghost" data-act="pf-none">Clear all</button>` : ""}</div></div>
+    ${groups}
+  </section>
   <section class="card">
-    <label class="field" for="pf-topic">Topic<select id="pf-topic" data-change="pf-topic">${topicOptions(f.topic, { label: "All topics" })}</select></label>
-    <div class="stack"><span class="field-l">Question type</span>${seg("pf-kind", f.kind, [["all", "Both"], ["mcq", "Multiple choice"], ["w", "Written"]])}</div>
-    <div class="stack"><span class="field-l">Difficulty</span>${seg("pf-diff", f.diff, [[0, "Any"], [1, "Easier"], [2, "Medium"], [3, "Harder"]])}</div>
-    <div class="stack"><span class="field-l">Questions per session</span>${seg("pf-n", f.n, [[5, "5"], [10, "10"], [20, "20"], [0, "All"]])}</div>
+    <div class="setup-grid">
+      <div class="stack"><span class="field-l">Question type</span>${segHTML("pf-kind", f.kind, [["all", "Both"], ["mcq", "Multiple choice"], ["w", "Written"]], "Question type")}</div>
+      <div class="stack"><span class="field-l">Difficulty</span>${segHTML("pf-diff", f.diff, [[0, "Any"], [1, "Easier"], [2, "Medium"], [3, "Harder"]], "Difficulty")}</div>
+      <div class="stack"><span class="field-l">Questions</span>${segHTML("pf-n", f.n, [[5, "5"], [10, "10"], [20, "20"], [0, "All"]], "Questions per session")}</div>
+    </div>
     <div class="row"><label class="check"><input type="checkbox" data-change="pf-random" ${f.random ? "checked" : ""}> Random order</label><label class="check"><input type="checkbox" data-change="pf-untried" ${f.untried ? "checked" : ""}> Not tried yet</label><label class="check"><input type="checkbox" data-change="pf-flagged" ${f.flagged ? "checked" : ""}> Flagged only</label></div>
-    <div class="row"><button class="btn primary" data-act="pf-start" ${count ? "" : "disabled"}>Start: ${f.n && f.n < count ? f.n : count} question${count === 1 ? "" : "s"}</button><span class="muted small">${count} match</span></div>
+    <div class="row"><button class="btn primary" data-act="pf-start" ${count ? "" : "disabled"}>Start ${f.n && f.n < count ? f.n : count} question${count === 1 ? "" : "s"}</button><span class="muted small">${count} match your choices</span></div>
   </section>
   <section class="card"><h2 class="card-title">Quick starts</h2><div class="actions">
     <button class="tonal-btn" data-act="quick10">${icon("qa")}<span>Quick 10 multiple choice</span></button>
@@ -2887,20 +3117,102 @@ V.bank = () => {
   <section class="card" style="padding:6px 14px">${shown.length ? `<div class="list">${shown.map(q => { const st = S.qs[q.id] || {}; const txt = qText(q); return `<button class="item" data-act="bank-open" data-v="${q.id}" style="align-items:flex-start">${chipT(TOPICS[q.t])}<span class="item-main"><span class="row" style="gap:8px"><span class="small muted">${q.k === "mcq" ? "Multiple choice" : "Written"} · ${q.m} mark${q.m === 1 ? "" : "s"}</span>${diffDots(q.d)}${st.f ? `<span class="flag-mini">${icon("flag")}</span>` : ""}</span><span>${esc(txt.length > 150 ? txt.slice(0, 150) + "…" : txt)}</span></span>${st.n ? `<span class="chip ${st.of && st.got / st.of >= 0.6 ? "green" : "amber"}">${st.got}/${st.of}</span>` : ""}</button>`; }).join("")}</div>` : `<div class="empty" style="margin:10px 0">No questions match. Try fewer filters.</div>`}</section>`;
 };
 
+/* ---------- Page furniture ---------- */
+const pageHead = (eyebrow, title, sub, right) => `<header class="page-head"><div class="page-head-text"><span class="eyebrow">${esc(eyebrow)}</span><h1>${esc(title)}</h1>${sub ? `<p class="page-sub">${esc(sub)}</p>` : ""}</div>${right || ""}</header>`;
+const tabsHTML = (act, val, items) => `<div class="tabs" role="tablist">${items.map(([v, l, n]) => `<button role="tab" data-act="${act}" data-v="${v}" aria-selected="${val === v}">${l}${n ? `<span class="tab-n">${n}</span>` : ""}</button>`).join("")}</div>`;
+function stripTop(h) {
+  const i = h.indexOf('<div class="topbar">'); if (i < 0) return h;
+  const re = /<\/?div\b/g; re.lastIndex = i; let depth = 0, m;
+  while ((m = re.exec(h))) { depth += m[0] === "<div" ? 1 : -1; if (depth === 0) { const end = h.indexOf(">", m.index) + 1; return h.slice(0, i) + h.slice(end); } }
+  return h;
+}
+
+/* ---------- Revision priorities ---------- */
+function topicEvidence(t) {
+  let pg = 0, po = 0, ag = 0, ao = 0, lapses = 0;
+  for (const q of qList(t.subj)) if (q.t === t.id) { const st = S.qs[q.id]; if (st && st.n) { pg += st.got || 0; po += st.of || q.m; } }
+  for (const m of Object.values(S.marked)) if (m.subj === t.subj) for (const x of m.questions) if (x.topic === t.id) { ag += x.awarded; ao += x.max; }
+  for (const id of t.cardIds) { const s = S.srs[id]; if (s) lapses += s.l || 0; }
+  return { pg, po, ag, ao, lapses, c: confOf([t]) };
+}
+function priorities(s) {
+  return topicsIn(s).map(t => {
+    const e = topicEvidence(t), got = e.pg + e.ag * 1.5, of = e.po + e.ao * 1.5;
+    const pct = of ? got / of : null, conf = e.c.n ? (e.c.r + e.c.a * 0.5) / e.c.n : 0;
+    const score = (pct === null ? 0.45 : 1 - pct) * 0.6 + conf * 0.25 + Math.min(e.ao - e.ag, 20) / 20 * 0.15 + Math.min(e.lapses, 10) / 10 * 0.05;
+    const why = [];
+    if (e.ao) why.push(`${e.ag}/${e.ao} marks in past papers`);
+    if (e.po) why.push(`${Math.round(e.pg / e.po * 100)}% in practice questions`);
+    if (e.c.r) why.push(`${e.c.r} red spec point${e.c.r > 1 ? "s" : ""}`); else if (e.c.a) why.push(`${e.c.a} amber spec point${e.c.a > 1 ? "s" : ""}`);
+    if (e.lapses > 2) why.push(`${e.lapses} forgotten flashcards`);
+    if (!why.length) why.push("Not tested yet");
+    return { t, score, pct, e, why, tested: pct !== null };
+  }).sort((a, b) => b.score - a.score);
+}
+const pctChip = p => `<span class="chip ${p >= 0.7 ? "green" : p >= 0.5 ? "amber" : "red"}">${Math.round(p * 100)}%</span>`;
+function priorityRow(p, i, full) {
+  return `<div class="prio">
+    <span class="prio-n mono">${i + 1}</span>
+    <div class="prio-main"><div class="row" style="gap:8px">${chipT(p.t)}<b>${esc(p.t.t)}</b></div><span class="muted small">${esc(p.why.join(" · "))}</span></div>
+    ${p.tested ? pctChip(p.pct) : `<span class="chip">Untested</span>`}
+    <div class="row prio-acts" style="gap:6px"><button class="btn small primary" data-act="practise-topic" data-v="${p.t.id}">Practise</button>${full ? `<button class="btn small" data-act="cram" data-v="${p.t.id}">Flashcards</button><button class="btn small ghost" data-act="open-topic" data-v="${p.t.id}">Notes</button>` : ""}</div>
+  </div>`;
+}
+
+/* ---------- Exam progress ---------- */
 V.progress = () => {
-  const sc = cur(), qp = qProgress(sc);
-  const rows = topicsIn(sc).map(t => ({ t, m: topicMarks(t) }));
-  const papersDone = Object.keys(S.ppDone).filter(k => k.startsWith(sc + "|")).length;
-  return `<div class="topbar"><div class="title"><span class="eyebrow">${SUBJ[sc].name}</span><h1>Progress</h1></div></div>
-  <div class="stats">
-    <div class="stat"><span class="muted">Questions tried</span><b>${qp.tried}<span class="muted" style="font-size:1rem"> / ${qp.total}</span></b></div>
-    <div class="stat"><span class="muted">Marks scored</span><b>${qp.tried ? qp.pct + "%" : "–"}</b></div>
-    <div class="stat"><span class="muted">Flashcards learnt</span><b>${cardStats(sc).seen}</b></div>
-    <div class="stat"><span class="muted">Past papers done</span><b>${papersDone}</b></div>
+  const sc = cur(), tab = ui.progTab || "overview", sub = SUBJ[sc];
+  const nMist = S.mistakes.filter(m => TOPICS[m.topic] && TOPICS[m.topic].subj === sc && !m.done).length;
+  const head = pageHead(`${sub.name} ${sub.code}`, "Exam progress", "Your past paper results, the topics costing you marks, and what to revise next.")
+    + tabsHTML("prog-tab", tab, [["overview", "Overview"], ["priorities", "Revision priorities"], ["results", "Paper results"], ["mistakes", "Mistakes", nMist || ""], ["dates", "Exam dates"]]);
+  if (tab === "priorities") {
+    const pr = priorities(sc);
+    return head + `<section class="card"><div class="panel-head"><h2 class="card-title">Revision priority list</h2><button class="btn small" data-act="pf-weak-go">Practise top 5 now</button></div>
+      <p class="small muted">Ranked by marks lost in AI-marked past papers (weighted most), your practice question scores, red and amber spec ratings, and forgotten flashcards. Untested topics sit in the middle until you try them.</p>
+      <div class="prio-list">${pr.map((p, i) => priorityRow(p, i, true)).join("")}</div></section>`;
+  }
+  if (tab === "results") return head + paperLog(sc);
+  if (tab === "mistakes") return head + stripTop(V.mistakes());
+  if (tab === "dates") return head + stripTop(V.exams());
+  const papers = S.papers.filter(p => p.subj === sc).sort((a, b) => a.date.localeCompare(b.date));
+  const recent = papers.slice(-5), avg = recent.length ? recent.reduce((n, p) => n + p.score / p.max, 0) / recent.length : null;
+  const marked = Object.values(S.marked).filter(m => m.subj === sc).length, qp = qProgress(sc);
+  const ex = upcomingExams().filter(e => e.subj === sc)[0];
+  const pr = priorities(sc), low = pr.filter(p => p.tested).sort((a, b) => a.pct - b.pct).slice(0, 6);
+  return head + `<div class="stats">
+    <div class="stat"><span class="muted">Average paper score${recent.length > 1 ? `, last ${recent.length}` : ""}</span><b>${avg === null ? "–" : Math.round(avg * 100) + "%"}</b></div>
+    <div class="stat"><span class="muted">Papers marked by AI</span><b>${marked}</b></div>
+    <div class="stat"><span class="muted">Practice questions</span><b>${qp.tried ? qp.pct + "%" : "–"}</b><span class="muted small">${qp.tried} of ${qp.total} tried</span></div>
+    <div class="stat"><span class="muted">Next exam</span><b>${ex ? daysTo(ex.date) + " days" : "–"}</b><span class="muted small">${ex ? esc(ex.paper) + ", " + fmtDate(ex.date) : `<button class="text-btn small-tb" data-act="prog-tab" data-v="dates">Add exam dates</button>`}</span></div>
   </div>
-  <section class="card"><h2 class="card-title">Question practice by topic</h2><div class="list">${rows.map(({ t, m }) => `<button class="item" data-act="practise-topic" data-v="${t.id}">${chipT(t)}<span class="item-main"><b>${esc(t.t)}</b><span class="muted small">${m.tried} of ${m.total} tried</span></span><span class="topic-bar"><i class="${m.pct === null ? "" : m.pct >= 0.8 ? "g" : m.pct >= 0.6 ? "a" : "r"}" style="width:${m.pct === null ? 0 : Math.round(m.pct * 100)}%"></i></span><span class="mono small" style="width:3.2em;text-align:right">${m.pct === null ? "–" : Math.round(m.pct * 100) + "%"}</span></button>`).join("")}</div></section>
-  ${paperChart(sc)}
-  ${dashboardParts()}`;
+  <div class="grid g2 card-pair">
+    <section class="card"><div class="panel-head"><h2 class="card-title">Revise next</h2><button class="btn small ghost" data-act="prog-tab" data-v="priorities">Full list</button></div>
+      <div class="prio-list">${pr.slice(0, 5).map((p, i) => priorityRow(p, i, false)).join("")}</div></section>
+    <section class="card"><h2 class="card-title">Lowest-scoring topics</h2>
+      ${low.length ? `<div class="list">${low.map(p => { const g = p.e.pg + p.e.ag, o = p.e.po + p.e.ao; return `<button class="item" data-act="practise-topic" data-v="${p.t.id}">${chipT(p.t)}<span class="item-main"><b>${esc(p.t.t)}</b><span class="muted small">${g} of ${o} marks</span></span><span class="topic-bar"><i class="${p.pct >= 0.7 ? "g" : p.pct >= 0.5 ? "a" : "r"}" style="width:${Math.round(p.pct * 100)}%"></i></span><span class="mono small" style="width:3em;text-align:right">${Math.round(p.pct * 100)}%</span></button>`; }).join("")}</div>`
+        : `<div class="empty">Answer practice questions or mark a past paper with AI, and your weakest topics appear here.</div>`}
+    </section>
+  </div>
+  ${paperChart(sc) || `<section class="card"><h2 class="card-title">Paper scores</h2><div class="empty">Your paper scores will be graphed here once you have two results.</div></section>`}`;
+};
+
+/* ---------- Practice (questions, bank, flashcard quiz) ---------- */
+V.practice = () => {
+  if (ui.ps) return practiceSession();
+  const tab = ui.pracTab || "questions";
+  if (tab === "quiz" && ui.quiz) return V.quiz();
+  const sub = SUBJ[cur()];
+  const head = pageHead(`${sub.name} ${sub.code}`, "Practice", `${qList(cur()).length} exam-style questions with mark schemes, plus quick quizzes on your flashcards.`)
+    + tabsHTML("prac-tab", tab, [["questions", "Exam questions"], ["bank", "Question bank"], ["quiz", "Flashcard quiz"]]);
+  return head + (tab === "bank" ? stripTop(V.bank()) : tab === "quiz" ? stripTop(V.quiz()) : practiceSetup());
+};
+
+/* ---------- Reference (equations, data sheet, practicals) ---------- */
+V.reference = () => {
+  const tab = ui.refTab || "eq", sub = SUBJ[cur()];
+  return pageHead(`${sub.name} ${sub.code}`, "Reference", "Equations, data and the required practicals in one place.")
+    + tabsHTML("ref-tab", tab, [["eq", "Equations"], ["data", "Data sheet"], ["rp", "Required practicals"]])
+    + stripTop(tab === "data" ? V.data() : tab === "rp" ? V.practicals() : V.formulas());
 };
 
 /* ---------- Flashcards ---------- */
@@ -3240,14 +3552,19 @@ V.data = () => {
 
 /* ---------- Past papers ---------- */
 V.papers = () => {
-  const s = cur(), sub = SUBJ[s], pre = (ui.prefill && ui.prefill.subj === s) ? ui.prefill : {};
-  const list = S.papers.filter(p => p.subj === s).sort((a, b) => b.date.localeCompare(a.date));
-  const chart = paperChart(s);
-  return `<div class="topbar"><div class="title"><span class="eyebrow">${sub.name} ${sub.code} · every AQA paper since 2017</span><h1>Past papers</h1></div></div>
+  const s = cur(), sub = SUBJ[s];
+  return `${pageHead(`${sub.name} ${sub.code}`, "Past papers", "Every AQA paper since 2017, with mark schemes, examiner reports and inserts.")}
   ${OFFLINE ? importPanel(s) : ""}
-  <section class="panel"><h2>Official documents</h2><div class="row">${ext(DOCS[s].spec, "Specification (PDF)")}${ext(DOCS[s].booklet, DOCS[s].bookletName + " (PDF)")}${ext(DOCS[s].resources, "All AQA resources")}</div>${OFFLINE ? `<p class="muted small">These open on aqa.org.uk and need internet.</p>` : ""}</section>
+  ${OFFLINE ? aiPaperIntro() : ""}
   ${paperLibrary(s)}
-  <section class="panel" id="log-paper"><h2>Log a ${sub.name} paper</h2>
+  <section class="panel"><h2>Official documents</h2><div class="row">${ext(DOCS[s].spec, "Specification (PDF)")}${ext(DOCS[s].booklet, DOCS[s].bookletName + " (PDF)")}${ext(DOCS[s].resources, "All AQA resources")}</div>${OFFLINE ? `<p class="muted small">These open on aqa.org.uk and need internet.</p>` : ""}</section>`;
+};
+function paperLog(s) {
+  const sub = SUBJ[s], pre = (ui.prefill && ui.prefill.subj === s) ? ui.prefill : {};
+  const list = S.papers.filter(p => p.subj === s).sort((a, b) => b.date.localeCompare(a.date));
+  return `${paperChart(s)}
+  <section class="panel"><h2>Results</h2>${list.length ? `<div class="list">${list.map(p => { const pc = Math.round(p.score / p.max * 100), m = p.ai && S.marked[p.ai]; return `<div class="item"><span class="item-main"><b>${esc(p.paper)} · ${esc(p.series)}</b><span class="muted small">${fmtDate(p.date)}${p.ai ? " · Marked by Gemini" : ""}</span></span><span class="mono">${p.score}/${p.max}</span><span class="chip ${pc >= 70 ? "green" : pc >= 50 ? "amber" : "red"}">${pc}%</span>${m ? `<button class="btn small" data-act="ai-result" data-v="${esc(p.ai)}">Feedback</button>` : ""}<button class="btn small ghost" data-act="del-paper" data-v="${p.id}" aria-label="Delete result">✕</button></div>`; }).join("")}</div>` : `<div class="empty">No results yet. Mark a paper with AI in the paper viewer, or log a mark below.</div>`}</section>
+  <section class="panel" id="log-paper"><h2>Log a mark yourself</h2>
     <form class="grid g3" data-form="paper"><input type="hidden" name="subj" value="${s}">
       <label class="field" for="pp-paper">Paper<select id="pp-paper" name="paper">${sub.papers.map(p => `<option value="${p.name}" data-max="${p.marks}" ${pre.paper === p.name ? "selected" : ""}>${p.name} (${p.marks} marks)</option>`).join("")}<option value="Topic test">Topic test / other</option></select></label>
       <label class="field" for="pp-series">Series<input id="pp-series" name="series" type="text" placeholder="e.g. June 2023" value="${esc(pre.series || "")}" required></label>
@@ -3256,11 +3573,9 @@ V.papers = () => {
       <label class="field" for="pp-date">Date done<input id="pp-date" name="date" type="date" value="${dayKey()}" required></label>
       <div><button class="btn primary" type="submit">Save paper</button></div>
     </form>
-    <p class="muted small">Find papers and mark schemes on the <a href="https://www.aqa.org.uk/find-past-papers-and-mark-schemes" target="_blank" rel="noopener">AQA website</a>. Grade boundaries change each year, so compare your percentage with that series' boundaries.</p>
-  </section>
-  ${chart}
-  <section class="panel"><h2>History</h2>${list.length ? `<div class="list">${list.map(p => { const pc = Math.round(p.score / p.max * 100); return `<div class="item"><span class="subj-dot ${p.subj}"></span><span class="item-main"><b>${subjName(p.subj)} ${esc(p.paper)} · ${esc(p.series)}</b><span class="muted small">${fmtDate(p.date)}</span></span><span class="mono">${p.score}/${p.max}</span><span class="chip ${pc >= 70 ? "green" : pc >= 50 ? "amber" : "red"}">${pc}%</span><button class="btn small ghost" data-act="del-paper" data-v="${p.id}" aria-label="Delete">✕</button></div>`; }).join("")}</div>` : `<div class="empty">No papers logged yet. Log each paper you do to see your progress.</div>`}</section>`;
-};
+    <p class="muted small">Grade boundaries change each year, so compare your percentage with that series' boundaries.</p>
+  </section>`;
+}
 function importPanel(s) {
   const have = storedCount(s), all = totalCount(s), name = SUBJ[s].name;
   if (ui.importing) return `<section class="panel"><h2>Adding papers to this device</h2><p id="import-progress" class="mono">Storing papers… ${ui.importing.done} of ${ui.importing.total}</p><p class="muted small">Keep the app open until this finishes.</p></section>`;
@@ -3398,6 +3713,7 @@ V.prefs = () => {
     </div>
     <p class="muted small">There are ${Object.keys(CARDS).length} flashcards in total. At 20 new cards a day you'll have seen them all in about ${Math.ceil(Object.keys(CARDS).length / Math.max(1, st.newPerDay))} days; raise the number if your exams are sooner.</p>
   </section>
+  ${OFFLINE ? geminiPanel() : ""}
   <section class="panel"><h2>Appearance</h2><div class="seg">${[["system", "Match device"], ["light", "Light"], ["dark", "Dark"]].map(([v, l]) => `<button data-act="theme" data-v="${v}" aria-pressed="${st.theme === v}">${l}</button>`).join("")}</div></section>
   <section class="panel"><h2>Your progress</h2>
     <div class="row" id="syncline2">${syncHTML()}</div>
@@ -3414,6 +3730,19 @@ V.prefs = () => {
   ${OFFLINE ? `<p class="muted small">Offline edition, build ${esc(window.BUILD || "")}. The Claude tutor is only in the claude.ai version.</p>` : ""}
   <p class="muted small">Content written for AQA A-level Physics 7408 and Chemistry 7405. Always check the latest specification and your exam board's data sheets.</p>`;
 };
+
+function geminiPanel() {
+  const g = gem(), ok = gemReady();
+  return `<section class="panel" id="gemini"><div class="panel-head"><div class="stack" style="gap:4px"><h2>AI marking with Google Gemini</h2><span class="muted small">Marks your written answers and whole past papers against the mark scheme.</span></div>${ok ? `<span class="chip green">Connected</span>` : ""}</div>
+    ${ok ? `<div class="grid g2"><label class="field" for="gem-model-sel">Model<select id="gem-model-sel" data-change="gem-model">${(g.models || [g.model]).map(m => `<option ${m === g.model ? "selected" : ""}>${esc(m)}</option>`).join("")}</select></label>
+      <div class="stack" style="justify-content:flex-end"><div class="row"><button class="btn" data-act="gem-remove">Remove key</button></div></div></div>
+      <p class="muted small">A "flash" model is fast and works on Google's free tier. "Pro" models mark more carefully but have lower free limits.</p>`
+    : `<ol class="tight small"><li>Open <b>aistudio.google.com/apikey</b> and sign in with a Google account.</li><li>Tap <b>Create API key</b> and copy it.</li><li>Paste it below and tap <b>Save and test</b>.</li></ol>
+      <div class="row" style="flex-wrap:nowrap"><input type="password" id="gem-key" autocomplete="off" spellcheck="false" placeholder="Paste your Gemini API key" aria-label="Gemini API key"><button class="btn primary" data-act="gem-save" ${ui.gemBusy ? "disabled" : ""}>Save and test</button></div>
+      <p class="muted small">Your key is stored only on this device. It isn't included in backups and is only sent to Google. AI marking needs internet; everything else works offline.</p>`}
+    ${ui.gemMsg ? `<p class="small ${/working|saved|changed|removed/i.test(ui.gemMsg) ? "good" : /checking/i.test(ui.gemMsg) ? "muted" : "bad-t"}">${esc(ui.gemMsg)}</p>` : ""}
+  </section>`;
+}
 
 /* ---------- Events ---------- */
 const ACT = {
@@ -3470,7 +3799,7 @@ const ACT = {
   "pf-kind": el => { ui.pf.kind = el.dataset.v; render(); },
   "pf-diff": el => { ui.pf.diff = +el.dataset.v; render(); },
   "pf-n": el => { ui.pf.n = +el.dataset.v; render(); },
-  "pf-start": () => { const f = ui.pf; startPractice({ ...f, label: f.topic ? TOPICS[f.topic].t : f.kind === "mcq" ? "Multiple choice practice" : f.kind === "w" ? "Written practice" : "Mixed practice" }); },
+  "pf-start": () => { const f = ui.pf, ts = f.topics && f.topics.length ? f.topics : null; startPractice({ ...f, topic: "", topics: ts, label: ts && ts.length === 1 ? TOPICS[ts[0]].t : ts ? `${ts.length} topics` : f.kind === "mcq" ? "Multiple choice practice" : f.kind === "w" ? "Written practice" : "Mixed practice" }); },
   "ps-pick": el => { const ps = ui.ps, id = ps.ids[ps.i], q = QIDX[id]; if (ps.pick[id] != null) return; ps.pick[id] = +el.dataset.v; recordQ(id, ps.pick[id] === q.a ? q.m : 0, q.m); render(); },
   "ps-show": () => { const ps = ui.ps; ps.shown[ps.ids[ps.i]] = true; render(); },
   "ps-save": () => {
@@ -3501,8 +3830,8 @@ const ACT = {
   "vw-close": () => closeViewer(false),
   "vw-kind": el => { const c = VW.cur; openPaper(c.subj, c.ser, c.label, +el.dataset.v); },
   "vw-zoom": el => { const c = document.getElementById("vw-pages"); const f = c ? c.scrollTop / Math.max(1, c.scrollHeight) : 0; VW.zoom = Math.max(0.6, Math.min(3, VW.zoom * (el.dataset.v === "1" ? 1.25 : 0.8))); layoutPages(f); },
-  "vw-done": () => { const c = VW.cur, k = c.subj + "|" + c.ser + "|" + c.label; if (S.ppDone[k]) delete S.ppDone[k]; else S.ppDone[k] = dayKey(); save(); const b = document.querySelector('[data-act="vw-done"]'); if (b) { b.textContent = S.ppDone[k] ? "✓ Done" : "Mark done"; b.classList.toggle("primary", !S.ppDone[k]); } render(); },
-  "vw-log": () => { const c = VW.cur, m = c.label.match(/Paper \d/); closeViewer(false); if (cur() !== c.subj) S.settings.subj = c.subj; ui.prefill = { subj: c.subj, series: c.ser, paper: m ? m[0] : "" }; go("papers"); setTimeout(() => { const f = document.getElementById("log-paper"); if (f) f.scrollIntoView({ block: "start" }); }, 50); },
+  "vw-done": () => { const c = VW.cur, k = c.subj + "|" + c.ser + "|" + c.label; if (S.ppDone[k]) delete S.ppDone[k]; else S.ppDone[k] = dayKey(); save(); const b = document.querySelector('[data-act="vw-done"]'); if (b) { b.textContent = S.ppDone[k] ? "✓ Done" : "Mark done"; b.classList.toggle("ghost", !S.ppDone[k]); } render(); },
+  "vw-log": () => { const c = VW.cur, m = c.label.match(/Paper \d/); leaveViewer(() => { if (cur() !== c.subj) S.settings.subj = c.subj; ui.prefill = { subj: c.subj, series: c.ser, paper: m ? m[0] : "" }; ui.progTab = "results"; go("progress"); setTimeout(() => { const f = document.getElementById("log-paper"); if (f) f.scrollIntoView({ block: "start" }); }, 50); }); },
   "papers-clear": () => { ui.confirmClearPapers = true; render(); },
   "papers-clear-no": () => { ui.confirmClearPapers = false; render(); },
   "papers-clear-yes": async () => { try { await pdbOpen(); await pdbClear(); } catch (e) { /* ignore */ } ui.confirmClearPapers = false; render(); toast("Stored papers removed"); },
@@ -3510,10 +3839,32 @@ const ACT = {
   "all-opts": () => { ui.allOpts = !ui.allOpts; render(); },
   "pp-log": el => {
     const m = el.dataset.p.match(/Paper \d/);
-    ui.prefill = { subj: cur(), series: el.dataset.v, paper: m ? m[0] : "" }; render();
-    const f = document.getElementById("log-paper"); if (f) f.scrollIntoView({ behavior: "smooth", block: "start" });
-    const sc = document.getElementById("pp-score"); if (sc) setTimeout(() => sc.focus({ preventScroll: true }), 300);
+    ui.prefill = { subj: cur(), series: el.dataset.v, paper: m ? m[0] : "" }; ui.progTab = "results"; go("progress");
+    setTimeout(() => { const f = document.getElementById("log-paper"); if (f) f.scrollIntoView({ behavior: "smooth", block: "start" }); const sc = document.getElementById("pp-score"); if (sc) sc.focus({ preventScroll: true }); }, 60);
   },
+  "prog-tab": el => { ui.progTab = el.dataset.v; if (view !== "progress") go("progress"); else { render(); window.scrollTo(0, 0); } },
+  "prac-tab": el => { ui.pracTab = el.dataset.v; ui.quiz = null; render(); },
+  "ref-tab": el => { ui.refTab = el.dataset.v; render(); },
+  "pf-tog": el => { const f = ui.pf, s = new Set(f.topics || []); s.has(el.dataset.v) ? s.delete(el.dataset.v) : s.add(el.dataset.v); f.topics = [...s]; render(); },
+  "pf-sec": el => { const f = ui.pf, s = new Set(f.topics || []), ts = SUBJ[cur()].topics.filter(t => t.sec === el.dataset.v && optOK(t)).map(t => t.id); const allOn = ts.every(id => s.has(id)); ts.forEach(id => allOn ? s.delete(id) : s.add(id)); f.topics = [...s]; render(); },
+  "pf-none": () => { ui.pf.topics = []; render(); },
+  "pf-weak": () => { ui.pf.topics = priorities(cur()).slice(0, 5).map(p => p.t.id); render(); toast("Selected your 5 priority topics"); },
+  "pf-weak-go": () => startPractice({ topics: priorities(cur()).slice(0, 5).map(p => p.t.id), n: 10, label: "Priority topics" }),
+  "ps-ai": () => markQuestionAI(),
+  "vw-ai": () => { if (!gemReady()) { leaveViewer(() => { go("prefs"); toast("Add your Gemini key to use AI marking."); }); return; } markPaperAI(); },
+  "ai-result": el => showAIResult(el.dataset.v),
+  "ai-result-close": () => { const el = document.getElementById("ai-result"); if (el) el.remove(); },
+  "ai-result-progress": () => { const el = document.getElementById("ai-result"); if (el) el.remove(); leaveViewer(() => { ui.progTab = "priorities"; go("progress"); }); },
+  "gem-save": async () => {
+    const inp = document.getElementById("gem-key"), key = (inp && inp.value || "").trim();
+    if (!key) { ui.gemMsg = "Paste your key first."; render(); return; }
+    ui.gemMsg = "Checking your key…"; ui.gemBusy = true; render();
+    try { const models = await gemModels(key); if (!models.length) throw new Error("Your key works, but no suitable Gemini models were found."); const pick = models.find(n => /flash/.test(n) && !/lite/.test(n)) || models[0]; gemSet({ key, model: pick, models: models.slice(0, 12) }); ui.gemMsg = "Key saved and working."; }
+    catch (e) { ui.gemMsg = e.message; }
+    ui.gemBusy = false; render();
+  },
+  "gem-remove": () => { gemSet(null); ui.gemMsg = "Key removed from this device."; render(); },
+  "pp-score-focus": () => {},
   "del-paper": el => { S.papers = S.papers.filter(p => p.id !== el.dataset.v); save(); render(); },
   "del-exam": el => { S.exams = S.exams.filter(p => p.id !== el.dataset.v); save(); render(); },
   "mk-filter": el => { ui.mistakeFilter = el.dataset.v; render(); },
@@ -3548,7 +3899,7 @@ const CHANGE = {
   "quiz-topic": el => { ui.quizTopic = el.value; },
   "tutor-topic": el => { ui.tutor.topic = el.value; ui.tutor.q = null; ui.tutor.mark = null; render(); },
   "tutor-marks": el => { ui.tutor.marks = +el.value; },
-  "pf-topic": el => { ui.pf.topic = el.value; render(); },
+  "gem-model": el => { const g = gem(); g.model = el.value; gemSet(g); ui.gemMsg = "Model changed."; render(); },
   "pf-random": el => { ui.pf.random = el.checked; },
   "pf-untried": el => { ui.pf.untried = el.checked; render(); },
   "pf-flagged": el => { ui.pf.flagged = el.checked; render(); },
