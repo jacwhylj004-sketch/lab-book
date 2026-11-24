@@ -370,6 +370,10 @@ ul.tight, ol.tight { margin: 0; padding-left: 1.2em; display: flex; flex-directi
 .vw-help .seg-btn, .vw-help button { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
 .vw-panel { width: min(46%, 520px); flex: none; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px)); background: var(--bg); border-left: 1px solid var(--line); min-height: 0; }
 .vw-panel[hidden] { display: none; }
+.ps-panel { position: fixed; right: 0; bottom: 0; top: calc(env(safe-area-inset-top, 0px) + 64px); width: min(46%, 520px); z-index: 45; box-shadow: -6px 0 24px rgba(0,0,0,.18); border-top-left-radius: 22px; }
+body.ps-open .main { padding-right: calc(min(46%, 520px) + 12px); }
+body.ps-open .penbar { left: calc((100% - min(46%, 520px)) / 2); }
+@media (max-width: 760px) { .ps-panel { top: auto; width: 100%; height: 56%; border-radius: 22px 22px 0 0; } body.ps-open .main { padding-right: 16px; padding-bottom: 58%; } body.ps-open .penbar { left: 50%; bottom: calc(56% + 12px); } }
 .viewer.vp-open .penbar { left: calc((100% - min(46%, 520px)) / 2); }
 .vwp-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .vwp-head b { font-size: 1.05rem; font-weight: 600; }
@@ -452,7 +456,7 @@ ul.tight, ol.tight { margin: 0; padding-left: 1.2em; display: flex; flex-directi
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261124-2321";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261124-2327";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -4400,10 +4404,22 @@ function vwPanelApply() {
   const c = document.getElementById("vw-pages"), f = c ? c.scrollTop / Math.max(1, c.scrollHeight) : 0;
   setTimeout(() => layoutPages(f), 80);
 }
+const psQ = () => (ui.ps && !ui.ps.done) ? QIDX[ui.ps.ids[ui.ps.i]] : null;
+const helpKey = () => VW.open ? (vwKey() || "note") : (psQ() ? "q:" + psQ().id : "");
+function psPanelApply() {
+  if (VW.open) return;
+  let p = document.getElementById("ps-panel");
+  const want = !!VWP.mode && view === "practice" && !!psQ();
+  if (!want) { if (p) p.remove(); document.body.classList.remove("ps-open"); if (!(view === "practice" && ui.ps)) VWP.mode = null; return; }
+  if (!p) { p = document.createElement("aside"); p.id = "ps-panel"; p.className = "vw-panel ps-panel"; p.setAttribute("aria-label", "Help panel"); document.body.appendChild(p); }
+  document.body.classList.add("ps-open"); drawVwPanel();
+}
 function drawVwPanel() {
-  const p = document.getElementById("vw-panel"); if (!p || !VWP.mode) return;
+  const p = document.getElementById(VW.open ? "vw-panel" : "ps-panel"); if (!p || !VWP.mode) return;
   const keep = p.querySelector(".vwp-scroll"), top = keep ? keep.scrollTop : 0;
-  const sc = VW.cur ? VW.cur.subj : cur(), s = SUBJ[sc];
+  const pq = VW.open ? null : psQ();
+  if (pq && VWP.psQ !== pq.id) { VWP.psQ = pq.id; VWP.topic = pq.t; }
+  const sc = VW.cur && VW.open ? VW.cur.subj : pq ? pq.subj : cur(), s = SUBJ[sc];
   const close = `<button class="icon-btn" data-act="vwp-toggle" data-v="${VWP.mode}" aria-label="Close">✕</button>`;
   if (VWP.mode === "notes") {
     const NT = (window.NC || {}).topics || {};
@@ -4413,11 +4429,11 @@ function drawVwPanel() {
       <label class="field vwp-pick"><span class="muted small">Topic (pick the one this question is about)</span><select data-change="vwp-topic">${opts}</select></label>
       <div class="vwp-scroll"><div class="nt-article nt-compact">${noteArticle(TOPICS[id], true)}</div></div>`;
   } else {
-    const key = vwKey(), chat = VWP.chat[key] || [], ready = gemReady();
+    const key = helpKey(), chat = VWP.chat[key] || [], ready = gemReady();
     const msgs = chat.map(m => `<div class="gm ${m.r} ${m.err ? "err" : ""}">${(m.r === "m" ? mdb(m.t) : esc(m.t)).replace(/\n/g, "<br>")}</div>`).join("");
     const chips = ["Explain what this question wants", "Give me a hint", "Check what I've written", "Show the full answer"];
     p.innerHTML = `<div class="vwp-head"><b>${icon("spark").replace("<svg", '<svg style="width:18px;vertical-align:-3px"')} Ask Gemini</b>${close}</div>
-      ${ready ? `<div class="vwp-opts"><span class="muted small">Gemini looks at</span><div class="seg"><button data-act="vwp-pages" data-v="1" aria-pressed="${VWP.pages === 1}">This page</button><button data-act="vwp-pages" data-v="2" aria-pressed="${VWP.pages === 2}">This + next page</button></div>
+      ${ready ? `<div class="vwp-opts">${VW.open ? `<span class="muted small">Gemini looks at</span><div class="seg"><button data-act="vwp-pages" data-v="1" aria-pressed="${VWP.pages === 1}">This page</button><button data-act="vwp-pages" data-v="2" aria-pressed="${VWP.pages === 2}">This + next page</button></div>` : `<span class="muted small">Gemini sees this question and everything you have written for it, typed or in ink.</span>`}
         <label class="small row" style="gap:8px"><input type="checkbox" data-change="vwp-ms" ${VWP.useMs ? "checked" : ""}> Let it use the mark scheme <span class="muted">(it may give answers away)</span></label></div>
       <div class="vwp-scroll" id="vwp-chat">${msgs || `<p class="muted small" style="padding:6px 2px">It sees the page you are on, including everything you have written on it with the S Pen. Ask about the question you are working on.</p>`}${VWP.busy ? `<div class="gm m"><span class="spinner" style="width:16px;height:16px;display:inline-block;vertical-align:-3px"></span> Gemini is looking at your page…</div>` : ""}</div>
       <div class="vwp-chips">${chips.map(c => `<button class="chip-btn" data-act="vwp-chip" data-v="${esc(c)}" ${VWP.busy ? "disabled" : ""}>${esc(c)}</button>`).join("")}</div>
@@ -4458,6 +4474,7 @@ async function vwMarkScheme(c) {
 async function vwpAsk(text) {
   text = String(text || "").trim(); if (!text || VWP.busy) return;
   if (!gemReady()) { toast("Add your Gemini key in Settings first."); return; }
+  if (!VW.open && psQ()) { return vwpAskQuestion(text); }
   if (!VW.doc) { toast("Wait for the paper to open."); return; }
   const key = vwKey() || "note", chat = VWP.chat[key] || (VWP.chat[key] = []);
   chat.push({ r: "u", t: text }); VWP.busy = true; VWP.draft = ""; drawVwPanel();
@@ -4472,6 +4489,37 @@ Help without just handing over the answer: by default give hints, explain the id
     const parts = [{ text: `${c ? `Paper: ${sub.name} ${c.ser} ${c.label}. ` : ""}The student is viewing page ${pages.join(" and ")} of ${VW.doc.numPages}.${ms ? `\n\nMARK SCHEME:\n${ms}\n` : ""}` }];
     images.forEach(im => parts.push({ text: `Page ${im.n} of the paper (with the student's writing):` }, { inline_data: { mime_type: "image/jpeg", data: im.data } }));
     parts.push({ text: "Student: " + text });
+    chat.push({ r: "m", t: await gemChat(sys, hist.concat([{ role: "user", parts }])) });
+  } catch (e) { chat.push({ r: "m", t: "⚠ " + (e.message || "Couldn't get an answer."), err: true }); }
+  VWP.busy = false; drawVwPanel();
+}
+// Help for a question in a practice session or a predicted paper: Gemini gets the question text and the student's answers.
+async function vwpAskQuestion(text) {
+  const ps = ui.ps, q = psQ(), id = q.id, key = "q:" + id, chat = VWP.chat[key] || (VWP.chat[key] = []), sub = SUBJ[q.subj];
+  chat.push({ r: "u", t: text }); VWP.busy = true; VWP.draft = ""; drawVwPanel();
+  try {
+    const parts = []; let intro = `Question from a ${sub.name} ${ps.label ? "session called \"" + ps.label + "\"" : "practice session"}, topic ${TOPICS[q.t].code} ${TOPICS[q.t].t}. ${q.k === "mcq" ? "Multiple choice" : "Written"}, ${q.m} mark${q.m === 1 ? "" : "s"}.\n`;
+    if (q.k === "mcq") {
+      const picked = ps.pick[id];
+      intro += `\n${q.s}\n${q.o.map((o, i) => `${"ABCDEF"[i]}. ${o}`).join("\n")}\nThe student has ${picked != null ? "chosen " + "ABCDEF"[picked] : "not chosen an answer yet"}.`;
+      if (VWP.useMs) intro += `\n\nMARK SCHEME: the correct answer is ${"ABCDEF"[q.a]}. ${q.x || ""}`;
+      parts.push({ text: intro });
+    } else {
+      if (q.i) intro += `\nContext: ${q.i}\n`;
+      parts.push({ text: intro });
+      for (let pi = 0; pi < q.p.length; pi++) {
+        const p = q.p[pi], k2 = id + ":" + pi, typed = (S.qtext[k2] || "").trim();
+        parts.push({ text: `\nPart (${LETTERS[pi]}) [${p.m} mark${p.m === 1 ? "" : "s"}]: ${p.q}${p.u ? " (unit: " + p.u + ")" : ""}${VWP.useMs ? "\nMark scheme points: " + p.s.map((m, i) => `${i + 1}. ${m}`).join(" ") : ""}\nStudent's answer to part (${LETTERS[pi]}):` });
+        if (ps.kb[k2] && typed) { parts.push({ text: typed }); continue; }
+        const el = document.querySelector(`.ink[data-ink="${CSS.escape("q:" + k2)}"]`);
+        const img = await answerImage("q:" + k2, el ? el.clientHeight / Math.max(1, el.clientWidth) : 0.3);
+        if (img) parts.push({ inline_data: { mime_type: "image/jpeg", data: img } }); else parts.push({ text: typed || "(nothing written yet)" });
+      }
+    }
+    const sys = `You are a friendly, precise tutor helping a student revise AQA A-level ${sub.name} (${sub.code}) by working through exam questions. You are shown the question and what the student has written so far (typed text, or handwriting as an image).
+Help without just handing over the answer: by default give hints, explain the idea, say what the question is really asking, and point out exactly what is right or missing in what they have written. Give a full worked answer only when they ask for it, with every step, the units and the reasoning. Stay within the AQA specification, use UK spelling and AQA terminology, keep replies under about 180 words unless asked for more, and use plain text (no Markdown tables or headings; **bold** is fine for key words).${VWP.useMs ? "\nThe mark scheme is provided to guide you. Use it to judge their answer, but don't paste it unless they ask for the answer." : "\nYou don't have the mark scheme, so rely on your own knowledge and say if you are unsure."}`;
+    const hist = chat.slice(0, -1).slice(-10).map(m => ({ role: m.r === "u" ? "user" : "model", parts: [{ text: m.t }] }));
+    parts.push({ text: "\nStudent: " + text });
     chat.push({ r: "m", t: await gemChat(sys, hist.concat([{ role: "user", parts }])) });
   } catch (e) { chat.push({ r: "m", t: "⚠ " + (e.message || "Couldn't get an answer."), err: true }); }
   VWP.busy = false; drawVwPanel();
@@ -4818,6 +4866,7 @@ function render() {
   ${ui.sheet ? `<div class="sheet-back" data-act="sheet-close"></div><div class="sheet" role="dialog" aria-label="All sections">${VIEWS.filter(v => !TABS.includes(v[0])).map(([id, lab, ic]) => `<button class="sheet-btn" data-act="go" data-v="${id}" ${view === id ? 'aria-current="page"' : ""}>${icon(ic)}<span>${lab}</span></button>`).join("")}</div>` : ""}`;
   if (view === "timer") drawTimer();
   mountInk(root);
+  psPanelApply();
 }
 function go(v) {
   view = resolveView(v) || "home"; ui.sheet = false;
@@ -4991,7 +5040,7 @@ function practiceSession() {
            ${!shown ? `<button class="btn ${gemReady() ? "" : "primary"}" data-act="ps-show">Show mark scheme</button>` : `<button class="btn ${gemReady() && !ai ? "" : "primary"}" data-act="ps-save">Save my marks (${total} / ${q.m})</button><span class="muted small">Tick each point you made.</span>`}
            ${OFFLINE && !gemReady() ? `<button class="btn ghost small" data-act="go" data-v="prefs">Set up AI marking</button>` : ""}`}</div>`;
   }
-  return `<div class="topbar"><div class="title"><span class="eyebrow">Question ${ps.i + 1} of ${ps.ids.length}</span><h1>${esc(ps.label)}</h1></div><button class="btn small" data-act="ps-end">Finish session</button></div>
+  return `<div class="topbar"><div class="title"><span class="eyebrow">Question ${ps.i + 1} of ${ps.ids.length}</span><h1>${esc(ps.label)}</h1></div><div class="row" style="gap:8px">${OFFLINE ? `<div class="seg vw-help"><button data-act="vwp-toggle" data-v="notes" aria-pressed="${VWP.mode === "notes"}">${icon("book").replace("<svg", '<svg style="width:18px"')} Notes</button><button data-act="vwp-toggle" data-v="ai" aria-pressed="${VWP.mode === "ai"}">${icon("spark").replace("<svg", '<svg style="width:18px"')} Ask Gemini</button></div>` : ""}<button class="btn small" data-act="ps-end">Finish session</button></div></div>
   <div class="m3-progress"><i style="width:${(ps.i + 1) / ps.ids.length * 100}%"></i></div>
   <article class="card q-card">
     <div class="row q-meta">${chipT(t)}<span class="small">${esc(t.t)}</span>${diffDots(q.d)}<span class="chip">${q.k === "mcq" ? "Multiple choice" : "Written"} · ${q.m} mark${q.m === 1 ? "" : "s"}</span>${st.n ? `<span class="chip ${st.of && st.got / st.of >= 0.6 ? "green" : "amber"}">Last: ${st.got}/${st.of}</span>` : ""}<button class="icon-btn flag ${st.f ? "on" : ""}" data-act="ps-flag" aria-pressed="${!!st.f}" aria-label="${st.f ? "Remove flag" : "Flag this question"}" title="Flag">${icon("flag")}</button></div>
@@ -5975,11 +6024,11 @@ const ACT = {
   "vw-clear-ink": () => { if (!VW.name || !VW.doc) return; for (let n = 1; n <= VW.doc.numPages; n++) inkClear("pdf:" + VW.name + ":" + n); toast("Your writing on this paper was cleared"); },
   "pdf-open": el => openPaper(el.dataset.s, el.dataset.ser, el.dataset.l, +el.dataset.k),
   "vw-close": () => closeViewer(false),
-  "vwp-toggle": el => { VWP.mode = VWP.mode === el.dataset.v ? null : el.dataset.v; vwPanelApply(); },
+  "vwp-toggle": el => { VWP.mode = VWP.mode === el.dataset.v ? null : el.dataset.v; if (VW.open) vwPanelApply(); else render(); },
   "vwp-chip": el => vwpAsk(el.dataset.v),
   "vwp-pages": el => { VWP.pages = +el.dataset.v; drawVwPanel(); },
-  "vwp-clear": () => { VWP.chat[vwKey() || "note"] = []; drawVwPanel(); },
-  "vwp-setup": () => { leaveViewer(() => { go("prefs"); toast("Add your Gemini key, then come back to the paper."); }); },
+  "vwp-clear": () => { VWP.chat[helpKey()] = []; drawVwPanel(); },
+  "vwp-setup": () => { if (VW.open) leaveViewer(() => { go("prefs"); toast("Add your Gemini key, then come back to the paper."); }); else { go("prefs"); toast("Add your Gemini key, then come back."); } },
   "vw-kind": el => { const c = VW.cur; openPaper(c.subj, c.ser, c.label, +el.dataset.v); },
   "vw-zoom": el => { const c = document.getElementById("vw-pages"); const f = c ? c.scrollTop / Math.max(1, c.scrollHeight) : 0; VW.zoom = Math.max(0.6, Math.min(3, VW.zoom * (el.dataset.v === "1" ? 1.25 : 0.8))); layoutPages(f); },
   "vw-done": () => { const c = VW.cur, k = c.subj + "|" + c.ser + "|" + c.label; if (S.ppDone[k]) delete S.ppDone[k]; else S.ppDone[k] = dayKey(); save(); const b = document.querySelector('[data-act="vw-done"]'); if (b) { b.textContent = S.ppDone[k] ? "✓ Done" : "Mark done"; b.classList.toggle("ghost", !S.ppDone[k]); } render(); },
