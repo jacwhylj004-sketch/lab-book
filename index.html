@@ -399,9 +399,34 @@ body.ps-open .penbar { left: calc((100% - min(46%, 520px)) / 2); }
 .vwp-form { display: flex; flex-direction: column; gap: 6px; }
 .vwp-form textarea { width: 100%; min-height: 56px; resize: none; border: 1px solid var(--line); background: var(--surface); border-radius: 14px; padding: 10px 12px; }
 @media (max-width: 760px) { .vw-body { flex-direction: column; } .vw-panel { width: 100%; height: 52%; border-left: 0; border-top: 1px solid var(--line); } .viewer.vp-open .penbar { left: 50%; bottom: calc(52% + 16px); } }
-.vw-pages { flex: 1; min-width: 0; overflow: auto; -webkit-overflow-scrolling: touch; padding: 12px 12px calc(96px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.viewer { touch-action: pan-x pan-y; }
+.vw-main { flex: 1; min-width: 0; min-height: 0; position: relative; display: flex; flex-direction: column; overflow: hidden; }
+.vw-pages { flex: 1; min-width: 0; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-x pan-y; scrollbar-width: none; padding: 12px 40px calc(96px + env(safe-area-inset-bottom, 0px)) 12px; }
+.vw-pages::-webkit-scrollbar { display: none; }
+/* as wide as the widest page, so a zoomed page can be scrolled all the way to both edges */
+.vw-doc { display: flex; flex-direction: column; align-items: center; gap: 12px; width: max-content; min-width: 100%; }
 .vw-page { position: relative; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.18); flex: none; }
-.vw-page canvas { display: block; }
+.vw-page > .pdf-cv { display: block; width: 100%; height: 100%; }
+/* side scroll bar and zoom level */
+.vw-sb { position: absolute; top: 8px; bottom: calc(88px + env(safe-area-inset-bottom, 0px)); right: max(2px, env(safe-area-inset-right, 0px)); width: 36px; z-index: 20; pointer-events: none; }
+.vw-sb[hidden] { display: none; }
+.viewer:not(:has(.penbar)) .vw-sb { bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+.vw-sb::before { content: ""; position: absolute; top: 0; bottom: 0; right: 17px; width: 2px; border-radius: 1px; background: color-mix(in srgb, var(--ink) 14%, transparent); }
+.vw-thumb { position: absolute; top: 0; right: 3px; width: 30px; height: 60px; padding: 0; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); color: var(--ink); box-shadow: 0 2px 10px rgba(0,0,0,.28); display: grid; place-items: center; cursor: grab; touch-action: none; pointer-events: auto; opacity: .75; transition: opacity .2s; }
+.vw-thumb::after { content: ""; position: absolute; inset: -6px -4px -6px -12px; }
+.vw-thumb svg { width: 20px; height: 20px; }
+.vw-sb.live .vw-thumb, .vw-sb.drag .vw-thumb { opacity: 1; }
+.vw-sb.drag .vw-thumb { cursor: grabbing; background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.vw-bubble { position: absolute; right: 40px; top: 50%; transform: translateY(-50%); white-space: nowrap; padding: 7px 12px; border-radius: 16px; background: rgba(20,20,24,.85); color: #fff; font-size: .85rem; pointer-events: none; opacity: 0; transition: opacity .2s; }
+.vw-sb.drag .vw-bubble { opacity: 1; }
+.vw-zoom { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 21; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 24px; background: rgba(20,20,24,.85); color: #fff; box-shadow: 0 4px 16px rgba(0,0,0,.3); opacity: 0; visibility: hidden; transition: opacity .2s, visibility .2s; }
+.vw-zoom.on { opacity: 1; visibility: visible; }
+.vw-zoom button { border: 0; background: none; color: inherit; height: 38px; border-radius: 19px; cursor: pointer; display: grid; place-items: center; }
+.vw-zoom-pct { min-width: 74px; font-size: .95rem; }
+.vw-zoom-lock { width: 38px; }
+.vw-zoom-lock svg { width: 19px; height: 19px; }
+.vw-zoom-lock[aria-pressed="false"] .shackle { transform: translate(6px, -1px); }
+.vw-zoom-lock[aria-pressed="true"] { background: #fff !important; color: #16161a; }
 
 /* Page headers and tabs */
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-top: 4px; }
@@ -461,7 +486,7 @@ body.ps-open .penbar { left: calc((100% - min(46%, 520px)) / 2); }
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261124-2358";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261125-1655";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -3925,9 +3950,9 @@ function drawViewerChrome() {
       <div class="vw-title"><b>${esc(VW.note.title)}</b><span class="muted small">Physics &amp; Maths Tutor notes${PHONE ? "" : " · write or highlight with the S Pen"}</span></div>
       <div class="row vw-tools" style="gap:6px">${PHONE ? "" : `<button class="btn small ghost" data-act="vw-clear-ink">Clear writing</button>`}<span class="mono small muted" id="vw-page"></span><button class="btn small" data-act="vw-zoom" data-v="-1" aria-label="Zoom out">−</button><button class="btn small" data-act="vw-zoom" data-v="1" aria-label="Zoom in">+</button></div>
     </div>
-    <div class="vw-pages" id="vw-pages"><div class="empty" style="margin:24px">Opening…</div></div>
+    ${vwMain()}
     ${PHONE ? "" : penBar()}`;
-    document.getElementById("vw-pages").addEventListener("scroll", vwPageIndicator, { passive: true });
+    vwBindZoom();
     document.body.style.overflow = "hidden";
     return;
   }
@@ -3943,11 +3968,10 @@ function drawViewerChrome() {
       <div class="seg vw-help"><button data-act="vwp-toggle" data-v="notes" aria-pressed="${VWP.mode === "notes"}">${icon("book").replace("<svg", '<svg style="width:18px"')} Notes</button><button data-act="vwp-toggle" data-v="ai" aria-pressed="${VWP.mode === "ai"}">${icon("spark").replace("<svg", '<svg style="width:18px"')} Ask Gemini</button></div>
       <div class="row" style="gap:6px">${S.marked[key] ? `<button class="btn small" data-act="ai-result" data-v="${esc(key)}">Result: ${S.marked[key].total}/${S.marked[key].max}</button>` : ""}${PHONE ? "" : `<button class="btn small primary" data-act="vw-ai">${icon("spark")}Mark with AI</button>`}<button class="btn small ${done ? "" : "ghost"}" data-act="vw-done">${done ? "✓ Done" : "Mark done"}</button>${PHONE ? "" : `<button class="btn small ghost" data-act="vw-clear-ink">Clear writing</button>`}</div>
     </div>
-    <div class="vw-body"><div class="vw-pages" id="vw-pages"><div class="empty" style="margin:24px">Opening…</div></div><aside class="vw-panel" id="vw-panel" aria-label="Help panel" hidden></aside></div>
+    <div class="vw-body">${vwMain()}<aside class="vw-panel" id="vw-panel" aria-label="Help panel" hidden></aside></div>
     ${PHONE ? "" : penBar()}`;
   vtDraw();
-  const pages = document.getElementById("vw-pages");
-  pages.addEventListener("scroll", vwPageIndicator, { passive: true });
+  vwBindZoom();
   document.body.style.overflow = "hidden";
   if (VWP.mode) { el.classList.add("vp-open"); document.getElementById("vw-panel").hidden = false; drawVwPanel(); }
 }
@@ -3966,37 +3990,125 @@ async function layoutPages(keepFrac) {
   if (VW.io) VW.io.disconnect();
   const frac = keepFrac != null ? keepFrac : 0;
   const first = await doc.getPage(1), vp = first.getViewport({ scale: 1 });
-  VW.base = Math.max(200, cont.clientWidth - 24) / vp.width;
+  const cs = getComputedStyle(cont);
+  VW.base = Math.max(200, cont.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) / vp.width;
   const w = vp.width * VW.base * VW.zoom, h = vp.height * VW.base * VW.zoom;
-  cont.innerHTML = Array.from({ length: doc.numPages }, (_, i) => `<div class="vw-page" data-n="${i + 1}" style="width:${w}px;height:${h}px"></div>`).join("");
+  cont.innerHTML = `<div class="vw-doc">${Array.from({ length: doc.numPages }, (_, i) => `<div class="vw-page" data-n="${i + 1}" style="width:${w}px;height:${h}px"></div>`).join("")}</div>`;
   VW.io = new IntersectionObserver(entries => { for (const en of entries) { if (en.isIntersecting) renderPage(en.target); else unrenderPage(en.target); } }, { root: cont, rootMargin: "1200px 0px" });
   cont.querySelectorAll(".vw-page").forEach(d => VW.io.observe(d));
   cont.scrollTop = frac * cont.scrollHeight;
   vwPageIndicator();
 }
+// Canvases are capped at about 12 megapixels, so a page zoomed right in doesn't run the device out of memory.
+const canvasRatio = (w, h) => Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(12e6 / Math.max(1, w * h)));
 async function renderPage(div) {
   if (div.dataset.state) return; div.dataset.state = "busy";
-  const token = VW.token, zoom = VW.zoom;
+  const token = VW.token, zoom = VW.zoom, gen = div.dataset.gen = String(VW.gen = (VW.gen || 0) + 1);
+  const stale = () => token !== VW.token || zoom !== VW.zoom || div.dataset.gen !== gen || !div.isConnected;
   try {
     const page = await VW.doc.getPage(+div.dataset.n);
-    if (token !== VW.token || zoom !== VW.zoom || !div.isConnected) return;
-    const scale = VW.base * VW.zoom, vp = page.getViewport({ scale }), dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const c = document.createElement("canvas"); c.width = Math.floor(vp.width * dpr); c.height = Math.floor(vp.height * dpr);
-    c.style.width = vp.width + "px"; c.style.height = vp.height + "px";
-    div.style.width = vp.width + "px"; div.style.height = vp.height + "px";
+    if (stale()) return;
+    const scale = VW.base * VW.zoom, vp = page.getViewport({ scale }), dpr = canvasRatio(vp.width, vp.height);
+    const c = document.createElement("canvas"); c.className = "pdf-cv"; c.width = Math.floor(vp.width * dpr); c.height = Math.floor(vp.height * dpr);
     await page.render({ canvasContext: c.getContext("2d"), viewport: page.getViewport({ scale: scale * dpr }) }).promise;
-    if (div.dataset.state !== "busy" || !div.isConnected) return;
-    div.innerHTML = ""; div.appendChild(c); div.dataset.state = "done";
-    const ink = document.createElement("div"); ink.className = "ink pdf-ink"; ink.dataset.ink = "pdf:" + VW.name + ":" + div.dataset.n; if (!PHONE) { div.appendChild(ink); attachInk(ink); }
-  } catch (e) { delete div.dataset.state; }
+    if (stale()) return;
+    div.style.width = vp.width + "px"; div.style.height = vp.height + "px";
+    // Only the page picture is swapped, so the old one stays on screen while the sharper one is drawn after a zoom.
+    const old = div.querySelector(":scope > .pdf-cv"); if (old) old.replaceWith(c); else div.prepend(c);
+    div.dataset.state = "done";
+    if (!PHONE && !div.querySelector(":scope > .pdf-ink")) { const ink = document.createElement("div"); ink.className = "ink pdf-ink"; ink.dataset.ink = "pdf:" + VW.name + ":" + div.dataset.n; div.appendChild(ink); attachInk(ink); }
+  } catch (e) { if (div.dataset.gen === gen) delete div.dataset.state; }
 }
-function unrenderPage(div) { if (div.dataset.state === "done") { div.innerHTML = ""; delete div.dataset.state; } }
+function unrenderPage(div) { if (div.dataset.state !== "busy" && div.firstChild) { div.innerHTML = ""; delete div.dataset.state; } }
 function vwPageIndicator() {
   const cont = document.getElementById("vw-pages"), out = document.getElementById("vw-page"); if (!cont || !out || !VW.doc) return;
   const pages = cont.querySelectorAll(".vw-page"); let n = 1;
   for (const p of pages) { if (p.offsetTop - cont.scrollTop <= cont.clientHeight / 3) n = +p.dataset.n; else break; }
   out.textContent = `${n} / ${VW.doc.numPages}`;
+  vwThumb();
 }
+/* ---------- Zoom and the side scroll bar, like Samsung Notes ---------- */
+const ZOOM_MIN = 0.5, ZOOM_MAX = 5;
+const clampZoom = z => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+const LOCK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path class="shackle" d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+const vwMain = () => `<div class="vw-main"><div class="vw-pages" id="vw-pages"><div class="empty" style="margin:24px">Opening…</div></div>
+  <div class="vw-sb" id="vw-sb" hidden><button class="vw-thumb" id="vw-thumb" aria-label="Drag to scroll through the pages"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 9l4-4 4 4M8 15l4 4 4-4"/></svg><span class="vw-bubble mono" id="vw-bubble"></span></button></div>
+  <div class="vw-zoom" id="vw-zoom"><button class="vw-zoom-pct mono" id="vw-zoom-pct" data-act="vw-zoom-reset" aria-label="Zoom level. Tap to go back to 100%">100%</button><button class="vw-zoom-lock" id="vw-zoom-lock" data-act="vw-lock" aria-label="Lock zoom" aria-pressed="${!!VW.lock}">${LOCK_SVG}</button></div></div>`;
+let zoomPillT = null;
+function vwPill(z) {
+  const pill = document.getElementById("vw-zoom"); if (!pill) return;
+  document.getElementById("vw-zoom-pct").textContent = Math.round((z || VW.zoom) * 100) + "%";
+  document.getElementById("vw-zoom-lock").setAttribute("aria-pressed", String(!!VW.lock));
+  pill.classList.add("on"); clearTimeout(zoomPillT); zoomPillT = setTimeout(() => pill.classList.remove("on"), 2600);
+}
+// The spot on a page under (x, y), kept as fractions of that page so it can be put back there after the size changes.
+function vwAnchor(x, y) {
+  const pages = [...document.querySelectorAll("#vw-pages .vw-page")]; if (!pages.length) return null;
+  const p = pages.find(d => d.getBoundingClientRect().bottom >= y) || pages[pages.length - 1], r = p.getBoundingClientRect();
+  return { p, fx: (x - r.left) / r.width, fy: (y - r.top) / r.height, x, y };
+}
+function vwSetZoom(z, a, x, y) {
+  const cont = document.getElementById("vw-pages"); if (!cont || !VW.doc) return;
+  if (!a) { const r = cont.getBoundingClientRect(); a = vwAnchor(r.left + r.width / 2, r.top + r.height / 2); }
+  if (!a) return;
+  z = clampZoom(z); if (Math.abs(z - 1) < 0.04) z = 1; // snaps to 100% when close
+  const f = z / VW.zoom; VW.zoom = z;
+  if (f !== 1) cont.querySelectorAll(".vw-page").forEach(d => { d.style.width = parseFloat(d.style.width) * f + "px"; d.style.height = parseFloat(d.style.height) * f + "px"; delete d.dataset.state; delete d.dataset.gen; });
+  const r = a.p.getBoundingClientRect();
+  cont.scrollLeft += r.left + a.fx * r.width - (x == null ? a.x : x);
+  cont.scrollTop += r.top + a.fy * r.height - (y == null ? a.y : y);
+  if (f !== 1 && VW.io) { VW.io.disconnect(); cont.querySelectorAll(".vw-page").forEach(d => VW.io.observe(d)); }
+  vwPageIndicator(); vwPill();
+}
+function vwThumb() {
+  const cont = document.getElementById("vw-pages"), bar = document.getElementById("vw-sb"), t = document.getElementById("vw-thumb"); if (!cont || !bar || !t) return;
+  const max = cont.scrollHeight - cont.clientHeight;
+  bar.hidden = !VW.doc || max < 10; if (bar.hidden) return;
+  t.style.transform = `translateY(${Math.max(0, Math.min(1, cont.scrollTop / max)) * Math.max(0, bar.clientHeight - t.offsetHeight)}px)`;
+  const out = document.getElementById("vw-page"); document.getElementById("vw-bubble").textContent = out ? out.textContent : "";
+}
+function vwBindZoom() {
+  const cont = document.getElementById("vw-pages"), bar = document.getElementById("vw-sb"), t = document.getElementById("vw-thumb"); if (!cont || !bar) return;
+  let idle = null, grab = null;
+  const wake = () => { bar.classList.add("live"); clearTimeout(idle); idle = setTimeout(() => bar.classList.remove("live"), 1400); };
+  cont.addEventListener("scroll", () => { wake(); vwPageIndicator(); }, { passive: true });
+  if (window.ResizeObserver) new ResizeObserver(vwThumb).observe(cont);
+  // Side scroll bar: drag the handle to fly through the pages.
+  t.addEventListener("pointerdown", e => { e.preventDefault(); grab = e.clientY - t.getBoundingClientRect().top; try { t.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } bar.classList.add("drag"); });
+  t.addEventListener("pointermove", e => {
+    if (grab == null) return;
+    const room = bar.clientHeight - t.offsetHeight; if (room <= 0) return;
+    cont.scrollTop = Math.max(0, Math.min(1, (e.clientY - bar.getBoundingClientRect().top - grab) / room)) * (cont.scrollHeight - cont.clientHeight);
+  });
+  const drop = () => { grab = null; bar.classList.remove("drag"); wake(); };
+  t.addEventListener("pointerup", drop); t.addEventListener("pointercancel", drop); t.addEventListener("lostpointercapture", drop);
+  // Pinch with two fingers. While the fingers move the pages are just stretched; they're redrawn sharp when you let go.
+  let g = null;
+  const two = ts => ({ x: (ts[0].clientX + ts[1].clientX) / 2, y: (ts[0].clientY + ts[1].clientY) / 2, d: Math.max(1, Math.hypot(ts[0].clientX - ts[1].clientX, ts[0].clientY - ts[1].clientY)) });
+  cont.addEventListener("touchstart", e => {
+    if (g || e.touches.length !== 2 || VW.penDown || !VW.doc) return;
+    if (VW.lock) { vwPill(); return; }
+    const doc = cont.querySelector(".vw-doc"), m = two(e.touches), a = doc && vwAnchor(m.x, m.y); if (!a) return;
+    const r = doc.getBoundingClientRect(); doc.style.transformOrigin = `${m.x - r.left}px ${m.y - r.top}px`;
+    g = { m0: m, m, k: 1, doc, a }; VW.pinch = true; vwPill();
+  }, { passive: true });
+  cont.addEventListener("touchmove", e => {
+    if (!g || e.touches.length < 2) return;
+    if (e.cancelable) e.preventDefault();
+    g.m = two(e.touches); g.k = clampZoom(VW.zoom * g.m.d / g.m0.d) / VW.zoom;
+    g.doc.style.transform = `translate(${g.m.x - g.m0.x}px, ${g.m.y - g.m0.y}px) scale(${g.k})`; vwPill(VW.zoom * g.k);
+  }, { passive: false });
+  const done = e => {
+    if (g && e.touches.length < 2) { g.doc.style.transform = ""; vwSetZoom(VW.zoom * g.k, g.a, g.m.x, g.m.y); g = null; }
+    if (!e.touches.length) VW.pinch = false;
+  };
+  cont.addEventListener("touchend", done); cont.addEventListener("touchcancel", done);
+  // Ctrl + mouse wheel (or a trackpad pinch) on a computer.
+  cont.addEventListener("wheel", e => { if (!e.ctrlKey) return; e.preventDefault(); if (!VW.lock) vwSetZoom(VW.zoom * Math.exp(-e.deltaY / 300), vwAnchor(e.clientX, e.clientY)); else vwPill(); }, { passive: false });
+}
+// While the S Pen is on the screen, a resting hand must not zoom or scroll the page.
+addEventListener("pointerdown", e => { if (e.pointerType === "pen") VW.penDown = true; }, true);
+["pointerup", "pointercancel"].forEach(t => addEventListener(t, e => { if (e.pointerType === "pen") VW.penDown = false; }, true));
 function closeViewer(fromPop) {
   if (!VW.open) return;
   VW.open = false; VW.token++; VWP.mode = null;
@@ -4120,11 +4232,11 @@ function attachInk(el) {
   el.dataset.mounted = "1";
   const key = el.dataset.ink, cv = document.createElement("canvas"), ctx = cv.getContext("2d");
   el.appendChild(cv);
-  let strokes = [], cur = null, mode = null, last = null, scroller = null, dpr = 1, hold = null, hold0 = null, holdEv = null, held = false;
+  let strokes = [], cur = null, mode = null, last = null, scroller = null, dpr = 1, hold = null, hold0 = null, holdEv = null, held = false, pid = null;
   const W = () => el.clientWidth || 1;
   function size() {
     const w = el.clientWidth, h = el.clientHeight; if (!w || !h) return;
-    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    dpr = canvasRatio(w, h);
     cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); cv.style.width = w + "px"; cv.style.height = h + "px";
     redraw();
   }
@@ -4199,8 +4311,10 @@ function attachInk(el) {
   el.addEventListener("contextmenu", e => e.preventDefault());
   el.addEventListener("pointerdown", e => {
     INK.active = key;
-    if (e.pointerType === "touch") { mode = "scroll"; last = { x: e.clientX, y: e.clientY }; scroller = scrollParentOf(el); return; }
+    // A finger scrolls. It is ignored while the pen is working (a resting hand) and a second finger is left for pinch zoom.
+    if (e.pointerType === "touch") { if (mode || VW.penDown) return; pid = e.pointerId; mode = "scroll"; last = { x: e.clientX, y: e.clientY }; scroller = el.closest(".vw-pages") || scrollParentOf(el); return; }
     if (e.button > 0 && e.pointerType === "mouse") return;
+    pid = e.pointerId;
     e.preventDefault(); try { el.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
     const ps = penState(), erase = ps.tool === "eraser" || sideBtn(e);
     if (typeof ui !== "undefined" && ui.dbgPen) penNote(`down ${e.pointerType} → ${erase ? "ERASE" : "draw"} (tool ${ps.tool}, side button ${sideBtn(e)})`);
@@ -4220,10 +4334,11 @@ function attachInk(el) {
   });
   el.addEventListener("pointerleave", e => { if (e.pointerType === "pen" && mode === null) hideRing(); });
   el.addEventListener("pointermove", e => {
+    if (mode && e.pointerId !== pid) return;
     // Hovering with the side button held shows the eraser circle so you can aim; touching the screen then erases.
     if (e.pointerType === "pen" && !e.buttons && mode === null) { if (window.__penBtn === true || penState().tool === "eraser") showRing(e.clientX, e.clientY); else hideRing(); }
     if (hold0 && Math.hypot(e.clientX - hold0.x, e.clientY - hold0.y) > 5) { clearTimeout(hold); hold0 = null; } else holdEv = e;
-    if (mode === "scroll") { const dy = last.y - e.clientY, dx = last.x - e.clientX; last = { x: e.clientX, y: e.clientY }; scroller.scrollBy(dx, dy); return; }
+    if (mode === "scroll") { const dy = last.y - e.clientY, dx = last.x - e.clientX; last = { x: e.clientX, y: e.clientY }; if (!VW.pinch) scroller.scrollBy(dx, dy); return; }
     // The side button can be pressed or released mid-stroke: switch between drawing and erasing on the fly.
     if ((mode === "draw" || mode === "erase") && e.pointerType !== "mouse" && !held) {
       // The button signal can reach the page a split second after the pen touches down, so the first bit may have been drawn:
@@ -4246,7 +4361,7 @@ function attachInk(el) {
     }
     if (cur.t === "hl") redraw();
   });
-  const end = () => { clearTimeout(hold); hold0 = null; held = false; hideRing(); if (mode === "draw" || mode === "erase") inkSave(key); mode = null; cur = null; };
+  const end = e => { if (e.pointerId !== pid) return; clearTimeout(hold); hold0 = null; held = false; hideRing(); if (mode === "draw" || mode === "erase") inkSave(key); mode = null; cur = null; };
   el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end); el.addEventListener("lostpointercapture", end);
   strokes = inkArr(key);
   INK.els.set(key, { redraw: () => { strokes = inkArr(key); redraw(); }, el });
@@ -6232,7 +6347,9 @@ const ACT = {
   "vwp-clear": () => { VWP.chat[helpKey()] = []; drawVwPanel(); },
   "vwp-setup": () => { if (VW.open) leaveViewer(() => { go("prefs"); toast("Add your Gemini key, then come back to the paper."); }); else { go("prefs"); toast("Add your Gemini key, then come back."); } },
   "vw-kind": el => { const c = VW.cur; openPaper(c.subj, c.ser, c.label, +el.dataset.v); },
-  "vw-zoom": el => { const c = document.getElementById("vw-pages"); const f = c ? c.scrollTop / Math.max(1, c.scrollHeight) : 0; VW.zoom = Math.max(0.6, Math.min(3, VW.zoom * (el.dataset.v === "1" ? 1.25 : 0.8))); layoutPages(f); },
+  "vw-zoom": el => { if (VW.lock) { vwPill(); toast("Zoom is locked. Tap the padlock to unlock it"); return; } vwSetZoom(VW.zoom * (el.dataset.v === "1" ? 1.25 : 0.8)); },
+  "vw-zoom-reset": () => { if (VW.lock) { vwPill(); return; } vwSetZoom(1); },
+  "vw-lock": () => { VW.lock = !VW.lock; vwPill(); toast(VW.lock ? "Zoom locked" : "Zoom unlocked"); },
   "vw-done": () => { const c = VW.cur, k = c.subj + "|" + c.ser + "|" + c.label; if (S.ppDone[k]) delete S.ppDone[k]; else S.ppDone[k] = dayKey(); save(); const b = document.querySelector('[data-act="vw-done"]'); if (b) { b.textContent = S.ppDone[k] ? "✓ Done" : "Mark done"; b.classList.toggle("ghost", !S.ppDone[k]); } render(); },
   "vw-log": () => { const c = VW.cur, m = c.label.match(/Paper \d/); leaveViewer(() => { if (cur() !== c.subj) S.settings.subj = c.subj; ui.prefill = { subj: c.subj, series: c.ser, paper: m ? m[0] : "" }; ui.progTab = "results"; go("progress"); setTimeout(() => { const f = document.getElementById("log-paper"); if (f) f.scrollIntoView({ block: "start" }); }, 50); }); },
   "papers-clear": () => { ui.confirmClearPapers = true; render(); },
