@@ -515,11 +515,35 @@ body.ps-open .penbar { left: calc((100% - min(46%, 520px)) / 2); max-width: calc
 
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); z-index: 70; background: var(--ink); color: var(--bg); padding: 12px 20px; border-radius: 12px; font-weight: 500; box-shadow: var(--shadow); max-width: calc(100% - 32px); }
 .confirm { background: var(--red-soft); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+/* Computer edition (Windows 11 and Chromebook) */
+kbd { font-family: var(--f-mono); font-size: .76rem; padding: 2px 7px; border-radius: 6px; border: 1px solid var(--line); border-bottom-width: 2px; background: var(--surface); color: var(--ink); white-space: nowrap; }
+.keys-tip { text-align: center; }
+.keys-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+.key-row { display: grid; grid-template-columns: 130px 1fr; gap: 12px; align-items: center; justify-items: start; }
+.keys-back { position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.4); display: grid; place-items: center; padding: 16px; }
+.keys-card { background: var(--card); border-radius: var(--r); box-shadow: var(--shadow); padding: 18px 22px 22px; width: min(560px, 100%); max-height: calc(100vh - 32px); overflow: auto; display: flex; flex-direction: column; gap: 16px; }
+.pc .wrap { max-width: 1180px; }
+.pc button:not(:disabled), .pc label.btn, .pc label.check, .pc summary, .pc select { cursor: pointer; }
+.pc .item:hover, .pc .opt:not(:disabled):hover, .pc .topic-chip:hover { filter: brightness(.96); }
+.pc .vw-pages.grab { cursor: grab; user-select: none; }
+.pc .vw-pages.panning { cursor: grabbing; }
+.pc.dropping::after { content: "Drop the papers or notes zips to add them"; position: fixed; inset: 12px; z-index: 100; display: grid; place-items: center; border: 3px dashed var(--accent); border-radius: 20px; background: var(--bg); opacity: .94; color: var(--ink); font-size: 1.4rem; pointer-events: none; }
+@media (min-width: 1100px) {
+  .pc .app { grid-template-columns: 220px minmax(0, 1fr); }
+  .pc .rail { align-items: stretch; padding: 12px 12px 24px; }
+  .pc .rail-btn { flex-direction: row; width: auto; gap: 14px; min-height: 46px; padding: 0 12px; border-radius: 23px; font-size: .95rem; text-align: left; }
+  .pc .rail-btn .ind, .pc .rail-btn:hover .ind, .pc .rail-btn[aria-current="page"] .ind { background: none; width: 28px; }
+  .pc .rail-btn:hover { background: var(--surface-2); }
+  .pc .rail-btn[aria-current="page"] { background: var(--accent-soft); }
+  .pc .rail-btn { position: relative; }
+  .pc .rail-btn .ind { position: static; }
+  .pc .rail-btn .badge { top: 14px; right: 14px; }
+}
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261125-2145";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261125-2154";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -3866,15 +3890,18 @@ for (const s of [P, C]) for (const t of s.topics) {
 }
 const PRACS = [...P.practicals.map(p => ({ ...p, subj: "phys" })), ...C.practicals.map(p => ({ ...p, subj: "chem" }))];
 const OFFLINE = !!window.OFFLINE;
-// Which device this is. The phone edition (Galaxy S25 FE) has no S Pen, so answers are typed and the pen tools are hidden.
-// The phone app opens the site with ?edition=phone; the choice is remembered, and can be changed in Settings.
+// Which device this is. The phone edition (Galaxy S25 FE) and the computer edition (Windows 11 and Chromebook) have no
+// S Pen, so answers are typed and the pen tools are hidden. The phone and Windows apps open the site with ?edition=...; the
+// choice is remembered, and can be changed in Settings. Otherwise Windows and ChromeOS get the computer edition.
 const EDITION = (() => {
   try {
-    const q = new URLSearchParams(location.search).get("edition"); if (q === "phone" || q === "tablet") localStorage.setItem("labbook-edition", q);
-    return localStorage.getItem("labbook-edition") || (matchMedia("(max-width: 700px) and (pointer: coarse)").matches ? "phone" : "tablet");
+    const q = new URLSearchParams(location.search).get("edition"); if (q === "phone" || q === "tablet" || q === "pc") localStorage.setItem("labbook-edition", q);
+    return localStorage.getItem("labbook-edition") || (/Windows NT|CrOS/.test(navigator.userAgent) ? "pc" : matchMedia("(max-width: 700px) and (pointer: coarse)").matches ? "phone" : "tablet");
   } catch (e) { return "tablet"; }
 })();
-const PHONE = EDITION === "phone";
+const PHONE = EDITION === "phone", PC = EDITION === "pc", NOPEN = PHONE || PC;
+const DEV = PC ? "computer" : PHONE ? "phone" : "tablet", CHROMEOS = /CrOS/.test(navigator.userAgent);
+const clickWords = s => s.replace(/\bTap\b/g, "Click").replace(/\btap\b/g, "click");
 
 /* ---------- Offline paper store (IndexedDB) ---------- */
 const KIND_FILE = ["Question-paper", "Mark-scheme", "Examiner-report", "Insert"];
@@ -3980,11 +4007,11 @@ function drawViewerChrome() {
   if (VW.note) {
     el.innerHTML = `<div class="vw-bar">
       <button class="btn small" data-act="vw-close">${icon("back").replace("<svg", '<svg style="width:18px"')} Close</button>
-      <div class="vw-title"><b>${esc(VW.note.title)}</b><span class="muted small">Physics &amp; Maths Tutor notes${PHONE ? "" : " · write or highlight with the S Pen"}</span></div>
-      <div class="row vw-tools" style="gap:6px">${PHONE ? "" : `<button class="btn small ghost" data-act="vw-clear-ink">Clear writing</button>`}<span class="mono small muted" id="vw-page"></span><button class="btn small" data-act="vw-zoom" data-v="-1" aria-label="Zoom out">−</button><button class="btn small" data-act="vw-zoom" data-v="1" aria-label="Zoom in">+</button></div>
+      <div class="vw-title"><b>${esc(VW.note.title)}</b><span class="muted small">Physics &amp; Maths Tutor notes${NOPEN ? "" : " · write or highlight with the S Pen"}</span></div>
+      <div class="row vw-tools" style="gap:6px">${NOPEN ? "" : `<button class="btn small ghost" data-act="vw-clear-ink">Clear writing</button>`}<span class="mono small muted" id="vw-page"></span><button class="btn small" data-act="vw-zoom" data-v="-1" aria-label="Zoom out">−</button><button class="btn small" data-act="vw-zoom" data-v="1" aria-label="Zoom in">+</button></div>
     </div>
     ${vwMain()}
-    ${PHONE ? "" : penBar()}`;
+    ${NOPEN ? "" : penBar()}`;
     vwBindZoom();
     document.body.style.overflow = "hidden";
     return;
@@ -3999,10 +4026,10 @@ function drawViewerChrome() {
     <div class="vw-sub">
       <div class="seg">${kinds.map(i => `<button data-act="vw-kind" data-v="${i}" aria-pressed="${i === k}" ${PDB.have.has(paperFile(subj, ser, label, i)) ? "" : 'style="opacity:.45"'}>${KIND_LABEL[i]}</button>`).join("")}</div>
       <div class="seg vw-help"><button data-act="vwp-toggle" data-v="notes" aria-pressed="${VWP.mode === "notes"}">${icon("book").replace("<svg", '<svg style="width:18px"')} Notes</button><button data-act="vwp-toggle" data-v="ai" aria-pressed="${VWP.mode === "ai"}">${icon("spark").replace("<svg", '<svg style="width:18px"')} Ask Gemini</button></div>
-      <div class="row" style="gap:6px">${S.marked[key] ? `<button class="btn small" data-act="ai-result" data-v="${esc(key)}">Result: ${S.marked[key].total}/${S.marked[key].max}</button>` : ""}${PHONE ? "" : `<button class="btn small primary" data-act="vw-ai">${icon("spark")}Mark with AI</button>`}<button class="btn small ${done ? "" : "ghost"}" data-act="vw-done">${done ? "✓ Done" : "Mark done"}</button>${PHONE ? "" : `<button class="btn small ghost" data-act="vw-clear-ink">Clear writing</button>`}</div>
+      <div class="row" style="gap:6px">${S.marked[key] ? `<button class="btn small" data-act="ai-result" data-v="${esc(key)}">Result: ${S.marked[key].total}/${S.marked[key].max}</button>` : ""}${NOPEN ? "" : `<button class="btn small primary" data-act="vw-ai">${icon("spark")}Mark with AI</button>`}<button class="btn small ${done ? "" : "ghost"}" data-act="vw-done">${done ? "✓ Done" : "Mark done"}</button>${NOPEN ? "" : `<button class="btn small ghost" data-act="vw-clear-ink">Clear writing</button>`}</div>
     </div>
     <div class="vw-body">${vwMain()}<aside class="vw-panel" id="vw-panel" aria-label="Help panel" hidden></aside></div>
-    ${PHONE ? "" : penBar()}`;
+    ${NOPEN ? "" : penBar()}`;
   vtDraw();
   vwBindZoom();
   document.body.style.overflow = "hidden";
@@ -4024,7 +4051,7 @@ async function layoutPages(keepFrac) {
   const frac = keepFrac != null ? keepFrac : 0;
   const first = await doc.getPage(1), vp = first.getViewport({ scale: 1 });
   const cs = getComputedStyle(cont); VW.width = cont.clientWidth;
-  VW.base = Math.max(200, cont.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) / vp.width;
+  VW.base = Math.max(200, Math.min(PC ? 1000 : Infinity, cont.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight))) / vp.width;
   const w = vp.width * VW.base * VW.zoom, h = vp.height * VW.base * VW.zoom;
   cont.innerHTML = `<div class="vw-doc">${Array.from({ length: doc.numPages }, (_, i) => `<div class="vw-page" data-n="${i + 1}" style="width:${w}px;height:${h}px"></div>`).join("")}</div>`;
   VW.io = new IntersectionObserver(entries => { for (const en of entries) { if (en.isIntersecting) renderPage(en.target); else unrenderPage(en.target); } }, { root: cont, rootMargin: "1200px 0px" });
@@ -4049,7 +4076,7 @@ async function renderPage(div) {
     // Only the page picture is swapped, so the old one stays on screen while the sharper one is drawn after a zoom.
     const old = div.querySelector(":scope > .pdf-cv"); if (old) old.replaceWith(c); else div.prepend(c);
     div.dataset.state = "done";
-    if (!PHONE && !div.querySelector(":scope > .pdf-ink")) { const ink = document.createElement("div"); ink.className = "ink pdf-ink"; ink.dataset.ink = "pdf:" + VW.name + ":" + div.dataset.n; div.appendChild(ink); attachInk(ink); }
+    if (!NOPEN && !div.querySelector(":scope > .pdf-ink")) { const ink = document.createElement("div"); ink.className = "ink pdf-ink"; ink.dataset.ink = "pdf:" + VW.name + ":" + div.dataset.n; div.appendChild(ink); attachInk(ink); }
   } catch (e) { if (div.dataset.gen === gen) delete div.dataset.state; }
 }
 function unrenderPage(div) { if (div.dataset.state !== "busy" && div.firstChild) { div.innerHTML = ""; delete div.dataset.state; } }
@@ -4115,6 +4142,7 @@ function vwBindZoom() {
   });
   const drop = () => { grab = null; bar.classList.remove("drag"); wake(); };
   t.addEventListener("pointerup", drop); t.addEventListener("pointercancel", drop); t.addEventListener("lostpointercapture", drop);
+  if (PC) mousePan(cont);
   // Pinch with two fingers. While the fingers move the pages are just stretched; they're redrawn sharp when you let go.
   let g = null;
   const two = ts => ({ x: (ts[0].clientX + ts[1].clientX) / 2, y: (ts[0].clientY + ts[1].clientY) / 2, d: Math.max(1, Math.hypot(ts[0].clientX - ts[1].clientX, ts[0].clientY - ts[1].clientY)) });
@@ -4500,7 +4528,7 @@ async function markQuestionAI() {
     for (let pi = 0; pi < q.p.length; pi++) {
       const key = id + ":" + pi, typed = (S.qtext[key] || "").trim();
       parts.push({ text: `Student's answer to part (${LETTERS[pi]}):` });
-      if ((PHONE || ps.kb[key]) && typed) { parts.push({ text: typed }); continue; }
+      if ((NOPEN || ps.kb[key]) && typed) { parts.push({ text: typed }); continue; }
       const el = document.querySelector(`.ink[data-ink="${CSS.escape("q:" + key)}"]`);
       const img = await answerImage("q:" + key, el ? el.clientHeight / Math.max(1, el.clientWidth) : 0.3);
       if (img) parts.push({ inline_data: { mime_type: "image/jpeg", data: img } }); else parts.push({ text: typed || "(no answer given)" });
@@ -4625,7 +4653,7 @@ function drawVwPanel() {
     p.innerHTML = `<div class="vwp-head"><b>${icon("spark").replace("<svg", '<svg style="width:18px;vertical-align:-3px"')} Ask Gemini</b>${close}</div>
       ${ready ? `<div class="vwp-opts">${VW.open ? `<span class="muted small">Gemini looks at</span><div class="seg"><button data-act="vwp-pages" data-v="1" aria-pressed="${VWP.pages === 1}">This page</button><button data-act="vwp-pages" data-v="2" aria-pressed="${VWP.pages === 2}">This + next page</button></div>` : `<span class="muted small">Gemini sees this question and everything you have written for it, typed or in ink.</span>`}
         <label class="small row" style="gap:8px"><input type="checkbox" data-change="vwp-ms" ${VWP.useMs ? "checked" : ""}> Let it use the mark scheme <span class="muted">(it may give answers away)</span></label></div>
-      <div class="vwp-scroll" id="vwp-chat">${msgs || `<p class="muted small" style="padding:6px 2px">It sees the page you are on${PHONE ? "" : ", including everything you have written on it with the S Pen"}. Ask about the question you are working on.</p>`}${VWP.busy ? `<div class="gm m pending" role="status"><span class="spinner" style="width:16px;height:16px;display:inline-block;vertical-align:-3px"></span> <span id="vwp-wait">${esc(VWP.wait)}</span><div><button class="btn small ghost" data-act="vwp-cancel">Cancel</button></div></div>` : ""}</div>
+      <div class="vwp-scroll" id="vwp-chat">${msgs || `<p class="muted small" style="padding:6px 2px">It sees the page you are on${NOPEN ? "" : ", including everything you have written on it with the S Pen"}. Ask about the question you are working on.</p>`}${VWP.busy ? `<div class="gm m pending" role="status"><span class="spinner" style="width:16px;height:16px;display:inline-block;vertical-align:-3px"></span> <span id="vwp-wait">${esc(VWP.wait)}</span><div><button class="btn small ghost" data-act="vwp-cancel">Cancel</button></div></div>` : ""}</div>
       <div class="vwp-chips">${chips.map(c => `<button class="chip-btn" data-act="vwp-chip" data-v="${esc(c)}" ${VWP.busy ? "disabled" : ""}>${esc(c)}</button>`).join("")}</div>
       <form class="vwp-form" data-form="vwp-ask"><textarea id="vwp-input" name="q" rows="2" data-input="vwp-draft" placeholder="Ask about this question…" ${VWP.busy ? "disabled" : ""}>${esc(VWP.draft)}</textarea><div class="row" style="justify-content:space-between"><button class="btn small ghost" type="button" data-act="vwp-clear">Clear chat</button><button class="btn small primary" type="submit" ${VWP.busy ? "disabled" : ""}>Send</button></div></form>`
       : `<div class="vwp-scroll"><div class="stack" style="padding:8px 2px"><p>To ask Gemini about a question, add your free Gemini key first.</p><div><button class="btn primary" data-act="vwp-setup">Set up Gemini</button></div></div></div>`}`;
@@ -4711,7 +4739,7 @@ async function vwpAskQuestion(text) {
       for (let pi = 0; pi < q.p.length; pi++) {
         const p = q.p[pi], k2 = id + ":" + pi, typed = (S.qtext[k2] || "").trim();
         parts.push({ text: `\nPart (${LETTERS[pi]}) [${p.m} mark${p.m === 1 ? "" : "s"}]: ${p.q}${p.u ? " (unit: " + p.u + ")" : ""}${VWP.useMs ? "\nMark scheme points: " + p.s.map((m, i) => `${i + 1}. ${m}`).join(" ") : ""}\nStudent's answer to part (${LETTERS[pi]}):` });
-        if ((PHONE || ps.kb[k2]) && typed) { parts.push({ text: typed }); continue; }
+        if ((NOPEN || ps.kb[k2]) && typed) { parts.push({ text: typed }); continue; }
         const el = document.querySelector(`.ink[data-ink="${CSS.escape("q:" + k2)}"]`);
         const img = await answerImage("q:" + k2, el ? el.clientHeight / Math.max(1, el.clientWidth) : 0.3);
         if (img) parts.push({ inline_data: { mime_type: "image/jpeg", data: img } }); else parts.push({ text: typed || "(nothing written yet)" });
@@ -4860,8 +4888,8 @@ function snapshotBeforeSync() {
 }
 function cloudPanel() {
   const c = csGet(), ok = !!c.token, when = c.last ? new Date(c.last).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
-  return `<section class="panel"><div class="panel-head"><div class="stack" style="gap:2px"><h2>Cloud sync</h2><span class="muted small">${ok ? (when ? "Last synced " + when : "Connected. Not synced yet.") : "Keep your tablet and phone in step"}</span></div>${ok ? `<button class="btn primary" data-act="cloud-sync" ${CSX.busy ? "disabled" : ""}>${CSX.busy ? "Syncing…" : "Sync now"}</button>` : ""}</div>
-    <p class="small">Press Sync on each device. It merges both copies, so finishing a question on the tablet and syncing shows it as done on the phone. It syncs your flashcard progress, question results, marks, ratings, notes, typed answers, exams and mistakes. It does not copy papers, notes PDFs or handwriting, and your theme stays per device.</p>
+  return `<section class="panel"><div class="panel-head"><div class="stack" style="gap:2px"><h2>Cloud sync</h2><span class="muted small">${ok ? (when ? "Last synced " + when : "Connected. Not synced yet.") : "Keep your devices in step"}</span></div>${ok ? `<button class="btn primary" data-act="cloud-sync" ${CSX.busy ? "disabled" : ""}>${CSX.busy ? "Syncing…" : "Sync now"}</button>` : ""}</div>
+    <p class="small">Press Sync on each device. It merges both copies, so finishing a question on one device and syncing shows it as done on the others. It syncs your flashcard progress, question results, marks, ratings, notes, typed answers, exams and mistakes. It does not copy papers, notes PDFs or handwriting, and your theme stays per device.</p>
     ${CSX.msg ? `<p class="small" id="cs-msg">${esc(CSX.msg)}</p>` : ""}
     ${ok ? `<p class="small"><b>Removing things:</b> if you remove an exam date, a result, a mistake or a card, or a question result (the Remove my result button on a question), it is removed on your other device too after you sync. Each removal has an Undo for a few seconds.</p>
       ${snaps().length ? `<div class="row"><button class="btn small" data-act="cloud-restore">Undo the last sync on this device</button><span class="muted small">Restores the copy saved at ${new Date(snaps().slice(-1)[0].at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span></div>` : ""}
@@ -4872,7 +4900,7 @@ function cloudPanel() {
   </section>`;
 }
 function devicePanel() {
-  return `<section class="panel"><h2>This device</h2><div class="seg" role="group" aria-label="Device">${[["tablet", "Tablet with S Pen"], ["phone", "Phone"]].map(([v, l]) => `<button data-act="edition" data-v="${v}" aria-pressed="${EDITION === v}">${l}</button>`).join("")}</div><p class="muted small">The phone version has no S Pen tools: answers are typed and papers are read-only. The Lab Book Phone app sets this for you.</p></section>`;
+  return `<section class="panel"><h2>This device</h2><div class="seg" role="group" aria-label="Device">${[["tablet", "Tablet with S Pen"], ["phone", "Phone"], ["pc", "Windows or Chromebook"]].map(([v, l]) => `<button data-act="edition" data-v="${v}" aria-pressed="${EDITION === v}">${l}</button>`).join("")}</div><p class="muted small">The phone and computer versions have no S Pen tools: answers are typed and papers are read-only. Lab Book picks the right one for each device.</p></section>`;
 }
 
 /* ---------- Exam timer (paper viewer) ---------- */
@@ -5171,7 +5199,7 @@ function upcomingExams() { return S.exams.filter(e => daysTo(e.date) >= 0).sort(
 function toast(msg) {
   let t = document.getElementById("toast");
   if (!t) { t = document.createElement("div"); t.id = "toast"; t.className = "toast"; t.setAttribute("role", "status"); document.body.appendChild(t); }
-  t.textContent = msg; t.hidden = false;
+  t.textContent = PC ? clickWords(String(msg)) : msg; t.hidden = false;
   clearTimeout(toast.t); toast.t = setTimeout(() => { t.hidden = true; }, 2600);
 }
 
@@ -5216,6 +5244,7 @@ function render() {
   psPanelApply();
   psTimerTick();
   savePractice();
+  pcWording(document.body);
 }
 // Countdown for timed papers (predicted and custom). It keeps running into overtime so you can see how far over you went.
 function psTimerTick() {
@@ -5353,7 +5382,7 @@ V.home = () => {
       ${openSession() ? `<button class="btn primary" data-act="resume">Continue ${sessionSubj()}: ${esc(ui.ps.label)} (question ${ui.ps.i + 1} of ${ui.ps.ids.length})</button>` : ""}
       ${action("practice-setup", "qa", "Practise by topic and difficulty")}
       ${action("quick10", "qa", "Quick 10 multiple choice")}
-      ${action("written3", "pen", PHONE ? "Three written questions" : "Three written questions (S Pen)")}
+      ${action("written3", "pen", NOPEN ? "Three written questions" : "Three written questions (S Pen)")}
       ${action("study-start", "cards", due ? `Review flashcards (${due} ready)` : "Flashcards: all caught up", sc)}
       ${action("go", "doc", "AQA past papers and mark schemes", "papers")}
       ${!OFFLINE && SAMPLE ? action("tutor-new", "spark", "AI tutor: make a new question") : ""}
@@ -5362,7 +5391,7 @@ V.home = () => {
     </div>
   </section>
   ${work.length ? `<section class="card"><div class="panel-head"><h2 class="card-title">Revise next</h2><button class="btn small ghost" data-act="prog-tab" data-v="priorities">Priority list</button></div><div class="list">${work.map(w => `<button class="item" data-act="practise-topic" data-v="${w.t.id}">${chipT(w.t)}<span class="item-main"><b>${esc(w.t.t)}</b><span class="muted small">${esc(w.why)}</span></span><span class="go-arrow" aria-hidden="true">›</span></button>`).join("")}</div></section>` : ""}
-  <p class="hint">${PHONE ? "Type your answers, then check them against the mark scheme or mark them with AI." : "Write answers with the S Pen as you would in the exam: the pen writes, your finger scrolls, and holding the S Pen side button rubs out."}</p>`;
+  <p class="hint">${NOPEN ? "Type your answers, then check them against the mark scheme or mark them with AI." : "Write answers with the S Pen as you would in the exam: the pen writes, your finger scrolls, and holding the S Pen side button rubs out."}</p>`;
 };
 
 function practiceSession() {
@@ -5385,9 +5414,9 @@ function practiceSession() {
       const lines = Math.max(3, p.l || 3) + (ps.lines[key] || 0);
       return `<div class="q-part">
         <div class="q-part-head"><span class="mono part-l">(${LETTERS[pi]})</span><p>${esc(p.q)}</p><span class="part-m mono">[${p.m} mark${p.m === 1 ? "" : "s"}]</span></div>
-        ${(PHONE || ps.kb[key]) ? `<textarea class="answer-box" data-input="qtext" data-v="${esc(key)}" style="min-height:${lines * 30}px" placeholder="Type your answer${p.u ? " (unit: " + esc(p.u) + ")" : ""}">${esc(S.qtext[key] || "")}</textarea>`
+        ${(NOPEN || ps.kb[key]) ? `<textarea class="answer-box" data-input="qtext" data-v="${esc(key)}" style="min-height:${lines * 30}px" placeholder="Type your answer${p.u ? " (unit: " + esc(p.u) + ")" : ""}">${esc(S.qtext[key] || "")}</textarea>`
           : `<div class="ink lined" data-ink="${esc(inkKey)}" style="height:${lines * 44}px"></div>`}
-        <div class="row part-tools"><button class="btn small ghost" data-act="ps-lines" data-v="${esc(key)}">More lines</button>${PHONE ? "" : `<button class="btn small ghost" data-act="ps-kb" data-v="${esc(key)}">${ps.kb[key] ? icon("pen") + "Write with S Pen" : icon("keyboard") + "Type instead"}</button>${ps.kb[key] ? "" : `<button class="btn small ghost" data-act="ink-clear" data-v="${esc(inkKey)}">Clear this answer</button>`}`}${p.u ? `<span class="muted small">Unit: ${esc(p.u)}</span>` : ""}</div>
+        <div class="row part-tools"><button class="btn small ghost" data-act="ps-lines" data-v="${esc(key)}">More lines</button>${NOPEN ? "" : `<button class="btn small ghost" data-act="ps-kb" data-v="${esc(key)}">${ps.kb[key] ? icon("pen") + "Write with S Pen" : icon("keyboard") + "Type instead"}</button>${ps.kb[key] ? "" : `<button class="btn small ghost" data-act="ink-clear" data-v="${esc(inkKey)}">Clear this answer</button>`}`}${p.u ? `<span class="muted small">Unit: ${esc(p.u)}</span>` : ""}</div>
         ${shown ? `<div class="scheme"><div class="row" style="justify-content:space-between"><b>Mark scheme</b><span class="mono">${got} / ${p.m}</span></div>
           ${p.s.map((m, mi) => `<label class="tick"><input type="checkbox" data-change="ps-tick" data-k="${esc(key)}" data-i="${mi}" ${ticks[mi] ? "checked" : ""} ${saved ? "disabled" : ""}><span>${esc(m)}</span></label>`).join("")}
           ${ai && ai.parts && ai.parts[pi] && ai.parts[pi].feedback ? `<div class="ai-note">${icon("spark")}<p>${esc(plainMaths(ai.parts[pi].feedback))}</p></div>` : ""}
@@ -5409,7 +5438,8 @@ function practiceSession() {
     ${body}
   </article>
   <div class="row" style="justify-content:space-between"><button class="btn" data-act="ps-prev" ${ps.i === 0 ? "disabled" : ""}>Previous</button><button class="btn primary" data-act="ps-next">${last ? "Finish session" : "Next question"}</button></div>
-  ${q.k === "w" && !ps.kbAll && !PHONE ? penBar() : ""}`;
+  ${PC ? `<p class="muted small keys-tip"><kbd>←</kbd> <kbd>→</kbd> move between questions${q.k === "mcq" ? " · <kbd>A</kbd> to <kbd>D</kbd> choose an answer" : " · <kbd>M</kbd> shows the mark scheme"} · <kbd>?</kbd> all shortcuts</p>` : ""}
+  ${q.k === "w" && !ps.kbAll && !NOPEN ? penBar() : ""}`;
 };
 const segHTML = (act, val, opts, label) => `<div class="seg" role="group" ${label ? `aria-label="${label}"` : ""}>${opts.map(([v, l]) => `<button data-act="${act}" data-v="${v}" aria-pressed="${String(val) === String(v)}">${l}</button>`).join("")}</div>`;
 function practiceSetup() {
@@ -5439,7 +5469,7 @@ function practiceSetup() {
   </section>
   <section class="card"><h2 class="card-title">Quick starts</h2><div class="actions">
     <button class="tonal-btn" data-act="quick10">${icon("qa")}<span>Quick 10 multiple choice</span></button>
-    <button class="tonal-btn" data-act="written3">${icon("pen")}<span>Three written questions${PHONE ? "" : " (S Pen)"}</span></button>
+    <button class="tonal-btn" data-act="written3">${icon("pen")}<span>Three written questions${NOPEN ? "" : " (S Pen)"}</span></button>
     ${flagged ? `<button class="tonal-btn" data-act="flagged-go">${icon("flag")}<span>Practise flagged questions (${flagged})</span></button>` : ""}
   </div></section>`;
 }
@@ -5596,6 +5626,7 @@ V.study = () => {
       ? `<div class="grades" style="grid-template-columns:1fr 1fr"><button class="grade again" data-act="cram-grade" data-v="0">Didn't know</button><button class="grade good" data-act="cram-grade" data-v="1">Knew it</button></div>`
       : `<div class="grades">${[["Again", "again", 0], ["Hard", "hard", 1], ["Good", "good", 2], ["Easy", "easy", 3]].map(([l, cl, g]) => `<button class="grade ${cl}" data-act="grade" data-v="${g}">${l}<small>${ivlLabel(id, g)}</small></button>`).join("")}</div>`)
       : `<button class="btn primary" data-act="flip" style="min-height:58px">Show answer</button>`}
+    ${PC ? `<p class="muted small keys-tip"><kbd>Space</kbd> shows the answer · <kbd>1</kbd> to <kbd>4</kbd> rate it</p>` : ""}
     ${s.flipped && SAMPLE ? `<div class="panel" style="gap:10px"><div class="row" style="justify-content:space-between"><b>Still unsure?</b><button class="btn small" data-act="explain" ${ex && ex.busy ? "disabled" : ""}>${ex && ex.busy ? "Explaining…" : "Explain this card"}</button></div>${ex ? `<p class="answer" id="explain-out">${esc(ex.text || "")}</p>` : ""}</div>` : ""}
   </div>`;
 };
@@ -5628,7 +5659,7 @@ function notesImportPanel() {
   return `<section class="panel"><div class="panel-head"><div class="stack" style="gap:2px"><h2>${have === all ? "Notes are on this device" : "Add the notes to this device"}</h2><span class="muted small">${have} of ${all} ${SUBJ[sc].name} note files stored · works offline once imported</span></div>
     <label class="btn ${have < all ? "primary" : ""}">Import notes<input type="file" accept=".zip,application/zip" multiple data-change="import" hidden></label></div>
     ${imp ? `<p class="small" id="import-progress">Storing files… ${imp.done} of ${imp.total}</p>` : ""}
-    ${have < all ? `<p class="muted small">Pick <b>${zip}</b> from your Downloads. It holds Physics &amp; Maths Tutor's AQA notes: detailed notes, definitions, mind maps, calculations and the required practical write-ups with diagrams.</p>` : ""}</section>`;
+    ${have < all ? `<p class="muted small">Pick <b>${zip}</b> from your Downloads. It holds Physics &amp; Maths Tutor's AQA notes: detailed notes, definitions, mind maps, calculations and the required practical write-ups with diagrams.${PC ? " You can also drag the zip onto this window." : ""}</p>` : ""}</section>`;
 }
 const NOTE_BADGE = { detail: "chip", defs: "chip amber", mind: "chip", knock: "chip", calc: "chip" };
 function notesTab() {
@@ -5653,7 +5684,7 @@ function rpTab() {
   const sc = cur(), N = (window.NOTES || {})[sc] || {}, list = PRACS.filter(p => p.subj === sc), done = list.filter(p => S.rp[p.id]).length;
   const pdf = n => OFFLINE ? [].concat(N.rp || []).find(r => r.n === n) : null;
   const skills = OFFLINE ? [].concat(N.skills || []) : [];
-  return (OFFLINE ? notesImportPanel() : "") + `<p class="muted">${done} of ${list.length} marked confident. Paper 3 tests these directly, and practical questions appear on every paper. Learn the method, the measurements and how to reduce uncertainty.${OFFLINE ? ` Each practical has Physics &amp; Maths Tutor's annotated write-up with diagrams: open it${PHONE ? "" : " and annotate it with the S Pen"}.` : ""}</p>
+  return (OFFLINE ? notesImportPanel() : "") + `<p class="muted">${done} of ${list.length} marked confident. Paper 3 tests these directly, and practical questions appear on every paper. Learn the method, the measurements and how to reduce uncertainty.${OFFLINE ? ` Each practical has Physics &amp; Maths Tutor's annotated write-up with diagrams: open it${NOPEN ? "" : " and annotate it with the S Pen"}.` : ""}</p>
   <div class="stack">${list.map(p => { const f = pdf(p.n); return `<details class="disc"><summary><span class="chip ${p.subj}">RP${p.n}</span><span class="item-main"><b>${esc(p.t)}</b></span>${S.rp[p.id] ? '<span class="chip green">Confident</span>' : ""}</summary>
     <div class="body nt-rp">${rpBlocks(p, ((window.NC || {}).rp || {})[p.id])}${f ? `<div class="list">${noteBtn(f.p, "Annotated notes and diagrams", "Physics & Maths Tutor · RP " + f.n + " · " + (f.kb >= 1024 ? (f.kb / 1024).toFixed(1) + " MB" : f.kb + " KB"))}</div>` : ""}
       <div class="row"><button class="btn small ${S.rp[p.id] ? "" : "primary"}" data-act="rp" data-v="${p.id}">${S.rp[p.id] ? "Mark as not confident" : "Mark as confident"}</button><button class="btn small" data-act="open-topic" data-v="${p.topic}">Go to topic</button></div></div></details>`; }).join("")}</div>
@@ -5977,7 +6008,7 @@ V.papers = () => {
   if (tab === "custom") return head + customTab(s);
   return `${head}
   ${OFFLINE ? importPanel(s) : ""}
-  ${OFFLINE && !PHONE ? aiPaperIntro() : ""}
+  ${OFFLINE && !NOPEN ? aiPaperIntro() : ""}
   ${paperLibrary(s)}
   <section class="panel"><h2>Official documents</h2><div class="row">${ext(DOCS[s].spec, "Specification (PDF)")}${ext(DOCS[s].booklet, DOCS[s].bookletName + " (PDF)")}${ext(DOCS[s].resources, "All AQA resources")}</div>${OFFLINE ? `<p class="muted small">These open on aqa.org.uk and need internet.</p>` : ""}</section>`;
 };
@@ -6159,7 +6190,7 @@ function intelPanel(s) {
     ${dates.length ? `<div class="table-wrap"><table><tbody>${dates.map(d => `<tr><td>${esc(d[0])}</td><td class="mono">${esc(d[1])}</td></tr>`).join("")}</tbody></table></div>` : ""}
     ${Object.keys(I.boosts || {}).length ? `<div class="stack"><b>What changed the prediction</b><ul class="tight">${Object.entries(I.boosts).map(([id, b]) => TOPICS[id] ? `<li>${esc(TOPICS[id].t)}: ${esc(b.why)}</li>` : "").join("")}</ul></div>` : ""}
     <details class="disc"><summary><span class="item-main"><b>Sources</b></span></summary><div class="body"><ul class="tight">${(I.sources || []).map(x => `<li><a href="${esc(x.u)}" target="_blank" rel="noopener">${esc(x.t)}</a></li>`).join("")}</ul></div></details>
-    ${ui.intelAsk ? `<div class="stack"><p class="small">Copy this and paste it to Claude. The updated app arrives on this tablet by itself the next time you open it online.</p><textarea readonly id="intel-text" style="min-height:96px">${esc(intelPrompt())}</textarea><div class="row"><button class="btn small primary" data-act="intel-copy">Copy request</button><button class="btn small ghost" data-act="intel-ask">Close</button></div></div>` : ""}
+    ${ui.intelAsk ? `<div class="stack"><p class="small">Copy this and paste it to Claude. The updated app arrives on this ${DEV} by itself the next time you open it online.</p><textarea readonly id="intel-text" style="min-height:96px">${esc(intelPrompt())}</textarea><div class="row"><button class="btn small primary" data-act="intel-copy">Copy request</button><button class="btn small ghost" data-act="intel-ask">Close</button></div></div>` : ""}
   </section>`;
 }
 function intelPrompt() {
@@ -6172,8 +6203,8 @@ function predictedTab(s) {
   const top = `<section class="panel"><div class="panel-head"><div class="stack" style="gap:2px"><h2>How this works</h2><span class="muted small">${P ? `Based on ${papers.reduce((n, p) => n + ((P.papers[p] || []).length), 0)} question papers read on ${fmtDate(P.built)}` : "Not analysed yet"}</span></div>
       <button class="btn ${P ? "" : "primary"}" data-act="pred-run" ${busy || !stored ? "disabled" : ""}>${P ? "Re-analyse my papers" : "Analyse my papers"}</button></div>
     ${busy ? `<p class="small" id="pred-progress">Reading papers… ${busy.done} of ${busy.total}</p><div class="m3-progress"><i style="width:${busy.total ? busy.done / busy.total * 100 : 0}%"></i></div>` : ""}
-    <p class="small">AQA does not release what is coming, so nobody can truly predict the paper. This reads every ${sub.name} question paper stored on your tablet, matches each page to its specification topic, and counts how often each topic is examined, giving more weight to recent years and a small boost to topics that have been absent for a while. Treat it as a guide for where to spend revision time, and still revise everything.</p>
-    ${stored ? "" : `<p class="small"><b>Import the ${sub.name} papers first.</b> Use the Past papers tab and pick ${sub.name} papers.zip. The papers stay on your tablet.</p>`}
+    <p class="small">AQA does not release what is coming, so nobody can truly predict the paper. This reads every ${sub.name} question paper stored on your ${DEV}, matches each page to its specification topic, and counts how often each topic is examined, giving more weight to recent years and a small boost to topics that have been absent for a while. Treat it as a guide for where to spend revision time, and still revise everything.</p>
+    ${stored ? "" : `<p class="small"><b>Import the ${sub.name} papers first.</b> Use the Past papers tab and pick ${sub.name} papers.zip. The papers stay on your ${DEV}.</p>`}
   </section>`;
   if (!P) return top + intelPanel(s);
   const cards = papers.map(name => {
@@ -6213,7 +6244,7 @@ function importPanel(s) {
   if (ui.importing) return `<section class="panel"><h2>Adding papers to this device</h2><p id="import-progress" class="mono">Storing papers… ${ui.importing.done} of ${ui.importing.total}</p><p class="muted small">Keep the app open until this finishes.</p></section>`;
   return `<section class="panel"><div class="panel-head"><div class="stack" style="gap:4px"><h2>Papers on this device</h2><span class="muted small">${have} of ${all} ${name} files stored</span></div>${have >= all ? '<span class="chip green">All stored</span>' : ""}</div>
     <div class="progress"><i style="width:${all ? have / all * 100 : 0}%"></i></div>
-    ${have < all ? `<p class="small">Import <b>${name} papers.zip</b> (or any of the PDFs) once, and every paper opens here with no internet. You can import both subjects' zips at the same time.</p>` : ""}
+    ${have < all ? `<p class="small">Import <b>${name} papers.zip</b> (or any of the PDFs) once, and every paper opens here with no internet. You can import both subjects' zips at the same time.${PC ? " You can also drag the zips onto this window." : ""}</p>` : ""}
     <label class="btn ${have < all ? "primary" : ""}" style="align-self:flex-start">Import papers<input type="file" accept=".zip,.pdf,application/zip,application/pdf" multiple data-change="import" hidden></label>
   </section>`;
 }
@@ -6303,7 +6334,7 @@ V.timer = () => {
     <svg class="ring" viewBox="0 0 200 200" aria-hidden="true"><circle cx="100" cy="100" r="88" fill="none" stroke="var(--surface-2)" stroke-width="10"/><circle id="tm-arc" cx="100" cy="100" r="88" fill="none" stroke="${TM.mode === "focus" ? "var(--ink)" : "var(--green)"}" stroke-width="10" stroke-linecap="round" transform="rotate(-90 100 100)" stroke-dasharray="${(2 * Math.PI * 88).toFixed(1)}"/><text id="tm-clock" x="100" y="112" text-anchor="middle" style="font:700 40px var(--f-mono);fill:var(--ink)"></text></svg>
     <div class="row"><button class="btn primary" data-act="tm-toggle" style="min-width:140px">${TM.running ? "Pause" : TM.left < TM.len[TM.mode] * 60 ? "Resume" : "Start"}</button><button class="btn" data-act="tm-reset">Reset</button></div>
     <label class="field" for="tm-len" style="width:200px">${TM.mode === "focus" ? "Focus" : "Break"} length (minutes)<input id="tm-len" type="number" min="1" max="180" value="${TM.len[TM.mode]}" data-change="tm-len" inputmode="numeric"></label>
-    <p class="muted small" style="text-align:center;max-width:44ch">Work in focused blocks with your tablet's notifications off. The screen stays on while the timer runs.</p>
+    <p class="muted small" style="text-align:center;max-width:44ch">Work in focused blocks with your ${DEV}'s notifications off. The screen stays on while the timer runs.</p>
   </section>`;
 };
 function drawTimer() {
@@ -6345,8 +6376,9 @@ V.prefs = () => {
     </div>
     <p class="muted small">There are ${Object.keys(CARDS).length} flashcards in total. At 20 new cards a day you'll have seen them all in about ${Math.ceil(Object.keys(CARDS).length / Math.max(1, st.newPerDay))} days; raise the number if your exams are sooner.</p>
   </section>
+  ${PC ? pcPanels() : ""}
   ${OFFLINE ? devicePanel() + cloudPanel() + geminiPanel() : ""}
-  ${PHONE ? "" : `<section class="panel"><h2>S Pen check</h2><p class="muted small">Touch this box with your S Pen, then try again while holding the side button. If the side button works, it says so below and erases ink in papers and answers.</p>
+  ${NOPEN ? "" : `<section class="panel"><h2>S Pen check</h2><p class="muted small">Touch this box with your S Pen, then try again while holding the side button. If the side button works, it says so below and erases ink in papers and answers.</p>
     <div class="pen-test" id="pen-test"><div><span class="muted small" id="pen-test-out">Waiting for the pen…</span><pre class="small mono muted" id="pen-test-log" style="margin:6px 0 0;text-align:left;white-space:pre-wrap">${esc(PENLOG.join("\n"))}</pre></div></div>
     <p class="muted small">Can't erase with the side button? Hold the pen still on the page for half a second, then drag: it switches to the eraser. The eraser button in the pen bar works too.</p></section>`}
   <section class="panel"><h2>Appearance</h2><div class="seg">${[["system", "Match device"], ["light", "Light"], ["dark", "Dark"]].map(([v, l]) => `<button data-act="theme" data-v="${v}" aria-pressed="${st.theme === v}">${l}</button>`).join("")}</div></section>
@@ -6362,8 +6394,8 @@ V.prefs = () => {
   <section class="panel"><h2>Start again</h2>
     ${ui.confirmReset ? `<div class="confirm"><b>Erase all progress?</b><span class="small">This deletes your flashcard history, ratings, notes, papers, exams and mistakes on every device. It can't be undone.</span><div class="row"><button class="btn danger" data-act="reset-yes">Erase everything</button><button class="btn" data-act="reset-no">Cancel</button></div></div>` : `<div><button class="btn danger" data-act="reset">Erase all progress</button></div>`}
   </section>
-  <section class="panel"><h2>Diagnostics</h2><p class="muted small">See what the app is doing and why something isn't working. Turn on the live pen log to watch every pen event on screen while you write or erase in a paper.</p>
-    <div class="row"><button class="btn ${ui.dbgPen ? "primary" : ""}" data-act="dbg-pen">${ui.dbgPen ? "Live pen log: on" : "Show live pen log"}</button><button class="btn" data-act="dbg-copy">Copy report</button></div>
+  <section class="panel"><h2>Diagnostics</h2><p class="muted small">See what the app is doing and why something isn't working. ${NOPEN ? "" : "Turn on the live pen log to watch every pen event on screen while you write or erase in a paper."}</p>
+    <div class="row">${NOPEN ? "" : `<button class="btn ${ui.dbgPen ? "primary" : ""}" data-act="dbg-pen">${ui.dbgPen ? "Live pen log: on" : "Show live pen log"}</button>`}<button class="btn" data-act="dbg-copy">Copy report</button></div>
     <div class="row"><button class="btn small" data-act="dbg-refresh">Refresh report</button></div>
     <pre class="small mono muted" id="diag-report" style="white-space:pre-wrap;margin:0;overflow-wrap:anywhere">${esc(diagReport())}</pre></section>
   ${OFFLINE ? `<section class="panel"><h2>App updates</h2><p class="small">Version ${esc(window.BUILD || "")}. The app checks for a newer version whenever you open it with internet, and shows a bar at the bottom when one is ready. Your progress, papers, notes and handwriting are kept.</p>
@@ -6656,9 +6688,101 @@ document.addEventListener("keydown", e => {
   else if (ui.study.flipped && !ui.study.cram && "1234".includes(e.key)) { e.preventDefault(); grade(+e.key - 1); }
 });
 
+/* ---------- Computer edition: mouse, keyboard, drag and drop, installing ---------- */
+// Touch wording becomes mouse wording on a computer. Notes, questions and chat text are left exactly as written.
+function pcWording(el) {
+  if (!PC || !el) return;
+  const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+    if (!/\btap\b/i.test(n.nodeValue) || !n.parentElement || n.parentElement.closest("script, style, textarea, .nt-article, .q-stem, .q-part-head, .scheme, .vwp-scroll, .answer")) continue;
+    n.nodeValue = clickWords(n.nodeValue);
+  }
+}
+function mousePan(cont) {
+  let p = null; cont.classList.add("grab");
+  cont.addEventListener("pointerdown", e => { if (e.pointerType !== "mouse" || e.button !== 0 || !VW.doc) return; e.preventDefault(); p = { x: e.clientX, y: e.clientY }; try { cont.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } cont.classList.add("panning"); });
+  cont.addEventListener("pointermove", e => { if (!p) return; cont.scrollLeft += p.x - e.clientX; cont.scrollTop += p.y - e.clientY; p = { x: e.clientX, y: e.clientY }; });
+  const stop = () => { p = null; cont.classList.remove("panning"); };
+  ["pointerup", "pointercancel", "lostpointercapture"].forEach(t => cont.addEventListener(t, stop));
+}
+const SHORTCUTS = [
+  ["Anywhere", [["Alt + 1, 2, 3…", "Open a section from the side menu"], ["Esc", "Close what is open"], ["?", "Show these shortcuts"]]],
+  ["Practice questions", [["← →", "Previous or next question"], ["A to D", "Choose a multiple choice answer"], ["M", "Show the mark scheme"]]],
+  ["Flashcards", [["Space", "Show the answer"], ["1 to 4", "Again, Hard, Good, Easy"]]],
+  ["Papers and notes", [["Ctrl + wheel", "Zoom (+ and − work too)"], ["0", "Back to 100%"], ["Mouse drag", "Move around the page"], ["↑ ↓ Space", "Scroll (also Page Up and Down)"], ["N or G", "Notes or Ask Gemini beside a paper"]]]
+];
+const shortcutList = () => SHORTCUTS.map(([h, rows]) => `<div class="stack" style="gap:6px"><h3>${h}</h3>${rows.map(([k, d]) => `<div class="key-row"><kbd>${k}</kbd><span class="small">${d}</span></div>`).join("")}</div>`).join("");
+function showKeys() {
+  if (document.getElementById("keys-help")) return;
+  const d = document.createElement("div"); d.id = "keys-help"; d.className = "keys-back";
+  d.innerHTML = `<div class="keys-card" role="dialog" aria-label="Keyboard shortcuts"><div class="row" style="justify-content:space-between"><h2>Keyboard shortcuts</h2><button class="icon-btn" aria-label="Close">✕</button></div>${shortcutList()}</div>`;
+  d.addEventListener("click", e => { if (e.target === d || e.target.closest("button")) d.remove(); });
+  document.body.appendChild(d); d.querySelector("button").focus();
+}
+let INSTALL = null;
+function pcPanels() {
+  const installed = matchMedia("(display-mode: standalone)").matches;
+  const app = !OFFLINE ? "" : `<section class="panel"><h2>${CHROMEOS ? "Lab Book on this Chromebook" : "Lab Book on this PC"}</h2>${installed
+    ? `<p class="small">Lab Book is running in its own window and works without internet. ${CHROMEOS ? "To keep it on the shelf, right-click its icon and choose Pin." : "To keep it on the taskbar, right-click its icon and choose Pin to taskbar."}</p>`
+    : INSTALL ? `<p class="small">Install it to get its own icon and window. It then works without internet.</p><div><button class="btn primary" data-act="install-app">Install Lab Book</button></div>`
+    : `<p class="small">To install it: ${CHROMEOS ? "click the install icon at the right of the address bar, or open the ⋮ menu, then <b>Cast, save and share</b>, then <b>Install page as app</b>." : "in Edge, open the ⋯ menu, then <b>Apps</b>, then <b>Install this site as an app</b>."} If you don't see that option, it is already installed.</p>`}</section>`;
+  return app + `<section class="panel"><h2>Keyboard and mouse</h2><div class="keys-grid">${shortcutList()}</div></section>`;
+}
+function pcKey(e) {
+  if (e.defaultPrevented) return;
+  const el = document.activeElement, typing = el && /INPUT|TEXTAREA|SELECT/.test(el.tagName), k = e.key;
+  const press = (name, v) => ACT[name]({ dataset: { v } });
+  const help = document.getElementById("keys-help");
+  if (k === "Escape") {
+    if (help) help.remove(); else if (typing) el.blur(); else if (ui.sheet) { ui.sheet = false; render(); } else if (VWP.mode) press("vwp-toggle", VWP.mode); else if (VW.open) closeViewer(false);
+    return;
+  }
+  if (help) return;
+  if (VW.open && (e.ctrlKey || e.metaKey) && ["+", "=", "-", "_", "0"].includes(k)) { e.preventDefault(); if (k === "0") press("vw-zoom-reset"); else press("vw-zoom", k === "+" || k === "=" ? "1" : "-1"); return; }
+  if (e.altKey && !e.ctrlKey && /^[1-9]$/.test(k)) { const id = RAIL[+k - 1]; if (id) { e.preventDefault(); if (VW.open) leaveViewer(() => go(id)); else go(id); } return; }
+  if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (k === "?") { showKeys(); return; }
+  if (VW.open) {
+    const c = document.getElementById("vw-pages"); if (!c) return;
+    const page = c.clientHeight * 0.9, down = { ArrowDown: 90, ArrowUp: -90, PageDown: page, PageUp: -page, " ": e.shiftKey ? -page : page, Home: -c.scrollHeight, End: c.scrollHeight };
+    if (k === "+" || k === "=") press("vw-zoom", "1");
+    else if (k === "-") press("vw-zoom", "-1");
+    else if (k === "0") press("vw-zoom-reset");
+    else if (k in down) { if (k === " " && el && el.tagName === "BUTTON") return; e.preventDefault(); c.scrollBy(0, down[k]); }
+    else if (k === "ArrowLeft" || k === "ArrowRight") { e.preventDefault(); c.scrollBy(k === "ArrowLeft" ? -90 : 90, 0); }
+    else if (VW.cur && !VW.note && (k === "n" || k === "g")) { e.preventDefault(); press("vwp-toggle", k === "n" ? "notes" : "ai"); }
+    return;
+  }
+  if (!onQuestion()) return;
+  const ps = ui.ps, id = ps.ids[ps.i], q = QIDX[id];
+  if (k === "ArrowRight") { e.preventDefault(); if (ps.i < ps.ids.length - 1) press("ps-next"); } // an arrow key never finishes the session
+  else if (k === "ArrowLeft") { e.preventDefault(); press("ps-prev"); }
+  else if (q.k === "mcq") { let i = k.length === 1 ? "abcdef".indexOf(k.toLowerCase()) : -1; if (i < 0 && /^[1-6]$/.test(k)) i = +k - 1; if (i >= 0 && i < q.o.length) press("ps-pick", String(i)); }
+  else if (k.toLowerCase() === "m" && !ps.shown[id] && !ps.saved[id]) press("ps-show");
+}
+if (PC) {
+  ACT["install-app"] = async () => { const p = INSTALL; if (!p) return; INSTALL = null; try { await p.prompt(); } catch (e) { /* ignore */ } render(); };
+  document.body.classList.add("pc");
+  document.addEventListener("keydown", pcKey);
+  // the viewer and help panels are drawn outside render()
+  new MutationObserver(list => { for (const m of list) for (const n of m.addedNodes) if (n.nodeType === 1) pcWording(n); }).observe(document.body, { childList: true, subtree: true });
+  addEventListener("beforeinstallprompt", e => { e.preventDefault(); INSTALL = e; if (view === "prefs") render(); });
+  addEventListener("appinstalled", () => { INSTALL = null; render(); toast("Lab Book is installed"); });
+  // drop the papers or notes zips anywhere on the window to import them
+  const files = e => e.dataTransfer && [...e.dataTransfer.types].includes("Files");
+  addEventListener("dragover", e => { if (!OFFLINE || !files(e)) return; e.preventDefault(); document.body.classList.add("dropping"); });
+  addEventListener("dragleave", e => { if (!e.relatedTarget) document.body.classList.remove("dropping"); });
+  addEventListener("drop", e => {
+    if (!OFFLINE || !files(e)) return; e.preventDefault(); document.body.classList.remove("dropping");
+    const list = [...e.dataTransfer.files].filter(x => /\.(zip|pdf)$/i.test(x.name));
+    if (!list.length) toast("Drop the papers or notes zip files here"); else if (ui.importing) toast("Still adding the last files"); else { toast("Adding your files…"); importFiles(list); }
+  });
+}
+
 render();
 backToSpot();
 initClaude();
+
 })();
 
 </script>
