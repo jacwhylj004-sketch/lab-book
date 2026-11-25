@@ -519,7 +519,7 @@ body.ps-open .penbar { left: calc((100% - min(46%, 520px)) / 2); max-width: calc
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261125-2142";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261125-2145";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -5081,38 +5081,44 @@ Object.defineProperty(ui, "tutor", { get: () => ui.tutors[cur()] });
 view = resolveView(view) || "home";
 
 /* ---------- Keeping your practice place ---------- */
-// For each subject, the topics you chose and the session you haven't finished are saved on this device, so they are still
-// there after closing the app. A session is only dropped when you tap End session or finish its last question.
+// The topics you chose (for each subject) and the session you haven't finished are saved on this device. The session stays
+// on the Practice page, whichever subject is selected and even after closing the app, until you tap Finish session.
 const PR_KEY = "labbook-practice";
 let PR = null;
 function prac() {
   if (PR) return PR;
   let o = null; try { o = JSON.parse(localStorage.getItem(PR_KEY) || "null"); } catch (e) { /* start fresh */ }
-  PR = { phys: {}, chem: {} };
+  PR = { phys: {}, chem: {}, ps: null };
+  // (an earlier version kept one session per subject: carry on with the current subject's, or else the other one)
+  const p = o && (o.session || (o[cur()] || {}).ps || (o.phys || {}).ps || (o.chem || {}).ps);
+  if (p && Array.isArray(p.ids)) {
+    const at = p.ids[p.i], ids = p.ids.filter(id => QIDX[id]);
+    if (ids.length) PR.ps = Object.assign(p, { ids, i: Math.max(0, ids.indexOf(at)), aiBusy: null, aiWait: "", aiErr: "", t0: Date.now() - (p.elapsed || 0) });
+  }
   for (const s of ["phys", "chem"]) {
     const x = (o && o[s]) || {};
     if (x.pf) { PR[s].pf = Object.assign(defaultPF(), x.pf); if (PR[s].pf.topics) PR[s].pf.topics = PR[s].pf.topics.filter(id => TOPICS[id]); }
-    const p = x.ps;
-    if (p && Array.isArray(p.ids)) {
-      const at = p.ids[p.i], ids = p.ids.filter(id => QIDX[id]);
-      if (ids.length) PR[s].ps = Object.assign(p, { ids, i: Math.max(0, ids.indexOf(at)), aiBusy: null, aiWait: "", aiErr: "", t0: Date.now() - (p.elapsed || 0) });
-    }
     if (o && o.cp && o.cp[s]) (ui.cp = ui.cp || {})[s] = Object.assign({ topics: [], minutes: 60, mc: s === "phys", weighted: true, seed: 1 }, o.cp[s], { built: null });
   }
   return PR;
 }
 function savePractice() {
-  const P2 = prac(), out = { cp: {} };
+  const P2 = prac(), p = P2.ps, out = { cp: {}, session: p && !p.done ? Object.assign({}, p, { elapsed: Date.now() - p.t0 }) : null };
   for (const s of ["phys", "chem"]) {
-    const p = P2[s].ps;
-    out[s] = { pf: P2[s].pf || null, ps: p && !p.done ? Object.assign({}, p, { elapsed: Date.now() - p.t0 }) : null };
+    out[s] = { pf: P2[s].pf || null };
     if (ui.cp && ui.cp[s]) out.cp[s] = Object.assign({}, ui.cp[s], { built: null });
   }
   try { localStorage.setItem(PR_KEY, JSON.stringify(out)); } catch (e) { /* storage unavailable */ }
 }
-function clearPractice() { PR = { phys: {}, chem: {} }; ui.cp = null; try { localStorage.removeItem(PR_KEY); } catch (e) { /* ignore */ } }
-for (const k of ["ps", "pf"]) Object.defineProperty(ui, k, { get: () => prac()[cur()][k] || null, set: v => { prac()[cur()][k] = v; } });
+function clearPractice() { PR = { phys: {}, chem: {}, ps: null }; ui.cp = null; try { localStorage.removeItem(PR_KEY); } catch (e) { /* ignore */ } }
+Object.defineProperty(ui, "ps", { get: () => prac().ps, set: v => { prac().ps = v; } });
+Object.defineProperty(ui, "pf", { get: () => prac()[cur()].pf || null, set: v => { prac()[cur()].pf = v; } });
 const openSession = () => !!(ui.ps && !ui.ps.done);
+const onQuestion = () => view === "practice" && ui.pracTab !== "cards" && openSession();
+const sessionSubj = () => { const q = ui.ps && QIDX[ui.ps.ids[ui.ps.i]]; return q ? SUBJ[q.subj].name : ""; };
+// Remember how far down the question you were, and go back there when you return to it.
+addEventListener("scroll", () => { if (onQuestion() && !(typeof VW === "object" && VW.open)) ui.ps.y = window.scrollY; }, { passive: true });
+function backToSpot() { window.scrollTo(0, onQuestion() ? ui.ps.y || 0 : 0); }
 addEventListener("pagehide", () => savePractice());
 document.addEventListener("visibilitychange", () => { if (document.hidden) savePractice(); });
 
@@ -5221,10 +5227,11 @@ function psTimerTick() {
 setInterval(psTimerTick, 1000);
 function go(v) {
   view = resolveView(v) || "home"; ui.sheet = false;
+  if (v === "practice" && openSession()) ui.pracTab = "questions";
   if (location.hash.slice(1) !== view) location.hash = view;
-  render(); window.scrollTo(0, 0);
+  render(); backToSpot();
 }
-addEventListener("hashchange", () => { const v = resolveView(location.hash.slice(1)); if (v && v !== view) { view = v; ui.sheet = false; render(); } });
+addEventListener("hashchange", () => { const v = resolveView(location.hash.slice(1)); if (v && v !== view) { view = v; ui.sheet = false; render(); backToSpot(); } });
 
 const V = {};
 
@@ -5316,7 +5323,7 @@ function qFilter(f) {
     && (!f.topics || f.topics.includes(q.t)) && (!term || qText(q).toLowerCase().includes(term) || TOPICS[q.t].t.toLowerCase().includes(term)));
 }
 function startPractice(f) {
-  if (openSession()) { ui.pracTab = "questions"; go("practice"); toast("You have a session open. Finish it or tap End session first."); return; }
+  if (openSession()) { ui.pracTab = "questions"; go("practice"); toast("You have a session open. Tap Finish session first."); return; }
   let list = f.ids ? f.ids.map(id => QIDX[id]).filter(Boolean) : qFilter(f);
   if (!list.length) { toast("No questions match those choices"); return; }
   if (f.random !== false) shuffle(list);
@@ -5343,7 +5350,7 @@ V.home = () => {
   <section class="card">
     <h2 class="card-title">Study</h2>
     <div class="actions">
-      ${openSession() ? `<button class="btn primary" data-act="resume">Continue: ${esc(ui.ps.label)} (question ${ui.ps.i + 1} of ${ui.ps.ids.length})</button>` : ""}
+      ${openSession() ? `<button class="btn primary" data-act="resume">Continue ${sessionSubj()}: ${esc(ui.ps.label)} (question ${ui.ps.i + 1} of ${ui.ps.ids.length})</button>` : ""}
       ${action("practice-setup", "qa", "Practise by topic and difficulty")}
       ${action("quick10", "qa", "Quick 10 multiple choice")}
       ${action("written3", "pen", PHONE ? "Three written questions" : "Three written questions (S Pen)")}
@@ -5395,13 +5402,13 @@ function practiceSession() {
            ${!shown ? `<button class="btn ${gemReady() ? "" : "primary"}" data-act="ps-show">Show mark scheme</button>` : `<button class="btn ${gemReady() && !ai ? "" : "primary"}" data-act="ps-save">Save my marks (${total} / ${q.m})</button><span class="muted small">Tick each point you made.</span>`}
            ${OFFLINE && !gemReady() ? `<button class="btn ghost small" data-act="go" data-v="prefs">Set up AI marking</button>` : ""}`}</div>`;
   }
-  return `<div class="topbar"><div class="title"><span class="eyebrow">Question ${ps.i + 1} of ${ps.ids.length}</span><h1>${esc(ps.label)}</h1></div><div class="row" style="gap:8px">${ps.minutes ? `<span class="chip mono ps-timer" id="ps-timer" role="timer" aria-label="Time left"></span>` : ""}${OFFLINE ? `<div class="seg vw-help"><button data-act="vwp-toggle" data-v="notes" aria-pressed="${VWP.mode === "notes"}">${icon("book").replace("<svg", '<svg style="width:18px"')} Notes</button><button data-act="vwp-toggle" data-v="ai" aria-pressed="${VWP.mode === "ai"}">${icon("spark").replace("<svg", '<svg style="width:18px"')} Ask Gemini</button></div>` : ""}<button class="btn small" data-act="ps-end">End session</button></div></div>
+  return `<div class="topbar"><div class="title"><span class="eyebrow">${SUBJ[q.subj].name} · Question ${ps.i + 1} of ${ps.ids.length}</span><h1>${esc(ps.label)}</h1></div><div class="row" style="gap:8px">${ps.minutes ? `<span class="chip mono ps-timer" id="ps-timer" role="timer" aria-label="Time left"></span>` : ""}${OFFLINE ? `<div class="seg vw-help"><button data-act="vwp-toggle" data-v="notes" aria-pressed="${VWP.mode === "notes"}">${icon("book").replace("<svg", '<svg style="width:18px"')} Notes</button><button data-act="vwp-toggle" data-v="ai" aria-pressed="${VWP.mode === "ai"}">${icon("spark").replace("<svg", '<svg style="width:18px"')} Ask Gemini</button></div>` : ""}<button class="btn small" data-act="ps-end">Finish session</button></div></div>
   <div class="m3-progress"><i style="width:${(ps.i + 1) / ps.ids.length * 100}%"></i></div>
   <article class="card q-card">
     <div class="row q-meta">${chipT(t)}<span class="small">${esc(t.t)}</span>${diffDots(q.d)}<span class="chip">${q.k === "mcq" ? "Multiple choice" : "Written"} · ${q.m} mark${q.m === 1 ? "" : "s"}</span>${st.n ? `<span class="chip ${st.of && st.got / st.of >= 0.6 ? "green" : "amber"}">Last: ${st.got}/${st.of}</span>` : ""}${st.n ? `<button class="btn small ghost" data-act="qs-del" data-v="${esc(id)}" title="Removes the saved mark for this question, here and on your other device after a sync">${ui.confirmQ === id ? "Tap again to remove" : "Remove my result"}</button>` : ""}<button class="icon-btn flag ${st.f ? "on" : ""}" data-act="ps-flag" aria-pressed="${!!st.f}" aria-label="${st.f ? "Remove flag" : "Flag this question"}" title="Flag">${icon("flag")}</button></div>
     ${body}
   </article>
-  <div class="row" style="justify-content:space-between"><button class="btn" data-act="ps-prev" ${ps.i === 0 ? "disabled" : ""}>Previous</button><button class="btn primary" data-act="ps-next">${last ? "Finish" : "Next question"}</button></div>
+  <div class="row" style="justify-content:space-between"><button class="btn" data-act="ps-prev" ${ps.i === 0 ? "disabled" : ""}>Previous</button><button class="btn primary" data-act="ps-next">${last ? "Finish session" : "Next question"}</button></div>
   ${q.k === "w" && !ps.kbAll && !PHONE ? penBar() : ""}`;
 };
 const segHTML = (act, val, opts, label) => `<div class="seg" role="group" ${label ? `aria-label="${label}"` : ""}>${opts.map(([v, l]) => `<button data-act="${act}" data-v="${v}" aria-pressed="${String(val) === String(v)}">${l}</button>`).join("")}</div>`;
@@ -6386,7 +6393,7 @@ const ACT = {
   subj: el => {
     if (cur() === el.dataset.v) return;
     S.settings.subj = el.dataset.v; ui.studyTopic = ""; ui.quizTopic = ""; ui.topic = null; ui.study = null; ui.quiz = null; ui.fsearch = ""; ui.bf = null;
-    save(); render(); window.scrollTo(0, 0);
+    save(); render(); backToSpot();
   },
   "study-start": el => startStudy(el.dataset.v, false),
   cram: el => startStudy(el.dataset.v, true),
@@ -6438,13 +6445,13 @@ const ACT = {
   rp: el => { const id = el.dataset.v; if (S.rp[id]) delete S.rp[id]; else S.rp[id] = true; save(); render(); },
   dtab: el => { ui.data[cur()] = el.dataset.v; render(); },
   el: el => { ui.el = +el.dataset.v; render(); },
-  "practice-setup": () => { if (ui.ps && ui.ps.done) ui.ps = null; ui.pracTab = "questions"; go("practice"); if (openSession()) toast("Carrying on your session. Tap End session to choose new topics."); },
+  "practice-setup": () => { if (ui.ps && ui.ps.done) ui.ps = null; ui.pracTab = "questions"; go("practice"); if (openSession()) toast("Carrying on your session. Tap Finish session to choose new topics."); },
   resume: () => { ui.pracTab = "questions"; go("practice"); },
   quick10: () => startPractice({ kind: "mcq", n: 10, label: "Quick 10 multiple choice" }),
   written3: () => startPractice({ kind: "w", n: 3, label: "Three written questions" }),
   "flagged-go": () => startPractice({ flagged: true, label: "Flagged questions" }),
   "practise-topic": el => startPractice({ topic: el.dataset.v, n: 10, label: TOPICS[el.dataset.v].t }),
-  "practise-weak": el => startPractice({ topics: el.dataset.v.split(","), n: 10, label: "Topics to work on" }),
+  "practise-weak": el => { const ids = el.dataset.v.split(","); if (TOPICS[ids[0]]) S.settings.subj = TOPICS[ids[0]].subj; startPractice({ topics: ids, n: 10, label: "Topics to work on" }); },
   "tutor-new": () => { ui.tutor.mode = "exam"; go("tutor"); },
   booklet: async () => {
     try { await pdbOpen(); } catch (e) { /* none */ }
@@ -6650,6 +6657,7 @@ document.addEventListener("keydown", e => {
 });
 
 render();
+backToSpot();
 initClaude();
 })();
 
