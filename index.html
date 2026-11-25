@@ -377,9 +377,9 @@ ul.tight, ol.tight { margin: 0; padding-left: 1.2em; display: flex; flex-directi
 #cp-slider { width: 100%; accent-color: var(--accent); }
 .ps-panel { position: fixed; right: 0; bottom: 0; top: calc(env(safe-area-inset-top, 0px) + 64px); width: min(46%, 520px); z-index: 45; box-shadow: -6px 0 24px rgba(0,0,0,.18); border-top-left-radius: 22px; }
 body.ps-open .main { padding-right: calc(min(46%, 520px) + 12px); }
-body.ps-open .penbar { left: calc((100% - min(46%, 520px)) / 2); }
-@media (max-width: 760px) { .ps-panel { top: auto; width: 100%; height: 56%; border-radius: 22px 22px 0 0; } body.ps-open .main { padding-right: 16px; padding-bottom: 58%; } body.ps-open .penbar { left: 50%; bottom: calc(56% + 12px); } }
-.viewer.vp-open .penbar { left: calc((100% - min(46%, 520px)) / 2); }
+body.ps-open .penbar { left: calc((100% - min(46%, 520px)) / 2); max-width: calc(100% - min(46%, 520px) - 16px); }
+@media (max-width: 760px) { .ps-panel { top: auto; width: 100%; height: 56%; border-radius: 22px 22px 0 0; } body.ps-open .main { padding-right: 16px; padding-bottom: 58%; } body.ps-open .penbar { left: 50%; bottom: calc(56% + 12px); max-width: calc(100% - 24px); } }
+.viewer.vp-open .penbar { left: calc((100% - min(46%, 520px)) / 2); max-width: calc(100% - min(46%, 520px) - 16px); }
 .vwp-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .vwp-head b { font-size: 1.05rem; font-weight: 600; }
 .vwp-pick select { width: 100%; }
@@ -392,13 +392,20 @@ body.ps-open .penbar { left: calc((100% - min(46%, 520px)) / 2); }
 .gm.u { align-self: flex-end; background: var(--accent-soft); border-bottom-right-radius: 4px; }
 .gm.m { align-self: flex-start; background: var(--surface); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
 .gm.err { color: var(--red); }
+.gm.err > div, .gm.pending > div { margin-top: 8px; }
+.vwp-scroll > .gm { flex: none; }
+/* smaller pen tools while the help panel is open, so they all fit beside it */
+.viewer.vp-open .penbar, body.ps-open .penbar { gap: 0; padding: 4px 6px; scrollbar-width: none; }
+:is(.viewer.vp-open, body.ps-open) .penbar .pen-btn { width: 36px; }
+:is(.viewer.vp-open, body.ps-open) .penbar .pen-dot { width: 26px; height: 26px; margin: 0 2px; }
+:is(.viewer.vp-open, body.ps-open) .penbar .pen-size { width: 28px; }
 .vwp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip-btn { border: 1px solid var(--line); background: var(--surface); border-radius: 16px; padding: 6px 12px; font-size: .84rem; cursor: pointer; }
 .chip-btn:hover:not(:disabled) { background: var(--accent-soft); }
 .chip-btn:disabled { opacity: .5; }
 .vwp-form { display: flex; flex-direction: column; gap: 6px; }
 .vwp-form textarea { width: 100%; min-height: 56px; resize: none; border: 1px solid var(--line); background: var(--surface); border-radius: 14px; padding: 10px 12px; }
-@media (max-width: 760px) { .vw-body { flex-direction: column; } .vw-panel { width: 100%; height: 52%; border-left: 0; border-top: 1px solid var(--line); } .viewer.vp-open .penbar { left: 50%; bottom: calc(52% + 16px); } }
+@media (max-width: 760px) { .vw-body { flex-direction: column; } .vw-panel { width: 100%; height: 52%; border-left: 0; border-top: 1px solid var(--line); } .viewer.vp-open .penbar { left: 50%; bottom: calc(52% + 16px); max-width: calc(100% - 24px); } }
 .viewer { touch-action: pan-x pan-y; }
 .vw-main { flex: 1; min-width: 0; min-height: 0; position: relative; display: flex; flex-direction: column; overflow: hidden; }
 .vw-pages { flex: 1; min-width: 0; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-x pan-y; scrollbar-width: none; padding: 12px 40px calc(96px + env(safe-area-inset-bottom, 0px)) 12px; }
@@ -486,7 +493,7 @@ body.ps-open .penbar { left: calc((100% - min(46%, 520px)) / 2); }
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261125-1655";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261125-1703";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -4401,17 +4408,38 @@ async function gemModels(key) {
   const score = n => { const v = parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) || [0, 0])[1]) || 0; return v * 10 + (/flash(?!-lite)/.test(n) ? 3 : /pro/.test(n) ? 2 : /lite/.test(n) ? 1 : 0) - (/preview|exp/.test(n) ? 0.5 : 0); };
   return names.sort((a, b) => score(b) - score(a));
 }
-async function gemCall(parts) {
+// When Gemini is busy (503), rate limited (429) or the connection drops, the request is shown as pending and sent again after a wait.
+const GEM_WAITS = [3, 8, 15, 30]; // seconds before attempts 2 to 5
+const GEM_RETRY = new Set([408, 429, 500, 502, 503, 504]);
+async function gemFetch(g, payload, opt) {
+  const { onWait, job, timeout = 90000 } = opt || {}, total = GEM_WAITS.length + 1;
+  const check = () => { if (job && job.cancel) throw Object.assign(new Error("Cancelled"), { cancelled: true }); };
+  for (let i = 0; ; i++) {
+    let r = null, j = {};
+    const ac = new AbortController(), t = setTimeout(() => ac.abort(), timeout);
+    try {
+      r = await fetch(GAPI + "models/" + encodeURIComponent(g.model) + ":generateContent", { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": g.key }, body: JSON.stringify(payload), signal: ac.signal });
+      j = await r.json().catch(() => ({}));
+    } catch (e) { r = null; } finally { clearTimeout(t); }
+    check();
+    if (r && !GEM_RETRY.has(r.status)) return { r, j };
+    if (i >= GEM_WAITS.length) {
+      const why = !r ? (navigator.onLine === false ? "You're offline. Connect to the internet." : "Gemini couldn't be reached. Check your internet.") : r.status === 429 ? "Gemini's usage limit was reached. Wait a few minutes." : "Gemini is very busy at the moment.";
+      throw Object.assign(new Error(`${why} It was tried ${total} times.`), { requestFailed: true });
+    }
+    for (let sec = GEM_WAITS[i]; sec > 0; sec--) {
+      if (onWait) onWait(`Request pending… trying again in ${sec}s (attempt ${i + 2} of ${total})`);
+      await new Promise(done => setTimeout(done, 1000)); check();
+    }
+    if (onWait) onWait(`Request pending… attempt ${i + 2} of ${total}`);
+  }
+}
+async function gemCall(parts, onWait) {
   const g = gem(); if (!g.key || !g.model) throw new Error("Add your Gemini key in Settings first.");
-  let r;
-  try {
-    r = await fetch(GAPI + "models/" + encodeURIComponent(g.model) + ":generateContent", { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": g.key },
-      body: JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { temperature: 0.1, responseMimeType: "application/json" } }) });
-  } catch (e) { throw new Error("Couldn't reach Gemini. AI marking needs internet."); }
-  const j = await r.json().catch(() => ({}));
+  const { r, j } = await gemFetch(g, { contents: [{ role: "user", parts }], generationConfig: { temperature: 0.1, responseMimeType: "application/json" } }, { onWait, timeout: 180000 });
   if (!r.ok) {
     const msg = (j.error && j.error.message) || "";
-    throw new Error(r.status === 429 ? "Gemini's usage limit was reached. Wait a minute and try again." : (r.status === 400 && /key/i.test(msg)) || r.status === 403 ? "Gemini didn't accept your key. Check it in Settings." : "Gemini couldn't do that (error " + r.status + "). " + msg.slice(0, 160));
+    throw new Error((r.status === 400 && /key/i.test(msg)) || r.status === 403 ? "Gemini didn't accept your key. Check it in Settings." : "Gemini couldn't do that (error " + r.status + "). " + msg.slice(0, 160));
   }
   const text = (((j.candidates || [])[0] || {}).content || { parts: [] }).parts.map(p => p.text || "").join("");
   if (!text) throw new Error("Gemini sent back an empty answer. Try again.");
@@ -4438,7 +4466,7 @@ async function answerImage(key, aspect) {
 }
 async function markQuestionAI() {
   const ps = ui.ps, id = ps.ids[ps.i], q = QIDX[id];
-  ps.aiBusy = id; ps.aiErr = ""; render();
+  ps.aiBusy = id; ps.aiErr = ""; ps.aiWait = ""; render();
   try {
     const parts = [{ text: `You are a strict but fair AQA A-level ${SUBJ[q.subj].name} examiner. Mark the student's answer using ONLY the mark scheme below. Award a mark scheme point only if the student clearly made it: accept equivalent wording, correct alternative methods and error carried forward in calculations, and ignore spelling. Handwritten answers are images; read them carefully, including equations and units.\n\n${q.i ? "Context: " + q.i + "\n\n" : ""}` +
       q.p.map((p, pi) => `Part (${LETTERS[pi]}) [${p.m} mark${p.m === 1 ? "" : "s"}]: ${p.q}\nMark scheme points (numbered from 0, max ${p.m} marks):\n${p.s.map((m, mi) => `  ${mi}. ${m}`).join("\n")}`).join("\n\n") +
@@ -4451,11 +4479,12 @@ async function markQuestionAI() {
       const img = await answerImage("q:" + key, el ? el.clientHeight / Math.max(1, el.clientWidth) : 0.3);
       if (img) parts.push({ inline_data: { mime_type: "image/jpeg", data: img } }); else parts.push({ text: typed || "(no answer given)" });
     }
-    const res = await gemCall(parts);
+    parts[0].text += PLAIN_MATHS;
+    const res = await gemCall(parts, msg => { ps.aiWait = msg; const el = document.getElementById("ps-ai-wait"); if (el) el.textContent = msg; });
     (res.parts || []).forEach((r, pi) => { const p = q.p[pi]; if (!p) return; const t = []; (r.points_met || []).forEach(i => { i = +i; if (i >= 0 && i < p.s.length) t[i] = true; }); ps.ticks[id + ":" + pi] = t; });
     ps.ai[id] = res; ps.shown[id] = true;
-  } catch (e) { ps.aiErr = e.message; }
-  ps.aiBusy = null; render();
+  } catch (e) { ps.aiErr = (e.requestFailed ? "Request failed. " : "") + e.message; }
+  ps.aiBusy = null; ps.aiWait = ""; render();
 }
 function paperMax(c) {
   if (/^Paper 3B/.test(c.label)) return 35;
@@ -4506,7 +4535,8 @@ MARK SCHEME:
 ${ms.slice(0, 180000)}`;
     const parts = [{ text: prompt }];
     for (const im of images) parts.push({ text: `Student's script, page ${im.n}:` }, { inline_data: { mime_type: "image/jpeg", data: im.data } });
-    const res = await gemCall(parts);
+    parts[0].text += PLAIN_MATHS;
+    const res = await gemCall(parts, msg => aiOverlay(msg));
     const qs = (Array.isArray(res.questions) ? res.questions : []).map(x => ({ q: String(x.q || ""), max: Math.max(0, +x.max || 0), awarded: Math.max(0, Math.min(+x.awarded || 0, +x.max || 0)), topic: TOPICS[x.topic] && TOPICS[x.topic].subj === c.subj ? x.topic : "", feedback: String(x.feedback || "") }));
     if (!qs.length) throw new Error("Gemini didn't return any marks. Try again.");
     const total = qs.reduce((n, x) => n + x.awarded, 0), outOf = max || qs.reduce((n, x) => n + x.max, 0);
@@ -4515,7 +4545,12 @@ ${ms.slice(0, 180000)}`;
     S.papers.push({ id: uid(), subj: c.subj, paper: c.label, series: c.ser, score: total, max: outOf, date: dayKey(), ai: key });
     S.ppDone[key] = S.ppDone[key] || dayKey();
     save(); aiOverlay(null); showAIResult(key);
-  } catch (e) { aiOverlay(null); toast(e.message || "AI marking didn't work. Try again."); }
+  } catch (e) { aiOverlay(null); if (e.requestFailed) aiFail(e.message); else toast(e.message || "AI marking didn't work. Try again."); }
+}
+function aiFail(why) {
+  const el = document.createElement("div"); el.id = "ai-fail"; el.className = "modal-back";
+  el.innerHTML = `<div class="modal busy" role="alertdialog" aria-label="Request failed"><h2>Request failed</h2><p>${esc(why)}</p><div class="row" style="gap:8px"><button class="btn ghost" data-act="ai-fail-close">Close</button><button class="btn primary" data-act="ai-retry">Try again</button></div></div>`;
+  document.body.appendChild(el);
 }
 /* ---------- Notes and Gemini help inside the paper viewer ---------- */
 const VWP = { mode: null, topic: "", chat: {}, busy: false, pages: 1, useMs: false, draft: "", ms: {} };
@@ -4559,27 +4594,22 @@ function drawVwPanel() {
       <div class="vwp-scroll"><div class="nt-article nt-compact">${noteArticle(TOPICS[id], true)}</div></div>`;
   } else {
     const key = helpKey(), chat = VWP.chat[key] || [], ready = gemReady();
-    const msgs = chat.map(m => `<div class="gm ${m.r} ${m.err ? "err" : ""}">${(m.r === "m" ? mdb(m.t) : esc(m.t)).replace(/\n/g, "<br>")}</div>`).join("");
+    const msgs = chat.map((m, i) => m.err ? `<div class="gm m err"><b>Request failed.</b> ${esc(m.t)}<div><button class="btn small primary" data-act="vwp-retry" data-i="${i}" ${VWP.busy ? "disabled" : ""}>Try again</button></div></div>` : `<div class="gm ${m.r}">${(m.r === "m" ? mdb(plainMaths(m.t)) : esc(m.t)).replace(/\n/g, "<br>")}</div>`).join("");
     const chips = ["Explain what this question wants", "Give me a hint", "Check what I've written", "Show the full answer"];
     p.innerHTML = `<div class="vwp-head"><b>${icon("spark").replace("<svg", '<svg style="width:18px;vertical-align:-3px"')} Ask Gemini</b>${close}</div>
       ${ready ? `<div class="vwp-opts">${VW.open ? `<span class="muted small">Gemini looks at</span><div class="seg"><button data-act="vwp-pages" data-v="1" aria-pressed="${VWP.pages === 1}">This page</button><button data-act="vwp-pages" data-v="2" aria-pressed="${VWP.pages === 2}">This + next page</button></div>` : `<span class="muted small">Gemini sees this question and everything you have written for it, typed or in ink.</span>`}
         <label class="small row" style="gap:8px"><input type="checkbox" data-change="vwp-ms" ${VWP.useMs ? "checked" : ""}> Let it use the mark scheme <span class="muted">(it may give answers away)</span></label></div>
-      <div class="vwp-scroll" id="vwp-chat">${msgs || `<p class="muted small" style="padding:6px 2px">It sees the page you are on${PHONE ? "" : ", including everything you have written on it with the S Pen"}. Ask about the question you are working on.</p>`}${VWP.busy ? `<div class="gm m"><span class="spinner" style="width:16px;height:16px;display:inline-block;vertical-align:-3px"></span> Gemini is looking at your page…</div>` : ""}</div>
+      <div class="vwp-scroll" id="vwp-chat">${msgs || `<p class="muted small" style="padding:6px 2px">It sees the page you are on${PHONE ? "" : ", including everything you have written on it with the S Pen"}. Ask about the question you are working on.</p>`}${VWP.busy ? `<div class="gm m pending" role="status"><span class="spinner" style="width:16px;height:16px;display:inline-block;vertical-align:-3px"></span> <span id="vwp-wait">${esc(VWP.wait)}</span><div><button class="btn small ghost" data-act="vwp-cancel">Cancel</button></div></div>` : ""}</div>
       <div class="vwp-chips">${chips.map(c => `<button class="chip-btn" data-act="vwp-chip" data-v="${esc(c)}" ${VWP.busy ? "disabled" : ""}>${esc(c)}</button>`).join("")}</div>
       <form class="vwp-form" data-form="vwp-ask"><textarea id="vwp-input" name="q" rows="2" data-input="vwp-draft" placeholder="Ask about this question…" ${VWP.busy ? "disabled" : ""}>${esc(VWP.draft)}</textarea><div class="row" style="justify-content:space-between"><button class="btn small ghost" type="button" data-act="vwp-clear">Clear chat</button><button class="btn small primary" type="submit" ${VWP.busy ? "disabled" : ""}>Send</button></div></form>`
       : `<div class="vwp-scroll"><div class="stack" style="padding:8px 2px"><p>To ask Gemini about a question, add your free Gemini key first.</p><div><button class="btn primary" data-act="vwp-setup">Set up Gemini</button></div></div></div>`}`;
   }
   const sc2 = p.querySelector(".vwp-scroll"); if (sc2) sc2.scrollTop = VWP.mode === "ai" ? sc2.scrollHeight : top;
 }
-async function gemChat(system, contents) {
+async function gemChat(system, contents, job) {
   const g = gem(); if (!g.key || !g.model) throw new Error("Add your Gemini key in Settings first.");
-  let r;
-  try {
-    r = await fetch(GAPI + "models/" + encodeURIComponent(g.model) + ":generateContent", { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": g.key },
-      body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents, generationConfig: { temperature: 0.4 } }) });
-  } catch (e) { throw new Error("Couldn't reach Gemini. Check you're online."); }
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) { const msg = (j.error && j.error.message) || ""; throw new Error(r.status === 429 ? "Gemini's usage limit was reached. Wait a minute and try again." : r.status === 403 || (r.status === 400 && /key/i.test(msg)) ? "Gemini didn't accept your key. Check it in Settings." : "Gemini couldn't answer (error " + r.status + "). " + msg.slice(0, 160)); }
+  const { r, j } = await gemFetch(g, { systemInstruction: { parts: [{ text: system + PLAIN_MATHS }] }, contents, generationConfig: { temperature: 0.4 } }, { job, onWait: vwpWait(job) });
+  if (!r.ok) { const msg = (j.error && j.error.message) || ""; throw new Error(r.status === 403 || (r.status === 400 && /key/i.test(msg)) ? "Gemini didn't accept your key. Check it in Settings." : "Gemini couldn't answer (error " + r.status + "). " + msg.slice(0, 160)); }
   const text = (((j.candidates || [])[0] || {}).content || { parts: [] }).parts.map(p => p.text || "").join("").trim();
   if (!text) throw new Error("Gemini sent back an empty answer. Try again.");
   return text;
@@ -4600,13 +4630,30 @@ async function vwMarkScheme(c) {
   for (let n = 1; n <= doc.numPages; n++) { const tc = await (await doc.getPage(n)).getTextContent(); ms += `\n[Mark scheme page ${n}]\n` + tc.items.map(i => i.str + (i.hasEOL ? "\n" : " ")).join(""); }
   doc.destroy(); return (VWP.ms[name] = ms.slice(0, 120000));
 }
+// One question to Gemini at a time. A job can be cancelled while it is pending.
+function vwpStart(chat, text) {
+  const msg = { r: "u", t: text }, job = { cancel: false, chat, msg };
+  chat.push(msg); VWP.job = job; VWP.busy = true; VWP.draft = ""; VWP.wait = "Gemini is looking at your question…"; drawVwPanel();
+  return job;
+}
+const vwpWait = job => text => { if (!job || VWP.job !== job || job.cancel) return; VWP.wait = text; const el = document.getElementById("vwp-wait"); if (el) el.textContent = text; };
+// Questions that failed are left out of what Gemini is told about the conversation so far.
+const vwpHistory = chat => chat.slice(0, -1).filter((m, i, a) => !m.err && !(a[i + 1] && a[i + 1].err)).slice(-10).map(m => ({ role: m.r === "u" ? "user" : "model", parts: [{ text: m.t }] }));
+function vwpFinish(job, reply) { if (job.cancel) return; job.chat.push(reply); VWP.busy = false; VWP.job = null; drawVwPanel(); }
+const vwpFailure = (e, text) => ({ r: "m", t: e.message || "Couldn't get an answer.", err: true, retry: text });
+function vwpCancel() {
+  const job = VWP.job; if (!job) return;
+  job.cancel = true; VWP.job = null; VWP.busy = false;
+  const i = job.chat.indexOf(job.msg); if (i >= 0) { job.chat.splice(i, 1); VWP.draft = job.msg.t; }
+  drawVwPanel();
+}
 async function vwpAsk(text) {
   text = String(text || "").trim(); if (!text || VWP.busy) return;
   if (!gemReady()) { toast("Add your Gemini key in Settings first."); return; }
   if (!VW.open && psQ()) { return vwpAskQuestion(text); }
   if (!VW.doc) { toast("Wait for the paper to open."); return; }
   const key = vwKey() || "note", chat = VWP.chat[key] || (VWP.chat[key] = []);
-  chat.push({ r: "u", t: text }); VWP.busy = true; VWP.draft = ""; drawVwPanel();
+  const job = vwpStart(chat, text);
   try {
     const c = VW.cur, sub = SUBJ[c ? c.subj : cur()], n = vwPageNow(), pages = [n];
     if (VWP.pages === 2 && n < VW.doc.numPages) pages.push(n + 1);
@@ -4614,18 +4661,17 @@ async function vwpAsk(text) {
     const ms = VWP.useMs && c ? await vwMarkScheme(c) : "";
     const sys = `You are a friendly, precise tutor helping a student revise AQA A-level ${sub.name} (${sub.code}) by working through a past paper. You can see the page of the paper they are on. Their handwriting is drawn in ink on top of the printed paper (blue, black, red or highlighter). Work out which question they are on from the page and from what they have written. If it is unclear, ask which question they mean.
 Help without just handing over the answer: by default give hints, explain the idea, say what the question is really asking, and point out exactly what is right or missing in their working. Give a full worked answer only when they ask for it, with every step, the units and the physics or chemistry reasoning. Stay within the AQA specification, use UK spelling and AQA terminology, keep replies under about 180 words unless they ask for more, and use plain text (no Markdown tables or headings; **bold** is fine for key words).${ms ? "\nThe mark scheme is provided to guide you. Use it to judge their answer, but don't quote marks or paste it unless they ask for the answer." : "\nYou don't have the mark scheme, so rely on your own knowledge and say if you are unsure."}`;
-    const hist = chat.slice(0, -1).slice(-10).map(m => ({ role: m.r === "u" ? "user" : "model", parts: [{ text: m.t }] }));
+    const hist = vwpHistory(chat);
     const parts = [{ text: `${c ? `Paper: ${sub.name} ${c.ser} ${c.label}. ` : ""}The student is viewing page ${pages.join(" and ")} of ${VW.doc.numPages}.${ms ? `\n\nMARK SCHEME:\n${ms}\n` : ""}` }];
     images.forEach(im => parts.push({ text: `Page ${im.n} of the paper (with the student's writing):` }, { inline_data: { mime_type: "image/jpeg", data: im.data } }));
     parts.push({ text: "Student: " + text });
-    chat.push({ r: "m", t: await gemChat(sys, hist.concat([{ role: "user", parts }])) });
-  } catch (e) { chat.push({ r: "m", t: "⚠ " + (e.message || "Couldn't get an answer."), err: true }); }
-  VWP.busy = false; drawVwPanel();
+    vwpFinish(job, { r: "m", t: await gemChat(sys, hist.concat([{ role: "user", parts }]), job) });
+  } catch (e) { vwpFinish(job, vwpFailure(e, text)); }
 }
 // Help for a question in a practice session or a predicted paper: Gemini gets the question text and the student's answers.
 async function vwpAskQuestion(text) {
   const ps = ui.ps, q = psQ(), id = q.id, key = "q:" + id, chat = VWP.chat[key] || (VWP.chat[key] = []), sub = SUBJ[q.subj];
-  chat.push({ r: "u", t: text }); VWP.busy = true; VWP.draft = ""; drawVwPanel();
+  const job = vwpStart(chat, text);
   try {
     const parts = []; let intro = `Question from a ${sub.name} ${ps.label ? "session called \"" + ps.label + "\"" : "practice session"}, topic ${TOPICS[q.t].code} ${TOPICS[q.t].t}. ${q.k === "mcq" ? "Multiple choice" : "Written"}, ${q.m} mark${q.m === 1 ? "" : "s"}.\n`;
     if (q.k === "mcq") {
@@ -4647,11 +4693,10 @@ async function vwpAskQuestion(text) {
     }
     const sys = `You are a friendly, precise tutor helping a student revise AQA A-level ${sub.name} (${sub.code}) by working through exam questions. You are shown the question and what the student has written so far (typed text, or handwriting as an image).
 Help without just handing over the answer: by default give hints, explain the idea, say what the question is really asking, and point out exactly what is right or missing in what they have written. Give a full worked answer only when they ask for it, with every step, the units and the reasoning. Stay within the AQA specification, use UK spelling and AQA terminology, keep replies under about 180 words unless asked for more, and use plain text (no Markdown tables or headings; **bold** is fine for key words).${VWP.useMs ? "\nThe mark scheme is provided to guide you. Use it to judge their answer, but don't paste it unless they ask for the answer." : "\nYou don't have the mark scheme, so rely on your own knowledge and say if you are unsure."}`;
-    const hist = chat.slice(0, -1).slice(-10).map(m => ({ role: m.r === "u" ? "user" : "model", parts: [{ text: m.t }] }));
+    const hist = vwpHistory(chat);
     parts.push({ text: "\nStudent: " + text });
-    chat.push({ r: "m", t: await gemChat(sys, hist.concat([{ role: "user", parts }])) });
-  } catch (e) { chat.push({ r: "m", t: "⚠ " + (e.message || "Couldn't get an answer."), err: true }); }
-  VWP.busy = false; drawVwPanel();
+    vwpFinish(job, { r: "m", t: await gemChat(sys, hist.concat([{ role: "user", parts }]), job) });
+  } catch (e) { vwpFinish(job, vwpFailure(e, text)); }
 }
 function showAIResult(key) {
   const m = S.marked[key]; if (!m) return;
@@ -4660,7 +4705,7 @@ function showAIResult(key) {
   el.innerHTML = `<div class="modal result" role="dialog" aria-label="AI marking result">
     <div class="modal-head"><div><span class="eyebrow">${esc(SUBJ[m.subj].name)} · ${esc(m.ser)} · marked by Gemini</span><h2>${esc(m.label)}</h2></div><button class="icon-btn" data-act="ai-result-close" aria-label="Close">✕</button></div>
     <div class="result-score"><span class="score">${m.total}<span class="muted" style="font-size:1.4rem"> / ${m.max}</span></span><span class="chip ${pc >= 70 ? "green" : pc >= 50 ? "amber" : "red"}">${pc}%</span></div>
-    ${m.summary ? `<p>${esc(m.summary)}</p>` : ""}
+    ${m.summary ? `<p>${esc(plainMaths(m.summary))}</p>` : ""}
     <div class="grid g2">${m.strengths.length ? `<div class="stack"><b class="good">What went well</b><ul class="tight">${m.strengths.map(s => `<li>${esc(s)}</li>`).join("")}</ul></div>` : ""}${m.improve.length ? `<div class="stack"><b>To gain more marks</b><ul class="tight">${m.improve.map(s => `<li>${esc(s)}</li>`).join("")}</ul></div>` : ""}</div>
     <div class="table-wrap"><table><thead><tr><th>Question</th><th>Mark</th><th>Topic</th><th>Feedback</th></tr></thead><tbody>${m.questions.map(x => `<tr><td class="mono">${esc(x.q)}</td><td class="mono" style="white-space:nowrap"><span class="${x.awarded === x.max ? "good" : x.awarded === 0 ? "bad-t" : ""}">${x.awarded}/${x.max}</span></td><td>${x.topic ? `<span class="chip ${m.subj}">${esc(TOPICS[x.topic].code)}</span>` : ""}</td><td class="small">${esc(x.feedback)}</td></tr>`).join("")}</tbody></table></div>
     <p class="muted small">AI marking is a guide. Check close calls against the mark scheme.</p>
@@ -5271,12 +5316,13 @@ function practiceSession() {
         <div class="row part-tools"><button class="btn small ghost" data-act="ps-lines" data-v="${esc(key)}">More lines</button>${PHONE ? "" : `<button class="btn small ghost" data-act="ps-kb" data-v="${esc(key)}">${ps.kb[key] ? icon("pen") + "Write with S Pen" : icon("keyboard") + "Type instead"}</button>${ps.kb[key] ? "" : `<button class="btn small ghost" data-act="ink-clear" data-v="${esc(inkKey)}">Clear this answer</button>`}`}${p.u ? `<span class="muted small">Unit: ${esc(p.u)}</span>` : ""}</div>
         ${shown ? `<div class="scheme"><div class="row" style="justify-content:space-between"><b>Mark scheme</b><span class="mono">${got} / ${p.m}</span></div>
           ${p.s.map((m, mi) => `<label class="tick"><input type="checkbox" data-change="ps-tick" data-k="${esc(key)}" data-i="${mi}" ${ticks[mi] ? "checked" : ""} ${saved ? "disabled" : ""}><span>${esc(m)}</span></label>`).join("")}
-          ${ai && ai.parts && ai.parts[pi] && ai.parts[pi].feedback ? `<div class="ai-note">${icon("spark")}<p>${esc(ai.parts[pi].feedback)}</p></div>` : ""}
+          ${ai && ai.parts && ai.parts[pi] && ai.parts[pi].feedback ? `<div class="ai-note">${icon("spark")}<p>${esc(plainMaths(ai.parts[pi].feedback))}</p></div>` : ""}
           ${p.a ? `<div class="model"><b>Model answer</b><p>${esc(p.a)}</p></div>` : ""}</div>` : ""}
       </div>`;
     }).join("") +
-      (ai && ai.overall ? `<div class="ai-note">${icon("spark")}<p><b>Gemini: </b>${esc(ai.overall)} Check the ticks, then save.</p></div>` : "") +
-      (ps.aiErr ? `<p class="bad-t small">${esc(ps.aiErr)}</p>` : "") +
+      (ai && ai.overall ? `<div class="ai-note">${icon("spark")}<p><b>Gemini: </b>${esc(plainMaths(ai.overall))} Check the ticks, then save.</p></div>` : "") +
+      (busy ? `<p class="muted small" id="ps-ai-wait" role="status">${esc(ps.aiWait || "")}</p>` : "") +
+      (ps.aiErr && !busy ? `<div class="row" style="gap:10px"><p class="bad-t small">${esc(ps.aiErr)}</p><button class="btn small" data-act="ps-ai">Try again</button></div>` : "") +
       `<div class="row">${saved ? `<span class="feedback ok" style="margin:0"><b>Saved: ${saved.got} / ${q.m}</b></span>`
         : `${gemReady() ? `<button class="btn primary" data-act="ps-ai" ${busy ? "disabled" : ""}>${icon("spark")}${busy ? "Marking…" : ai ? "Mark again with AI" : "Mark with AI"}</button>` : ""}
            ${!shown ? `<button class="btn ${gemReady() ? "" : "primary"}" data-act="ps-show">Show mark scheme</button>` : `<button class="btn ${gemReady() && !ai ? "" : "primary"}" data-act="ps-save">Save my marks (${total} / ${q.m})</button><span class="muted small">Tick each point you made.</span>`}
@@ -5540,6 +5586,33 @@ function rpTab() {
   ${skills.length ? `<section class="panel"><h2>Practical skills</h2><div class="list">${skills.map(f => noteBtn(f.p, f.t, "Physics & Maths Tutor · " + (f.kb >= 1024 ? (f.kb / 1024).toFixed(1) + " MB" : f.kb + " KB"))).join("")}</div></section>` : ""}`;
 }
 /* ---------- Study notes: colour-coded blocks, diagrams, topic tree ---------- */
+// Gemini sometimes writes maths as LaTeX ($10^x$, \text{log}_{10}). The app can't typeset that, so it is turned into ordinary symbols.
+const PLAIN_MATHS = "\nWrite all maths and chemistry as ordinary readable text. Never use LaTeX, dollar signs or backslash commands. Use symbols such as × ÷ √ → ⇌ ≈ Δ, and superscripts and subscripts such as 10ˣ, 10⁻³, log₁₀, H₂O and Cu²⁺.";
+const TEX = { times: "×", div: "÷", cdot: "·", pm: "±", mp: "∓", approx: "≈", sim: "~", neq: "≠", ne: "≠", leq: "≤", le: "≤", geq: "≥", ge: "≥", ll: "≪", gg: "≫", equiv: "≡", propto: "∝", infty: "∞", rightarrow: "→", to: "→", longrightarrow: "→", xrightarrow: "→", Rightarrow: "⇒", implies: "⇒", leftarrow: "←", leftrightarrow: "↔", rightleftharpoons: "⇌", rightleftarrows: "⇌", circ: "°", degree: "°", therefore: "∴", partial: "∂", sum: "Σ", int: "∫", ldots: "…", dots: "…", cdots: "…", angle: "∠", perp: "⊥", parallel: "∥", ominus: "⦵", oplus: "⊕",
+  alpha: "α", beta: "β", gamma: "γ", delta: "δ", epsilon: "ε", varepsilon: "ε", theta: "θ", kappa: "κ", lambda: "λ", mu: "μ", nu: "ν", pi: "π", rho: "ρ", sigma: "σ", tau: "τ", phi: "φ", varphi: "φ", chi: "χ", psi: "ψ", omega: "ω", eta: "η", Gamma: "Γ", Delta: "Δ", Theta: "Θ", Lambda: "Λ", Pi: "Π", Sigma: "Σ", Phi: "Φ", Psi: "Ψ", Omega: "Ω",
+  log: "log", ln: "ln", lg: "lg", sin: "sin", cos: "cos", tan: "tan", exp: "exp", max: "max", min: "min", left: "", right: "", displaystyle: "", quad: " ", qquad: "  " };
+const chars = (from, to) => Object.fromEntries([...from].map((c, i) => [c, [...to][i]]));
+const SUP = chars("0123456789+-−=()abcdefghijklmnoprstuvwxyz", "⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁻⁼⁽⁾ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ");
+const SUB = chars("0123456789+-−=()aehijklmnoprstuvx", "₀₁₂₃₄₅₆₇₈₉₊₋₋₌₍₎ₐₑₕᵢⱼₖₗₘₙₒₚᵣₛₜᵤᵥₓ");
+const script = (t, map, mark) => { t = t.trim(); return [...t].every(c => map[c]) ? [...t].map(c => map[c]).join("") : mark + (t.length > 1 ? "(" + t + ")" : t); };
+function texToText(m, maths) {
+  const B = "((?:[^{}]|\\{[^{}]*\\})*)", wrap = x => /[\s+\-−×÷=\/]/.test(x.trim()) ? "(" + x.trim() + ")" : x.trim();
+  m = m.replace(/\\(?:text|textbf|textit|textrm|mathrm|mathbf|mathit|mathsf|ce|operatorname|boxed|vec|bar|overline)\s*\{((?:[^{}]|\{[^{}]*\})*)\}/g, "$1");
+  m = m.replace(/\^\s*\{?\s*\\circ(?![A-Za-z])\s*\}?/g, "°").replace(/\^\s*\{?\s*\\(?:ominus|theta)(?![A-Za-z])\s*\}?/g, "⦵");
+  m = m.replace(/\\([A-Za-z]+)/g, (all, n) => Object.prototype.hasOwnProperty.call(TEX, n) ? TEX[n] : all);
+  m = m.replace(/\^\{([^{}]*)\}/g, (a, t) => script(t, SUP, "^")).replace(/_\{([^{}]*)\}/g, (a, t) => script(t, SUB, "_"));
+  m = m.replace(maths ? /\^([+\-−]?\d+[+\-−]?|[A-Za-z+\-−])/g : /\^([+\-−]?\d+[+\-−]?)/g, (a, t) => script(t, SUP, "^"));
+  if (maths) m = m.replace(/_(\d+|[A-Za-z])/g, (a, t) => script(t, SUB, "_"));
+  for (let i = 0; i < 4; i++) m = m.replace(new RegExp("\\\\[dt]?frac\\s*\\{" + B + "\\}\\s*\\{" + B + "\\}", "g"), (a, x, y) => ({ "1/2": "½", "1/4": "¼", "3/4": "¾", "1/3": "⅓", "2/3": "⅔" })[x + "/" + y] || wrap(x) + "/" + wrap(y)).replace(new RegExp("\\\\sqrt\\s*\\{" + B + "\\}", "g"), (a, x) => "√" + (x.trim().length > 1 && !/^[\d.]+$/.test(x.trim()) ? "(" + x.trim() + ")" : x.trim()));
+  m = m.replace(/\\[,;:! ]/g, " ").replace(/\\([%$#&_{}])/g, "$1");
+  if (maths) m = m.replace(/\\\\/g, "\n").replace(/[{}\\]/g, "").replace(/([ΔδΣ]) (?=[A-Za-z])/g, "$1");
+  return m;
+}
+function plainMaths(s) {
+  const parts = String(s == null ? "" : s).split(/(\$\$[\s\S]+?\$\$|\$(?!\s)[^$\n]*?[^$\s\\]\$|\$[^$\s]\$|\\\([\s\S]+?\\\)|\\\[[\s\S]+?\\\])/);
+  return parts.map((p, i) => i % 2 ? texToText(p.replace(/^(\$\$|\$|\\\(|\\\[)|(\$\$|\$|\\\)|\\\])$/g, "").trim(), true) : texToText(p, false)).join("")
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "").replace(/^(\s*)[*-]\s+(?=\S)/gm, "$1• ").replace(/`([^`\n]*)`/g, "$1");
+}
 const mdb = s => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
 function blocksHTML(blocks) {
   return blocks.map(b => {
@@ -6344,7 +6417,14 @@ const ACT = {
   "vwp-toggle": el => { VWP.mode = VWP.mode === el.dataset.v ? null : el.dataset.v; if (VW.open) vwPanelApply(); else render(); },
   "vwp-chip": el => vwpAsk(el.dataset.v),
   "vwp-pages": el => { VWP.pages = +el.dataset.v; drawVwPanel(); },
-  "vwp-clear": () => { VWP.chat[helpKey()] = []; drawVwPanel(); },
+  "vwp-clear": () => { vwpCancel(); VWP.draft = ""; VWP.chat[helpKey()] = []; drawVwPanel(); },
+  "vwp-cancel": () => vwpCancel(),
+  "vwp-retry": el => {
+    const chat = VWP.chat[helpKey()] || [], i = +el.dataset.i, m = chat[i]; if (!m || !m.err || VWP.busy) return;
+    const from = i > 0 && chat[i - 1].r === "u" ? i - 1 : i; chat.splice(from, i - from + 1); vwpAsk(m.retry);
+  },
+  "ai-fail-close": () => { const el = document.getElementById("ai-fail"); if (el) el.remove(); },
+  "ai-retry": () => { const el = document.getElementById("ai-fail"); if (el) el.remove(); if (VW.open && VW.cur) markPaperAI(); else toast("Open the paper and tap Mark with AI"); },
   "vwp-setup": () => { if (VW.open) leaveViewer(() => { go("prefs"); toast("Add your Gemini key, then come back to the paper."); }); else { go("prefs"); toast("Add your Gemini key, then come back."); } },
   "vw-kind": el => { const c = VW.cur; openPaper(c.subj, c.ser, c.label, +el.dataset.v); },
   "vw-zoom": el => { if (VW.lock) { vwPill(); toast("Zoom is locked. Tap the padlock to unlock it"); return; } vwSetZoom(VW.zoom * (el.dataset.v === "1" ? 1.25 : 0.8)); },
