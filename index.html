@@ -519,7 +519,7 @@ body.ps-open .penbar { left: calc((100% - min(46%, 520px)) / 2); max-width: calc
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261125-1709";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261125-2142";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -4594,7 +4594,7 @@ function vwPanelApply() {
   const c = document.getElementById("vw-pages"), f = c ? c.scrollTop / Math.max(1, c.scrollHeight) : 0;
   setTimeout(() => layoutPages(f), 80);
 }
-const psQ = () => (ui.ps && !ui.ps.done) ? QIDX[ui.ps.ids[ui.ps.i]] : null;
+const psQ = () => (ui.ps && !ui.ps.done && ui.pracTab !== "cards") ? QIDX[ui.ps.ids[ui.ps.i]] : null;
 const helpKey = () => VW.open ? (vwKey() || "note") : (psQ() ? "q:" + psQ().id : "");
 function psPanelApply() {
   if (VW.open) return;
@@ -5080,6 +5080,42 @@ const ui = { topic: null, study: null, quiz: null, sheet: false, fsearch: "", da
 Object.defineProperty(ui, "tutor", { get: () => ui.tutors[cur()] });
 view = resolveView(view) || "home";
 
+/* ---------- Keeping your practice place ---------- */
+// For each subject, the topics you chose and the session you haven't finished are saved on this device, so they are still
+// there after closing the app. A session is only dropped when you tap End session or finish its last question.
+const PR_KEY = "labbook-practice";
+let PR = null;
+function prac() {
+  if (PR) return PR;
+  let o = null; try { o = JSON.parse(localStorage.getItem(PR_KEY) || "null"); } catch (e) { /* start fresh */ }
+  PR = { phys: {}, chem: {} };
+  for (const s of ["phys", "chem"]) {
+    const x = (o && o[s]) || {};
+    if (x.pf) { PR[s].pf = Object.assign(defaultPF(), x.pf); if (PR[s].pf.topics) PR[s].pf.topics = PR[s].pf.topics.filter(id => TOPICS[id]); }
+    const p = x.ps;
+    if (p && Array.isArray(p.ids)) {
+      const at = p.ids[p.i], ids = p.ids.filter(id => QIDX[id]);
+      if (ids.length) PR[s].ps = Object.assign(p, { ids, i: Math.max(0, ids.indexOf(at)), aiBusy: null, aiWait: "", aiErr: "", t0: Date.now() - (p.elapsed || 0) });
+    }
+    if (o && o.cp && o.cp[s]) (ui.cp = ui.cp || {})[s] = Object.assign({ topics: [], minutes: 60, mc: s === "phys", weighted: true, seed: 1 }, o.cp[s], { built: null });
+  }
+  return PR;
+}
+function savePractice() {
+  const P2 = prac(), out = { cp: {} };
+  for (const s of ["phys", "chem"]) {
+    const p = P2[s].ps;
+    out[s] = { pf: P2[s].pf || null, ps: p && !p.done ? Object.assign({}, p, { elapsed: Date.now() - p.t0 }) : null };
+    if (ui.cp && ui.cp[s]) out.cp[s] = Object.assign({}, ui.cp[s], { built: null });
+  }
+  try { localStorage.setItem(PR_KEY, JSON.stringify(out)); } catch (e) { /* storage unavailable */ }
+}
+function clearPractice() { PR = { phys: {}, chem: {} }; ui.cp = null; try { localStorage.removeItem(PR_KEY); } catch (e) { /* ignore */ } }
+for (const k of ["ps", "pf"]) Object.defineProperty(ui, k, { get: () => prac()[cur()][k] || null, set: v => { prac()[cur()][k] = v; } });
+const openSession = () => !!(ui.ps && !ui.ps.done);
+addEventListener("pagehide", () => savePractice());
+document.addEventListener("visibilitychange", () => { if (document.hidden) savePractice(); });
+
 const ICON = {
   sync: '<path d="M20 12a8 8 0 0 1-14.5 4.6M4 12A8 8 0 0 1 18.5 7.4"/><path d="M18.5 3v4.4h-4.4M5.5 21v-4.4h4.4"/>',
   home: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
@@ -5145,6 +5181,7 @@ function subjSwitch(cls) {
   return `<div class="${cls}" role="group" aria-label="Subject">${["phys", "chem"].map(s => { const n = dueCount(s); return `<button class="sw sw-${s}" data-act="subj" data-v="${s}" aria-pressed="${cur() === s}"><span class="sw-code mono">${SUBJ[s].code}</span><span class="sw-name">${SUBJ[s].name}</span>${n ? `<span class="sw-n mono">${n}</span>` : ""}</button>`; }).join("")}</div>`;
 }
 function render() {
+  prac();
   applyTheme();
   document.body.setAttribute("data-subj", cur());
   const n = dueCount();
@@ -5172,6 +5209,7 @@ function render() {
   mountInk(root);
   psPanelApply();
   psTimerTick();
+  savePractice();
 }
 // Countdown for timed papers (predicted and custom). It keeps running into overtime so you can see how far over you went.
 function psTimerTick() {
@@ -5278,11 +5316,13 @@ function qFilter(f) {
     && (!f.topics || f.topics.includes(q.t)) && (!term || qText(q).toLowerCase().includes(term) || TOPICS[q.t].t.toLowerCase().includes(term)));
 }
 function startPractice(f) {
+  if (openSession()) { ui.pracTab = "questions"; go("practice"); toast("You have a session open. Finish it or tap End session first."); return; }
   let list = f.ids ? f.ids.map(id => QIDX[id]).filter(Boolean) : qFilter(f);
   if (!list.length) { toast("No questions match those choices"); return; }
   if (f.random !== false) shuffle(list);
   list = list.slice(0, f.n || list.length);
   ui.ps = { ids: list.map(q => q.id), i: 0, pick: {}, ticks: {}, saved: {}, shown: {}, kb: {}, lines: {}, ai: {}, aiBusy: null, aiErr: "", done: false, label: f.label || "Practice", minutes: f.minutes || 0, t0: Date.now() };
+  ui.pracTab = "questions";
   go("practice");
 }
 
@@ -5303,6 +5343,7 @@ V.home = () => {
   <section class="card">
     <h2 class="card-title">Study</h2>
     <div class="actions">
+      ${openSession() ? `<button class="btn primary" data-act="resume">Continue: ${esc(ui.ps.label)} (question ${ui.ps.i + 1} of ${ui.ps.ids.length})</button>` : ""}
       ${action("practice-setup", "qa", "Practise by topic and difficulty")}
       ${action("quick10", "qa", "Quick 10 multiple choice")}
       ${action("written3", "pen", PHONE ? "Three written questions" : "Three written questions (S Pen)")}
@@ -5354,7 +5395,7 @@ function practiceSession() {
            ${!shown ? `<button class="btn ${gemReady() ? "" : "primary"}" data-act="ps-show">Show mark scheme</button>` : `<button class="btn ${gemReady() && !ai ? "" : "primary"}" data-act="ps-save">Save my marks (${total} / ${q.m})</button><span class="muted small">Tick each point you made.</span>`}
            ${OFFLINE && !gemReady() ? `<button class="btn ghost small" data-act="go" data-v="prefs">Set up AI marking</button>` : ""}`}</div>`;
   }
-  return `<div class="topbar"><div class="title"><span class="eyebrow">Question ${ps.i + 1} of ${ps.ids.length}</span><h1>${esc(ps.label)}</h1></div><div class="row" style="gap:8px">${ps.minutes ? `<span class="chip mono ps-timer" id="ps-timer" role="timer" aria-label="Time left"></span>` : ""}${OFFLINE ? `<div class="seg vw-help"><button data-act="vwp-toggle" data-v="notes" aria-pressed="${VWP.mode === "notes"}">${icon("book").replace("<svg", '<svg style="width:18px"')} Notes</button><button data-act="vwp-toggle" data-v="ai" aria-pressed="${VWP.mode === "ai"}">${icon("spark").replace("<svg", '<svg style="width:18px"')} Ask Gemini</button></div>` : ""}<button class="btn small" data-act="ps-end">Finish session</button></div></div>
+  return `<div class="topbar"><div class="title"><span class="eyebrow">Question ${ps.i + 1} of ${ps.ids.length}</span><h1>${esc(ps.label)}</h1></div><div class="row" style="gap:8px">${ps.minutes ? `<span class="chip mono ps-timer" id="ps-timer" role="timer" aria-label="Time left"></span>` : ""}${OFFLINE ? `<div class="seg vw-help"><button data-act="vwp-toggle" data-v="notes" aria-pressed="${VWP.mode === "notes"}">${icon("book").replace("<svg", '<svg style="width:18px"')} Notes</button><button data-act="vwp-toggle" data-v="ai" aria-pressed="${VWP.mode === "ai"}">${icon("spark").replace("<svg", '<svg style="width:18px"')} Ask Gemini</button></div>` : ""}<button class="btn small" data-act="ps-end">End session</button></div></div>
   <div class="m3-progress"><i style="width:${(ps.i + 1) / ps.ids.length * 100}%"></i></div>
   <article class="card q-card">
     <div class="row q-meta">${chipT(t)}<span class="small">${esc(t.t)}</span>${diffDots(q.d)}<span class="chip">${q.k === "mcq" ? "Multiple choice" : "Written"} · ${q.m} mark${q.m === 1 ? "" : "s"}</span>${st.n ? `<span class="chip ${st.of && st.got / st.of >= 0.6 ? "green" : "amber"}">Last: ${st.got}/${st.of}</span>` : ""}${st.n ? `<button class="btn small ghost" data-act="qs-del" data-v="${esc(id)}" title="Removes the saved mark for this question, here and on your other device after a sync">${ui.confirmQ === id ? "Tap again to remove" : "Remove my result"}</button>` : ""}<button class="icon-btn flag ${st.f ? "on" : ""}" data-act="ps-flag" aria-pressed="${!!st.f}" aria-label="${st.f ? "Remove flag" : "Flag this question"}" title="Flag">${icon("flag")}</button></div>
@@ -5495,8 +5536,8 @@ V.progress = () => {
 
 /* ---------- Practice (questions, bank, flashcard quiz) ---------- */
 V.practice = () => {
-  if (ui.ps) return practiceSession();
   const tab = ui.pracTab === "cards" ? "cards" : "questions";
+  if (ui.ps && tab === "questions") return (ui.ps.done ? "" : tabsHTML("prac-tab", tab, [["questions", "Exam questions"], ["cards", "Flashcards"]])) + practiceSession();
   if (tab === "cards" && ui.study) return V.study();
   const sub = SUBJ[cur()], due = dueCount();
   return pageHead(`${sub.name} ${sub.code}`, "Practice", tab === "cards" ? "Spaced-repetition flashcards. Cards you find hard come back sooner." : `${qList(cur()).length} exam-style questions with mark schemes. Choose topics, write your answer, then mark it yourself or with AI.`)
@@ -6344,7 +6385,7 @@ const ACT = {
   "sheet-close": () => { ui.sheet = false; render(); },
   subj: el => {
     if (cur() === el.dataset.v) return;
-    S.settings.subj = el.dataset.v; ui.studyTopic = ""; ui.quizTopic = ""; ui.topic = null; ui.study = null; ui.quiz = null; ui.fsearch = ""; ui.ps = null; ui.pf = null; ui.bf = null;
+    S.settings.subj = el.dataset.v; ui.studyTopic = ""; ui.quizTopic = ""; ui.topic = null; ui.study = null; ui.quiz = null; ui.fsearch = ""; ui.bf = null;
     save(); render(); window.scrollTo(0, 0);
   },
   "study-start": el => startStudy(el.dataset.v, false),
@@ -6397,7 +6438,8 @@ const ACT = {
   rp: el => { const id = el.dataset.v; if (S.rp[id]) delete S.rp[id]; else S.rp[id] = true; save(); render(); },
   dtab: el => { ui.data[cur()] = el.dataset.v; render(); },
   el: el => { ui.el = +el.dataset.v; render(); },
-  "practice-setup": () => { ui.ps = null; go("practice"); },
+  "practice-setup": () => { if (ui.ps && ui.ps.done) ui.ps = null; ui.pracTab = "questions"; go("practice"); if (openSession()) toast("Carrying on your session. Tap End session to choose new topics."); },
+  resume: () => { ui.pracTab = "questions"; go("practice"); },
   quick10: () => startPractice({ kind: "mcq", n: 10, label: "Quick 10 multiple choice" }),
   written3: () => startPractice({ kind: "w", n: 3, label: "Three written questions" }),
   "flagged-go": () => startPractice({ flagged: true, label: "Flagged questions" }),
@@ -6519,7 +6561,7 @@ const ACT = {
   },
   reset: () => { ui.confirmReset = true; render(); },
   "reset-no": () => { ui.confirmReset = false; render(); },
-  "reset-yes": () => { const th = S.settings.theme; S = fresh(); S.settings.theme = th; indexCustom(); ui.confirmReset = false; ui.study = null; ui.quiz = null; save(); render(); toast("Progress erased"); }
+  "reset-yes": () => { const th = S.settings.theme; S = fresh(); S.settings.theme = th; indexCustom(); ui.confirmReset = false; ui.study = null; ui.quiz = null; clearPractice(); save(); render(); toast("Progress erased"); }
 };
 const CHANGE = {
   "vwp-topic": el => { VWP.topic = el.value; drawVwPanel(); },
@@ -6530,7 +6572,7 @@ const CHANGE = {
   "tutor-topic": el => { ui.tutor.topic = el.value; ui.tutor.q = null; ui.tutor.mark = null; render(); },
   "tutor-marks": el => { ui.tutor.marks = +el.value; },
   "gem-model": el => { const g = gem(); g.model = el.value; gemSet(g); ui.gemMsg = "Model changed."; render(); },
-  "pf-random": el => { ui.pf.random = el.checked; },
+  "pf-random": el => { ui.pf.random = el.checked; savePractice(); },
   "pf-untried": el => { ui.pf.untried = el.checked; render(); },
   "pf-flagged": el => { ui.pf.flagged = el.checked; render(); },
   "ps-tick": el => { const ps = ui.ps, k = el.dataset.k, a = ps.ticks[k] || (ps.ticks[k] = []); a[+el.dataset.i] = el.checked; render(); },
