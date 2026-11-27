@@ -615,7 +615,7 @@ kbd { font-family: var(--f-mono); font-size: .76rem; padding: 2px 7px; border-ra
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261127-1505";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261127-1521";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -7894,34 +7894,55 @@ function mockType(q) {
 }
 // Minutes a question is likely to take, at roughly the pace of the real papers.
 const mockMins = q => q.def ? 1 : q.k === "mcq" ? 1.5 : q.m * 1.35;
-// Goes round the chosen topics (weakest first), giving each a different kind of question every time round, until the time is used.
-function buildMock(s, st) {
-  const r = rngSeed(st.seed + 7), ids = inYear(st.topics, st.year), weak = {};
+// What earlier sets used, so the next one changes it up. n counts the sets; q, s and t hold the set number that last used
+// a question, a style of question within a topic, and a topic.
+const mockHist = h => ({ n: (h && h.n) || 0, q: Object.assign({}, h && h.q), s: Object.assign({}, h && h.s), t: Object.assign({}, h && h.t) });
+function mockLog(hist, b) {
+  const h = mockHist(hist), n = ++h.n;
+  for (const x of b.picks) { h.q[x.id] = n; h.s[x.row + "|" + x.k] = n; h.t[x.row] = n; }
+  return h;
+}
+// Goes round the chosen topics, giving each a different style of question every time round, until the time is used.
+// Topics left out of recent sets come first (then the weakest). Within a topic, styles not used for longest come first,
+// and so do questions you haven't been given.
+function buildMock(s, st, hist) {
+  const h = mockHist(hist || st.hist), r = rngSeed(st.seed + 7 + h.n * 101), ids = inYear(st.topics, st.year), weak = {};
   priorities(s).forEach(p => { weak[p.t.id] = p.score; });
-  const chosen = new Set(ids);
+  const chosen = new Set(ids), tried = q => (S.qs[q.id] || {}).n ? 1 : 0;
   const rows = ids.map(id => {
     const list = PRAC[id] ? qList(s).filter(q => q.rp === id)
       : qList(s).filter(q => q.t === id && !chosen.has(q.rp)).concat(DEFQ[id] || []);
     const pools = {};
     for (const q of shuffleWith(list, r)) (pools[mockType(q)] = pools[mockType(q)] || []).push(q);
-    // questions not tried yet come first
-    for (const k in pools) pools[k].sort((a, b) => (!!(S.qs[a.id] || {}).n) - (!!(S.qs[b.id] || {}).n));
-    return { id, pools, score: weak[PRAC[id] ? PRAC[id].topic : id] || 0 };
-  }).sort((a, b) => b.score - a.score);
-  const picked = [], used = {}, count = {}, covered = new Set();
+    for (const k in pools) pools[k].sort((a, b) => (h.q[a.id] || 0) - (h.q[b.id] || 0) || tried(a) - tried(b));
+    return { id, pools, last: h.t[id] || 0, score: weak[PRAC[id] ? PRAC[id].topic : id] || 0 };
+  }).sort((a, b) => a.last - b.last || b.score - a.score);
+  const picks = [], questions = [], used = {}, count = {}, covered = new Set();
   let left = st.minutes, added = true;
-  for (let round = 0; added && left > 0.5; round++) {
+  // A topic is not given a style it had in its last set. Only if that would leave more than a quarter of the time empty
+  // (a long set on very few topics) is the rule relaxed to fill it.
+  let strict = true;
+  for (let round = 0; left > 0.5 && (added || (strict && left > st.minutes / 4)); round++) {
+    if (!added) strict = false;
     added = false;
     rows.forEach((row, i) => {
-      // the kinds of question this topic can still offer that fit the time left, the least used kind first
-      const fits = MOCK_TYPES.map(([k], j) => ({ k, turn: (j - i - round + 600) % MOCK_TYPES.length })).filter(x => (row.pools[x.k] || []).some(q => mockMins(q) <= left + 0.5));
+      // the styles this topic can still offer that fit the time left
+      let fits = MOCK_TYPES.map(([k], j) => ({ k, turn: (j - i - round - h.n + 6000) % MOCK_TYPES.length, last: h.s[row.id + "|" + k] || 0, here: used[row.id + "|" + k] || 0 }))
+        .filter(x => (row.pools[x.k] || []).some(q => mockMins(q) <= left + 0.5));
+      const again = x => (row.last && x.last === row.last ? 1 : 0);
+      if (strict && MOCK_TYPES.some(([k]) => (row.pools[k] || []).length && !(row.last && h.s[row.id + "|" + k] === row.last))) fits = fits.filter(x => !again(x));
       if (!fits.length) return;
-      fits.sort((a, b) => (count[a.k] || 0) + (used[row.id + a.k] || 0) * 3 - (count[b.k] || 0) - (used[row.id + b.k] || 0) * 3 || a.turn - b.turn);
-      const k = fits[0].k, n = row.pools[k].findIndex(q => mockMins(q) <= left + 0.5), q = row.pools[k].splice(n, 1)[0];
-      picked.push(q); left -= mockMins(q); count[k] = (count[k] || 0) + 1; used[row.id + k] = (used[row.id + k] || 0) + 1; covered.add(row.id); added = true;
+      // on the first time round, leave enough time to reach the other topics; then: a style new to this set and different
+      // from the topic's last set, one with a question you haven't had, one short enough, the one unused for longest, the least common in this set
+      const share = round ? left : Math.max(3.5, left / (rows.length - i)), slow = x => (row.pools[x.k].some(q => mockMins(q) <= share) ? 0 : 1), stale = x => (h.q[row.pools[x.k][0].id] ? 1 : 0);
+      fits.sort((a, b) => a.here - b.here || again(a) - again(b) || stale(a) - stale(b) || slow(a) - slow(b) || a.last - b.last || (count[a.k] || 0) - (count[b.k] || 0) || a.turn - b.turn);
+      const k = fits[0].k; let n = row.pools[k].findIndex(q => mockMins(q) <= Math.min(share, left + 0.5)); if (n < 0) n = row.pools[k].findIndex(q => mockMins(q) <= left + 0.5); const q = row.pools[k].splice(n, 1)[0];
+      questions.push(q); picks.push({ row: row.id, k, id: q.id }); left -= mockMins(q);
+      count[k] = (count[k] || 0) + 1; used[row.id + "|" + k] = fits[0].here + 1; covered.add(row.id); added = true;
     });
   }
-  return { ids: picked.map(q => q.id), count, minutes: Math.round(st.minutes - Math.max(0, left)), marks: picked.reduce((n, q) => n + q.m, 0), covered: covered.size, topics: rows.length };
+  return { ids: questions.map(q => q.id), picks, base: h, count, minutes: Math.round(st.minutes - Math.max(0, left)), marks: questions.reduce((n, q) => n + q.m, 0), covered: covered.size, topics: rows.length,
+    repeats: picks.filter(x => h.q[x.id]).length, restyled: picks.filter(x => h.s[x.row + "|" + x.k] && h.s[x.row + "|" + x.k] === h.t[x.row]).length };
 }
 function mockTab() {
   const s = cur(), st = mockState(s), sub = SUBJ[s], sel = new Set(inYear(st.topics, st.year)), picked = new Set(st.topics), b = st.built;
@@ -7947,7 +7968,8 @@ function mockTab() {
     <div class="row"><button class="btn primary" data-act="mk-build" ${sel.size ? "" : "disabled"}>Make my revision set</button>${b ? `<button class="btn" data-act="mk-start" ${openSession() ? "disabled" : ""}>Start ${b.ids.length} questions</button><button class="btn ghost" data-act="mk-shuffle">Different questions</button>` : ""}</div>
     ${b ? `<div class="stack" style="gap:8px"><p><b>${b.ids.length} questions, ${b.marks} marks, about ${fmtMins(Math.max(1, b.minutes))}.</b></p>
       <div class="row" style="gap:6px">${MOCK_TYPES.filter(([k]) => b.count[k]).map(([k, l]) => `<span class="chip">${b.count[k]} ${l}</span>`).join("")}</div>
-      <p class="small muted">${b.covered < b.topics ? `This time covers ${b.covered} of your ${b.topics} topics, weakest first. Choose longer to cover them all.` : `Every one of your ${b.topics} topics and practicals is covered.`}</p></div>` : ""}
+      <p class="small muted">${b.covered < b.topics ? `This time covers ${b.covered} of your ${b.topics} topics: ones left out of earlier sets first, then your weakest. ${b.base.n ? "Make another set to reach the rest." : "Choose longer, or make another set afterwards, to cover them all."}` : `Every one of your ${b.topics} topics and practicals is covered.`}${b.base.n ? (b.restyled ? ` ${b.restyled} question${b.restyled === 1 ? " repeats a style" : "s repeat a style"} from that topic's last set, as there was no other that fitted.` : " Each topic has a different style of question from its last set.") + (b.repeats ? ` ${b.repeats} you've had before, because the new ones ran out.` : " All the questions are new to your mock sets.") : ""}</p></div>` : ""}
+    ${st.hist && st.hist.n ? `<div class="row" style="gap:8px"><span class="small muted">${st.hist.n} mock set${st.hist.n === 1 ? "" : "s"} done. Each new one changes the question styles and brings new questions.</span><button class="btn small ghost" data-act="mk-forget">Start afresh</button></div>` : ""}
     ${sel.size ? `<div class="row" style="gap:6px"><button class="btn small ghost" data-act="mk-defs" data-v="${topicIds.join(",")}">Read the definitions for these topics</button></div>` : ""}
   </section>`;
 }
@@ -9090,10 +9112,11 @@ const ACT = {
   "mk-sec": el => { const s = cur(), st = mockState(s), y = +el.dataset.y, group = el.dataset.v === "rp" ? practicalChips(s) : (pracGroups(s).find(g => g.id === el.dataset.v) || { topics: [] }).topics; const ids = group.filter(t => pickYear(t.id) === y && (optOK(t) || st.topics.includes(t.id))).map(t => t.id), all = ids.every(id => st.topics.includes(id)); st.topics = all ? st.topics.filter(id => !ids.includes(id)) : [...new Set(st.topics.concat(ids))]; st.built = null; render(); },
   "mk-year": el => { const st = mockState(cur()); st.year = +el.dataset.v; st.built = null; render(); },
   "mk-none": () => { const st = mockState(cur()); st.topics = []; st.built = null; render(); },
-  "mk-min": el => { const s = cur(), st = mockState(s); st.minutes = +el.dataset.v; if (st.built) st.built = buildMock(s, st); render(); },
+  "mk-min": el => { const s = cur(), st = mockState(s); st.minutes = +el.dataset.v; if (st.built) st.built = buildMock(s, st, st.built.logged ? null : st.built.base); render(); },
   "mk-build": () => { const s = cur(), st = mockState(s); if (!inYear(st.topics, st.year).length) { toast("Choose at least one topic or practical"); return; } st.built = buildMock(s, st); render(); toast("Your revision set is ready"); },
-  "mk-shuffle": () => { const s = cur(), st = mockState(s); st.seed++; st.built = buildMock(s, st); render(); toast("Picked different questions"); },
-  "mk-start": () => { const st = mockState(cur()), b = st.built; if (b) startPractice({ ids: b.ids, random: false, n: 0, minutes: st.minutes, label: "Mock revision" }); },
+  "mk-shuffle": () => { const s = cur(), st = mockState(s), b = st.built; st.seed++; st.built = buildMock(s, st, b && !b.logged ? mockLog(b.base, b) : null); render(); toast("Picked different styles and questions"); },
+  "mk-start": () => { const st = mockState(cur()), b = st.built; if (!b || openSession()) return; if (!b.logged) { st.hist = mockLog(st.hist, b); b.logged = true; } const next = st.hist.n; st.built = null; st.seed++; startPractice({ ids: b.ids, random: false, n: 0, minutes: st.minutes, label: "Mock revision " + next }); },
+  "mk-forget": () => { const st = mockState(cur()); st.hist = null; st.built = null; render(); toast("Earlier mock sets forgotten"); },
   "mk-defs": el => { ui.defOnly = { subj: cur(), ids: el.dataset.v.split(",") }; ui.defSearch = ""; ui.noteTab = "defs"; go("notes"); window.scrollTo(0, 0); },
   "def-test": () => { ui.defTest = !ui.defTest; render(); },
   "def-all": () => { ui.defOnly = null; render(); },
