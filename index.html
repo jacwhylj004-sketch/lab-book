@@ -395,6 +395,9 @@ body.ps-open .penbar { left: calc((100% - min(46%, 520px)) / 2); max-width: calc
 .nt-compact { padding: 14px 14px 18px; border-radius: 16px; gap: 12px; }
 .nt-compact .nt-title { font-size: 1.4rem; }
 .nt-compact .nt-nav, .nt-compact .nt-acts { display: none; }
+.nt-forq { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 2px solid var(--accent); border-radius: 16px; }
+.nt-forq > h2 { font-size: 1.15rem; }
+.nt-all { font-size: .85rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; border-top: 1px solid var(--line); padding-top: 12px; }
 .gm { padding: 10px 14px; border-radius: 16px; max-width: 94%; line-height: 1.5; font-size: .95rem; overflow-wrap: anywhere; }
 .gm.u { align-self: flex-end; background: var(--accent-soft); border-bottom-right-radius: 4px; }
 .gm.m { align-self: flex-start; background: var(--surface); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
@@ -554,7 +557,7 @@ kbd { font-family: var(--f-mono); font-size: .76rem; padding: 2px 7px; border-ra
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261127-1023";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261127-1027";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -5143,6 +5146,7 @@ function vwPageIndicator() {
   for (const p of pages) { if (p.offsetTop - cont.scrollTop <= cont.clientHeight / 3) n = +p.dataset.n; else break; }
   out.textContent = `${n} / ${VW.doc.numPages}`;
   vwThumb();
+  vwpFollow();
 }
 /* ---------- Zoom and the side scroll bar, like Samsung Notes ---------- */
 const ZOOM_MIN = 0.5, ZOOM_MAX = 5;
@@ -5663,6 +5667,58 @@ function aiFail(why) {
   el.innerHTML = `<div class="modal busy" role="alertdialog" aria-label="Request failed"><h2>Request failed</h2><p>${esc(why)}</p><div class="row" style="gap:8px"><button class="btn ghost" data-act="ai-fail-close">Close</button><button class="btn primary" data-act="ai-retry">Try again</button></div></div>`;
   document.body.appendChild(el);
 }
+/* ---------- Notes that match the question being worked on ---------- */
+const wordStem = w => w.length > 4 ? w.replace(/ies$/, "y").replace(/(ing|ed|es|s|e)$/, "") : w;
+const matchWords = str => toks(str).map(wordStem);
+// The few note blocks that share the most telling words with the question. Words found in few blocks count for more.
+function relevantBlocks(text, blocks, extra, most = 3) {
+  const use = blocks.concat(extra).filter(b => b.t !== "h" && b.t !== "p");
+  const docs = use.map(b => new Set(matchWords(blockWords(b) + " " + (b.cap || ""))));
+  const df = new Map(); docs.forEach(d => d.forEach(w => df.set(w, (df.get(w) || 0) + 1)));
+  const asked = new Set(matchWords(text));
+  const scored = use.map((b, i) => {
+    const head = new Set(matchWords([b.term, b.name, b.title].filter(Boolean).join(" ")));
+    let sc = 0, hits = 0; asked.forEach(w => { if (docs[i].has(w)) { hits++; sc += Math.log(1 + use.length / df.get(w)) * (head.has(w) ? 2 : 1); } });
+    const weight = (extra.includes(b) ? 1.6 : 1) * (b.t === "eq" ? 1.3 : b.title === "Also worth knowing" ? 0.7 : 1); // equations help most; round-up boxes least
+    return { b, hits, sc: sc / Math.sqrt(12 + docs[i].size) * weight };
+  }).filter(x => x.hits >= 2 || x.sc > 0.45).sort((a, b) => b.sc - a.sc);
+  if (scored.length) return scored.slice(0, most).map(x => x.b);
+  return use.filter(b => b.t === "eq" || b.t === "def" || b.t === "key").slice(0, 2);
+}
+// The question being worked on, without its mark scheme, so the notes shown never come from the answer.
+// Units in a question hint at what it is about, so the matching words are added.
+const UNIT_HINTS = [[/d ?[kM]?Wb/, "power"], [/Ω/, "resistance resistivity"], [/d ?[kMm]?Jb/, "energy work"], [/m s⁻¹/, "velocity speed"], [/m s⁻²/, "acceleration"], [/d ?nmb/, "wavelength"], [/d ?[kMG]?Hzb/, "frequency"], [/d ?[kMG]?Pab/, "pressure stress"], [/mol dm⁻³/, "concentration moles"], [/kJ mol⁻¹/, "enthalpy energy"], [/d ?[kM]?Vb/, "potential difference"], [/d ?[mμ]?Fb/, "capacitance"], [/d ?Bqb/, "activity decay"]];
+const questionWords = q => { const s = q.k === "mcq" ? q.s + " " + q.o.join(" ") : (q.i || "") + " " + q.p.map(p => p.q).join(" "); return s + " " + UNIT_HINTS.filter(h => h[0].test(s)).map(h => h[1]).join(" "); };
+function forQuestionHTML(title, why, text, id, rp) {
+  const NT = (window.NC || {}).topics || {}, p = rp ? PRAC[rp] : null;
+  const extra = p ? rpList(p, ((window.NC || {}).rp || {})[p.id]) : [];
+  const picked = relevantBlocks(text, NT[id] || [], extra);
+  if (!picked.length) return "";
+  return `<section class="nt-forq" aria-label="${title}"><h2>${title}</h2><span class="muted small">${why}${p && picked.some(b => extra.includes(b)) ? ` Includes required practical ${p.n}.` : ""}</span>${blocksHTML(picked)}</section><h2 class="nt-all">All notes for this topic</h2>`;
+}
+// In the paper viewer the words on the page you are looking at stand in for the question.
+const pageKey = () => VW.name + ":" + vwPageNow();
+function vwPageWords() {
+  const key = pageKey(), store = VWP.texts || (VWP.texts = {});
+  if (key in store) return store[key];
+  if (!VW.doc) return null;
+  const doc = VW.doc, n = vwPageNow(); store[key] = null;
+  doc.getPage(n).then(pg => pg.getTextContent()).then(tc => { store[key] = tc.items.map(x => x.str).join(" "); if (VWP.mode === "notes" && VW.open) drawVwPanel(); }).catch(() => { delete store[key]; });
+  return null;
+}
+const PROFILES = {};
+function pageTopicId(c, text) {
+  const num = c.label.replace("Paper ", ""), some = SUBJ[c.subj].topics.filter(t => optOK(t) && eligible(c.subj, t, num)), elig = some.length ? some : SUBJ[c.subj].topics.filter(optOK);
+  const key = c.subj + num + (S.settings.physOpt || ""), prof = PROFILES[key] || (PROFILES[key] = topicProfiles(elig));
+  const i = pageTopic(text, prof); return i < 0 ? null : elig[i].id;
+}
+// Redraws the notes when you move to another page of the paper.
+let followT = null;
+function vwpFollow() {
+  if (VWP.mode !== "notes" || !VW.open || !VW.cur || !VW.doc || pageKey() === VWP.drawnPage) return;
+  clearTimeout(followT); followT = setTimeout(() => { if (VWP.mode === "notes" && VW.open && VW.cur && VW.doc && pageKey() !== VWP.drawnPage) drawVwPanel(); }, 350);
+}
+
 /* ---------- Notes and Gemini help inside the paper viewer ---------- */
 const VWP = { mode: null, topic: "", chat: {}, busy: false, pages: 1, useMs: false, draft: "", ms: {} };
 const vwKey = () => VW.cur ? VW.cur.subj + "|" + VW.cur.ser + "|" + VW.cur.label : "";
@@ -5698,11 +5754,21 @@ function drawVwPanel() {
   const close = `<button class="icon-btn" data-act="vwp-toggle" data-v="${VWP.mode}" aria-label="Close">✕</button>`;
   if (VWP.mode === "notes") {
     const NT = (window.NC || {}).topics || {};
+    let words = "", found = false;
+    if (VW.open && VW.cur && VW.doc) {
+      words = vwPageWords() || ""; VWP.drawnPage = pageKey();
+      if (words && VWP.followed !== VWP.drawnPage) { VWP.followed = VWP.drawnPage; const hit = pageTopicId(VW.cur, words); VWP.found = hit; if (hit) VWP.topic = hit; }
+      found = VWP.found;
+    }
     let id = VWP.topic; if (!id || !TOPICS[id] || TOPICS[id].subj !== sc) id = (s.topics.find(t => NT[t.id]) || s.topics[0]).id; VWP.topic = id;
+    const forQ = pq ? (id === pq.t ? forQuestionHTML("For this question", "Matched to the words in the question.", questionWords(pq), id, pq.rp) : "")
+      : words ? forQuestionHTML("For this page", found === id ? "Topic and notes matched to this page of the paper." : "Matched to this page. Pick the topic above if it looks wrong.", words, id) : "";
+    const shownFor = (pq ? pq.id : VWP.drawnPage || "") + "|" + id, fresh = VWP.shownFor !== shownFor; VWP.shownFor = shownFor;
     const opts = s.sections.map(sec => `<optgroup label="${esc(sec.name)}">${s.topics.filter(t => t.sec === sec.id).map(t => `<option value="${t.id}" ${t.id === id ? "selected" : ""}>${esc(t.code)} ${esc(t.t)}</option>`).join("")}</optgroup>`).join("");
     p.innerHTML = `<div class="vwp-head"><b>Notes</b>${close}</div>
-      <label class="field vwp-pick"><span class="muted small">Topic (pick the one this question is about)</span><select data-change="vwp-topic">${opts}</select></label>
-      <div class="vwp-scroll"><div class="nt-article nt-compact">${noteArticle(TOPICS[id], true)}</div></div>`;
+      <label class="field vwp-pick"><span class="muted small">Topic (change it if the question is about another one)</span><select data-change="vwp-topic">${opts}</select></label>
+      <div class="vwp-scroll"><div class="nt-article nt-compact">${forQ}${noteArticle(TOPICS[id], true)}</div></div>`;
+    if (fresh) { p.querySelector(".vwp-scroll").scrollTop = 0; return; }
   } else {
     const key = helpKey(), chat = VWP.chat[key] || [], ready = gemReady();
     const msgs = chat.map((m, i) => m.err ? `<div class="gm m err"><b>Request failed.</b> ${esc(m.t)}<div><button class="btn small primary" data-act="vwp-retry" data-i="${i}" ${VWP.busy ? "disabled" : ""}>Try again</button></div></div>` : `<div class="gm ${m.r}">${(m.r === "m" ? mdb(plainMaths(m.t)) : esc(m.t)).replace(/\n/g, "<br>")}</div>`).join("");
@@ -6741,14 +6807,17 @@ function notesTab() {
       <div class="body"><div class="list">${files.slice().sort((a, b) => order.indexOf(a.k) - order.indexOf(b.k)).map(f => noteBtn(f.p, f.t, NOTE_KINDS[f.k] + " · " + (f.kb >= 1024 ? (f.kb / 1024).toFixed(1) + " MB" : f.kb + " KB"))).join("")}</div></div></details>`;
   }).join("") + `</div>`;
 }
-function rpBlocks(p, d) {
+function rpList(p, d) {
   const blocks = [{ t: "def", term: "Aim", text: p.aim }];
   if (d && d.fig) blocks.push({ t: "fig", svg: d.fig, cap: d.cap });
   if (d && d.eq) blocks.push({ t: "eq", name: "Key equation", eq: d.eq, vars: d.vars });
   blocks.push(...((d && d.before) || []));
   if (d && d.plot) blocks.push({ t: "key", title: "Analysis", items: [d.plot] });
   blocks.push({ t: "steps", title: "Method", items: p.method }, ...((d && d.after) || []), { t: "tip", text: p.tips.join(" ") });
-  return blocksHTML(blocks.map(b => b.t === "tip" ? { t: "key", title: "Exam points", items: p.tips } : b)).replace('class="nb key"><span class="lbl">Exam points', 'class="nb tip"><span class="lbl">Exam points');
+  return blocks.map(b => b.t === "tip" ? { t: "key", title: "Exam points", items: p.tips } : b);
+}
+function rpBlocks(p, d) {
+  return blocksHTML(rpList(p, d)).replace('class="nb key"><span class="lbl">Exam points', 'class="nb tip"><span class="lbl">Exam points');
 }
 function rpTab() {
   const sc = cur(), N = (window.NOTES || {})[sc] || {}, list = PRACS.filter(p => p.subj === sc), done = list.filter(p => S.rp[p.id]).length;
