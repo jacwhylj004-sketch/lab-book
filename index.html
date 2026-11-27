@@ -573,10 +573,37 @@ kbd { font-family: var(--f-mono); font-size: .76rem; padding: 2px 7px; border-ra
   .pc .rail-btn .badge { top: 14px; right: 14px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+/* Usage section. Series colours stay the same whichever subject is selected. */
+:root { --ux-phys: #2a78d6; --ux-chem: #1baf7a; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --ux-phys: #3987e5; --ux-chem: #199e70; } }
+:root[data-theme="dark"] { --ux-phys: #3987e5; --ux-chem: #199e70; }
+.ux { display: flex; flex-direction: column; gap: 12px; }
+.ux-legend { display: flex; gap: 14px; }
+.ux-stats .stat b { font-size: 1.5rem; line-height: 1.3; }
+.ux-key { display: inline-block; width: 12px; height: 12px; border-radius: 4px; margin-right: 6px; vertical-align: -1px; }
+.ux-key.phys, .ux-track i.phys { background: var(--ux-phys); }
+.ux-key.chem, .ux-track i.chem { background: var(--ux-chem); }
+.ux-svg { width: 100%; height: auto; display: block; background: var(--surface); border-radius: 14px; touch-action: pan-y; }
+.ux-svg text { fill: var(--muted); font-size: 11px; }
+.ux-grid { stroke: var(--line); stroke-width: 1; }
+.ux-cross { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.ux-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.ux-line.phys { stroke: var(--ux-phys); } .ux-line.chem { stroke: var(--ux-chem); }
+.ux-dot { stroke: var(--surface); stroke-width: 2; }
+.ux-dot.phys { fill: var(--ux-phys); } .ux-dot.chem { fill: var(--ux-chem); }
+.ux-hit { fill: transparent; cursor: pointer; }
+.ux-read { display: flex; flex-wrap: wrap; gap: 4px 18px; min-height: 24px; }
+.ux-table { overflow: auto; max-height: 320px; }
+.ux-table table { width: 100%; border-collapse: collapse; }
+.ux-table th, .ux-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.ux-bar { display: grid; grid-template-columns: 90px minmax(0, 1fr) auto; align-items: center; gap: 12px; }
+.ux-track { height: 22px; background: var(--surface); border-radius: 4px; overflow: hidden; }
+.ux-track i { display: block; height: 100%; border-radius: 0 4px 4px 0; }
+@media (max-width: 599px) { .ux-bar { grid-template-columns: minmax(0, 1fr) auto; } .ux-track { grid-column: 1 / -1; order: 3; } }
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261127-1243";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261127-1437";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -6048,6 +6075,7 @@ function mergeStates(a, b) {
   const seen = new Set(); out.quiz = [].concat(a.quiz || [], b.quiz || []).filter(q => { const j = JSON.stringify(q); if (seen.has(j)) return false; seen.add(j); return true; }).slice(-50);
   out.pred = {}; for (const id of keys(a.pred, b.pred)) { const x = (a.pred || {})[id], y = (b.pred || {})[id]; const win = !x ? y : !y ? x : String(y.built) > String(x.built) ? y : x, rps = [x && x.rp, y && y.rp].filter(Boolean).sort((m, n) => String(n.built).localeCompare(String(m.built))); out.pred[id] = rps.length ? Object.assign({}, win, { rp: rps[0] }) : win; }
   out.settings = Object.assign({}, a.settings); if (!out.settings.physOpt && b.settings && b.settings.physOpt) out.settings.physOpt = b.settings.physOpt;
+  out.use = mergeUse(a.use, b.use);
   out.updated = Math.max(a.updated || 0, b.updated || 0);
   return out;
 }
@@ -6064,6 +6092,7 @@ async function ghApi(path, opt) {
 async function cloudSync() {
   if (CSX.busy) return;
   const c = csGet(); if (!c.token) { go("prefs"); toast("Connect cloud sync first."); return; }
+  useTick(false);
   CSX.busy = true; CSX.msg = "Syncing…"; render();
   try {
     let id = c.gistId, remote = null;
@@ -6097,7 +6126,7 @@ function snapshotBeforeSync() {
 function cloudPanel() {
   const c = csGet(), ok = !!c.token, when = c.last ? new Date(c.last).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
   return `<section class="panel"><div class="panel-head"><div class="stack" style="gap:2px"><h2>Cloud sync</h2><span class="muted small">${ok ? (when ? "Last synced " + when : "Connected. Not synced yet.") : "Keep your devices in step"}</span></div>${ok ? `<button class="btn primary" data-act="cloud-sync" ${CSX.busy ? "disabled" : ""}>${CSX.busy ? "Syncing…" : "Sync now"}</button>` : ""}</div>
-    <p class="small">Press Sync on each device. It merges both copies, so finishing a question on one device and syncing shows it as done on the others. It syncs your flashcard progress, question results, marks, ratings, notes, typed answers, exams and mistakes. It does not copy papers, notes PDFs or handwriting, and your theme stays per device.</p>
+    <p class="small">Press Sync on each device. It merges both copies, so finishing a question on one device and syncing shows it as done on the others. It syncs your usage time, flashcard progress, question results, marks, ratings, notes, typed answers, exams and mistakes. It does not copy papers, notes PDFs or handwriting, and your theme stays per device.</p>
     ${CSX.msg ? `<p class="small" id="cs-msg">${esc(CSX.msg)}</p>` : ""}
     ${ok ? `<p class="small"><b>Removing things:</b> if you remove an exam date, a result, a mistake or a card, or a question result (the Remove my result button on a question), it is removed on your other device too after you sync. Each removal has an Undo for a few seconds.</p>
       ${snaps().length ? `<div class="row"><button class="btn small" data-act="cloud-restore">Undo the last sync on this device</button><span class="muted small">Restores the copy saved at ${new Date(snaps().slice(-1)[0].at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span></div>` : ""}
@@ -6135,7 +6164,7 @@ const OPTS = { astro: "Astrophysics", medical: "Medical physics", engineering: "
 
 /* ---------- State ---------- */
 function fresh() {
-  return { v: 1, updated: 0, srs: {}, conf: {}, custom: [], log: {}, newLog: {}, exams: [], papers: [], mistakes: [], notes: {}, rp: {}, quiz: [], focus: {}, ppDone: {}, boxes: [], qs: {}, qtext: {}, marked: {}, pred: {}, del: {},
+  return { v: 1, updated: 0, srs: {}, conf: {}, custom: [], log: {}, newLog: {}, exams: [], papers: [], mistakes: [], notes: {}, rp: {}, quiz: [], focus: {}, ppDone: {}, boxes: [], use: {}, qs: {}, qtext: {}, marked: {}, pred: {}, del: {},
     pen: { tool: "pen", color: 0, size: 1 },
     settings: { theme: "system", physOpt: "", newPerDay: 20, subj: "phys" } };
 }
@@ -6199,10 +6228,11 @@ async function initSync() {
       const data = snap.data() || {};
       let remote = null; try { remote = JSON.parse(data.json); } catch (e) { /* ignore */ }
       if (remote && (remote.updated || 0) > (S.updated || 0)) {
-        S = normalise(remote); indexCustom();
+        const mine = S.use; S = normalise(remote); S.use = mergeUse(mine, S.use); indexCustom();
         try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignore */ }
         setSync("ok"); render(); return;
       }
+      if (remote) S.use = mergeUse(S.use, remote.use);
       if ((S.updated || 0) > (data.updated || 0)) { flushRemote(); return; }
       setSync("ok");
     } else if (S.updated) { flushRemote(); } else { setSync("ok"); }
@@ -6301,10 +6331,10 @@ function weakness(t) {
 const VIEWS = [
   ["home", "Home", "home"], ["practice", "Practice", "qa"], ["notes", "Notes", "book"],
   ["papers", "Past papers", "doc"], ["progress", "Exam progress", "chart"], ["reference", "Reference", "book"],
-  ["tutor", "AI tutor", "spark"], ["timer", "Focus timer", "timer"], ["prefs", "Settings", "sliders"]
+  ["usage", "Usage", "bars"], ["tutor", "AI tutor", "spark"], ["timer", "Focus timer", "timer"], ["prefs", "Settings", "sliders"]
 ];
 if (OFFLINE) VIEWS.splice(VIEWS.findIndex(v => v[0] === "tutor"), 1);
-const RAIL = ["home", "practice", "notes", "papers", "progress", "reference", "tutor"].filter(id => VIEWS.some(v => v[0] === id));
+const RAIL = ["home", "practice", "notes", "papers", "progress", "reference", "usage", "tutor"].filter(id => VIEWS.some(v => v[0] === id));
 const TABS = ["home", "practice", "papers", "progress"];
 const SHORT = { papers: "Papers", tutor: "AI tutor", progress: "Progress", reference: "Reference", timer: "Timer" };
 // Old section names now live inside the merged sections.
@@ -6359,6 +6389,7 @@ addEventListener("pagehide", () => savePractice());
 document.addEventListener("visibilitychange", () => { if (document.hidden) savePractice(); });
 
 const ICON = {
+  bars: '<path d="M3 21h18M6 17v-6M12 17V4M18 17v-9"/>',
   sync: '<path d="M20 12a8 8 0 0 1-14.5 4.6M4 12A8 8 0 0 1 18.5 7.4"/><path d="M18.5 3v4.4h-4.4M5.5 21v-4.4h4.4"/>',
   home: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
   cards: '<rect x="3" y="7" width="14" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/>',
@@ -6471,6 +6502,153 @@ function go(v) {
 addEventListener("hashchange", () => { const v = resolveView(location.hash.slice(1)); if (v && v !== view) { view = v; ui.sheet = false; render(); backToSpot(); } });
 
 const V = {};
+
+/* ---------- Usage: how long the app has been used, per subject, on every synced device ---------- */
+// S.use = { deviceId: { "YYYY-MM-DD": [physicsSeconds, chemistrySeconds] } }. Each device only ever adds to its own entry,
+// so merging two copies takes the larger number for each device and day, and the total is the sum over devices.
+// Time counts while the app is on screen and has been touched in the last 3 minutes, or while a paper timer is running.
+const DEV_KEY = "labbook-device", IDLE_MS = 3 * 60e3;
+let devKey = "";
+function deviceId() {
+  if (!devKey) {
+    try { devKey = localStorage.getItem(DEV_KEY) || ""; if (!devKey) { devKey = Math.random().toString(36).slice(2, 8); localStorage.setItem(DEV_KEY, devKey); } }
+    catch (e) { devKey = "local"; }
+  }
+  return EDITION + "-" + devKey;
+}
+function mergeUse(a, b) {
+  const out = {};
+  for (const src of [a, b]) for (const [dev, days] of Object.entries(src || {})) {
+    const o = out[dev] || (out[dev] = {});
+    for (const [day, v] of Object.entries(days || {})) { const w = o[day] || [0, 0]; o[day] = [Math.max(w[0], +v[0] || 0), Math.max(w[1], +v[1] || 0)]; }
+  }
+  return out;
+}
+let useLast = Date.now(), useInput = Date.now(), useDirty = false, useSaved = Date.now();
+function useSubj() {
+  if (VW.open && VW.cur && SUBJ[VW.cur.subj]) return VW.cur.subj;
+  if (onQuestion()) { const q = QIDX[ui.ps.ids[ui.ps.i]]; if (q) return q.subj; }
+  if (view === "practice" && ui.pracTab === "cards" && ui.study) { const c = CARDS[(ui.study.queue || [])[0]]; if (c) return c.subj; }
+  return cur();
+}
+// force: count the last few seconds as the app is being left
+function useTick(force) {
+  const now = Date.now(), gap = now - useLast; useLast = now;
+  if ((document.hidden && !force) || gap <= 0 || gap > 15000) return;
+  const timed = VT.running || (onQuestion() && ui.ps.minutes && now - ui.ps.t0 < ui.ps.minutes * 60e3);
+  if (!timed && now - useInput > IDLE_MS) return;
+  const dev = deviceId(), day = dayKey(now), days = S.use[dev] || (S.use[dev] = {}), v = days[day] || (days[day] = [0, 0]), i = useSubj() === "chem" ? 1 : 0;
+  v[i] = Math.round((v[i] + gap / 1000) * 10) / 10; useDirty = true;
+}
+// Only the usage figures are written into the saved copy, so this never overwrites other progress and never marks it as newer.
+function useFlush() {
+  if (!useDirty) return;
+  try {
+    const raw = localStorage.getItem(KEY), o = raw ? JSON.parse(raw) : S;
+    S.use = mergeUse(S.use, o.use); o.use = S.use;
+    localStorage.setItem(KEY, JSON.stringify(o)); useDirty = false; useSaved = Date.now();
+  } catch (e) { /* storage unavailable or unreadable: leave it alone */ }
+}
+setInterval(() => { useTick(false); if (Date.now() - useSaved > 20000) useFlush(); }, 5000);
+for (const ev of ["pointerdown", "pointermove", "keydown", "wheel", "touchstart", "scroll"]) addEventListener(ev, () => { const now = Date.now(); if (now - useInput > IDLE_MS) useLast = now; useInput = now; }, { capture: true, passive: true });
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { useTick(true); const had = useDirty; useFlush(); if (had) flushRemote(); }
+  else { useLast = useInput = Date.now(); }
+});
+addEventListener("pagehide", () => { if (!document.hidden) useTick(true); useFlush(); });
+
+const NB = String.fromCharCode(160); // keeps a number and its unit on the same line
+const fmtUse = s => { if (s <= 0) return "0" + NB + "min"; if (s < 60) return "<1" + NB + "min"; const m = Math.round(s / 60); return m < 60 ? m + NB + "min" : Math.floor(m / 60) + NB + "h" + (m % 60 ? " " + (m % 60) + NB + "min" : ""); };
+const USE_RANGES = [["7", "7 days"], ["30", "30 days"], ["84", "12 weeks"]];
+const DEV_NAMES = { tablet: "Tablet", phone: "Phone", pc: "Windows" };
+function useTotals() {
+  const days = {};
+  for (const byDay of Object.values(S.use)) for (const [d, v] of Object.entries(byDay)) { const t = days[d] || (days[d] = [0, 0]); t[0] += v[0]; t[1] += v[1]; }
+  return days;
+}
+function useSeries(n) {
+  const days = useTotals(), now = new Date(), at = back => new Date(now.getFullYear(), now.getMonth(), now.getDate() - back);
+  const short = d => d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  const list = [];
+  if (n <= 30) {
+    for (let i = n - 1; i >= 0; i--) { const d = at(i), k = dayKey(d.getTime()), v = days[k] || [0, 0]; list.push({ keys: [k], p: v[0], c: v[1], tick: n === 7 ? d.toLocaleDateString("en-GB", { weekday: "short" }) : short(d), name: d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) }); }
+  } else {
+    const monday = (now.getDay() + 6) % 7;
+    for (let w = n / 7 - 1; w >= 0; w--) {
+      const start = at(monday + w * 7), e = { keys: [], p: 0, c: 0, tick: short(start), name: "Week of " + short(start) };
+      for (let j = 0; j < 7; j++) { const k = dayKey(new Date(start.getFullYear(), start.getMonth(), start.getDate() + j).getTime()), v = days[k]; e.keys.push(k); if (v) { e.p += v[0]; e.c += v[1]; } }
+      list.push(e);
+    }
+  }
+  return list;
+}
+const useReadout = e => `<b>${esc(e.name)}</b><span><i class="ux-key phys"></i>Physics ${fmtUse(e.p)}</span><span><i class="ux-key chem"></i>Chemistry ${fmtUse(e.c)}</span>`;
+function useGraph(list) {
+  // drawn at about its on-screen width, so the labels stay readable on every device
+  const vw = window.innerWidth || 800, narrow = vw < 600, W = Math.round(Math.max(300, Math.min(1040, vw - (narrow ? 68 : 160)))), H = narrow ? 220 : 270, L = 52, R = 16, T = 12, B = 28;
+  const max = Math.max(1, ...list.map(e => Math.max(e.p, e.c))) / 60;
+  const step = [1, 2, 5, 10, 15, 30, 60, 120, 180, 300, 600, 900, 1800].find(s => s * 4 >= max) || Math.ceil(max / 4);
+  const top = step * Math.max(1, Math.ceil(max / step));
+  const x = i => L + (list.length === 1 ? 0 : i * (W - L - R) / (list.length - 1)), y = m => T + (H - T - B) * (1 - m / top);
+  const ylab = m => !m ? "0" : m < 60 ? m + " min" : +(m / 60).toFixed(1) + " h";
+  let g = "";
+  for (let m = 0; m <= top; m += step) g += `<line class="ux-grid" x1="${L}" x2="${W - R}" y1="${y(m)}" y2="${y(m)}"/><text x="${L - 6}" y="${y(m) + 4}" text-anchor="end">${ylab(m)}</text>`;
+  const every = Math.ceil(list.length / Math.max(3, Math.floor((W - L - R) / 76)));
+  list.forEach((e, i) => { if ((list.length - 1 - i) % every === 0) g += `<text x="${x(i)}" y="${H - 8}" text-anchor="${i === list.length - 1 ? "end" : "middle"}">${esc(e.tick)}</text>`; });
+  g += `<line id="ux-cross" class="ux-cross" x1="0" x2="0" y1="${T}" y2="${H - B}" style="display:none"/>`;
+  for (const [k, cls] of [["p", "phys"], ["c", "chem"]]) {
+    g += `<polyline class="ux-line ${cls}" points="${list.map((e, i) => x(i).toFixed(1) + "," + y(e[k] / 60).toFixed(1)).join(" ")}"/>`;
+    if (list.length <= 14) g += list.map((e, i) => `<circle class="ux-dot ${cls}" cx="${x(i).toFixed(1)}" cy="${y(e[k] / 60).toFixed(1)}" r="4.5"/>`).join("");
+  }
+  const slot = (W - L - R) / Math.max(1, list.length - 1);
+  g += list.map((e, i) => `<rect class="ux-hit" data-ux="${i}" data-x="${x(i).toFixed(1)}" x="${(x(i) - slot / 2).toFixed(1)}" y="${T}" width="${slot.toFixed(1)}" height="${H - T - B}"><title>${esc(e.name)}: Physics ${fmtUse(e.p)}, Chemistry ${fmtUse(e.c)}</title></rect>`).join("");
+  return `<svg class="ux-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Line graph of time spent on Physics and Chemistry. The figures are in the table below.">${g}</svg>`;
+}
+function useShow(el) {
+  const list = useSeries(+(ui.useRange || "7")), e = list[+el.dataset.ux], out = document.getElementById("ux-read"), line = document.getElementById("ux-cross");
+  if (!e || !out || !line) return;
+  out.innerHTML = useReadout(e); line.setAttribute("x1", el.dataset.x); line.setAttribute("x2", el.dataset.x); line.style.display = "";
+}
+for (const ev of ["pointerover", "pointerdown"]) document.addEventListener(ev, e => { const el = e.target && e.target.closest && e.target.closest("[data-ux]"); if (el) useShow(el); });
+
+let useResize = null;
+addEventListener("resize", () => { clearTimeout(useResize); useResize = setTimeout(() => { if (view === "usage") render(); }, 200); });
+V.usage = () => {
+  useTick(false);
+  const range = ui.useRange || "7", label = USE_RANGES.find(r => r[0] === range)[1], list = useSeries(+range), days = useTotals();
+  const sum = (arr, k) => arr.reduce((t, e) => t + e[k], 0);
+  const p = sum(list, "p"), c = sum(list, "c"), today = days[dayKey()] || [0, 0];
+  const allP = Object.values(days).reduce((t, v) => t + v[0], 0), allC = Object.values(days).reduce((t, v) => t + v[1], 0);
+  const used = list.reduce((t, e) => t + e.keys.filter(k => days[k] && days[k][0] + days[k][1] >= 60).length, 0);
+  const keys = new Set(list.flatMap(e => e.keys).filter(k => k <= dayKey()));
+  const stat = (name, a, b) => `<div class="stat"><span class="muted">${name}</span><b>${fmtUse(a + b)}</b><span class="small muted">Physics ${fmtUse(a)}<br>Chemistry ${fmtUse(b)}</span></div>`;
+  const most = Math.max(1, p, c);
+  const bar = (name, v, cls) => `<div class="ux-bar"><span>${name}</span><span class="ux-track"><i class="${cls}" style="width:${(v / most * 100).toFixed(1)}%"></i></span><span class="mono small">${fmtUse(v)}${p + c ? " · " + Math.round(v / (p + c) * 100) + "%" : ""}</span></div>`;
+  // one row for each kind of device (a reinstalled app records under a new id, but is still the same tablet or phone)
+  const kinds = {};
+  for (const [id, byDay] of Object.entries(S.use)) {
+    const kind = id.split("-")[0], d = kinds[kind] || (kinds[kind] = { name: (DEV_NAMES[kind] || "Device") + (kind === EDITION ? " (this one)" : ""), p: 0, c: 0 });
+    for (const [day, x] of Object.entries(byDay)) if (keys.has(day)) { d.p += x[0]; d.c += x[1]; }
+  }
+  const devices = Object.values(kinds).filter(d => d.p + d.c >= 1).sort((a, b) => b.p + b.c - a.p - a.c);
+  const synced = csGet();
+  return `${pageHead("Physics + Chemistry", "Usage", "How long you've used Lab Book, added up across your synced devices.")}
+  <div class="seg" role="group" aria-label="Time range">${USE_RANGES.map(([v, l]) => `<button data-act="use-range" data-v="${v}" aria-pressed="${range === v}">${l}</button>`).join("")}</div>
+  <div class="stats ux-stats">${stat("Today", today[0], today[1])}${stat("Last " + label, p, c)}${stat("All time", allP, allC)}<div class="stat"><span class="muted">Days used</span><b>${used}<span class="muted" style="font-size:1rem"> / ${keys.size}</span></b><span class="small muted">in this range</span></div></div>
+  <section class="panel ux"><div class="panel-head"><h2>${+range > 30 ? "Time per week" : "Time per day"}</h2><div class="ux-legend small"><span><i class="ux-key phys"></i>Physics</span><span><i class="ux-key chem"></i>Chemistry</span></div></div>
+    ${useGraph(list)}
+    <div id="ux-read" class="ux-read small" aria-live="polite">${useReadout(list[list.length - 1])}</div>
+    <details><summary class="small">Show as a table</summary><div class="ux-table"><table class="small"><thead><tr><th>${+range > 30 ? "Week" : "Day"}</th><th>Physics</th><th>Chemistry</th><th>Total</th></tr></thead><tbody>${list.slice().reverse().map(e => `<tr><td>${esc(e.name)}</td><td>${fmtUse(e.p)}</td><td>${fmtUse(e.c)}</td><td>${fmtUse(e.p + e.c)}</td></tr>`).join("")}</tbody></table></div></details>
+  </section>
+  <section class="panel ux"><div class="panel-head"><h2>Physics and Chemistry</h2><span class="muted small">Last ${label}</span></div>
+    ${bar("Physics", p, "phys")}${bar("Chemistry", c, "chem")}
+  </section>
+  <section class="panel ux"><div class="panel-head"><h2>By device</h2><span class="muted small">Last ${label}</span></div>
+    ${devices.length ? devices.map(d => `<div class="row small" style="justify-content:space-between"><b>${esc(d.name)}</b><span class="mono">Physics ${fmtUse(d.p)} · Chemistry ${fmtUse(d.c)}</span></div>`).join("") : `<p class="muted small">Nothing recorded yet.</p>`}
+    ${OFFLINE ? `<p class="small muted">${synced.token ? "Press Sync on each device to bring its time in." + (synced.last ? " Last synced " + new Date(synced.last).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + "." : "") : "To add up your devices, connect cloud sync in Settings, then press Sync on each one."}</p><div class="row">${synced.token ? `<button class="btn small" data-act="cloud-sync" ${CSX.busy ? "disabled" : ""}>${CSX.busy ? "Syncing…" : "Sync now"}</button>` : `<button class="btn small" data-act="go" data-v="prefs">Open Settings</button>`}</div>` : ""}
+    <p class="small muted">Time counts while Lab Book is on screen and you've touched it in the last 3 minutes, or a paper timer is running. It goes to the subject you're working in. Recording starts from this update.</p>
+  </section>`;
+};
 
 /* ---------- Today ---------- */
 function dashboardParts() {
@@ -7786,7 +7964,7 @@ V.prefs = () => {
   ${OFFLINE ? `<section class="panel"><h2>Stored papers and notes</h2><p class="small">${storedCount()} of ${totalCount()} past paper files and ${noteStored()} of ${noteTotal()} notes files are stored on this device. Import them from the Past papers and Notes pages.</p>
     ${ui.confirmClearPapers ? `<div class="confirm"><b>Remove all stored papers and notes?</b><span class="small">This frees up space. Your marks, ticks and handwriting stay, but you'd need to import the zips again to open papers and notes.</span><div class="row"><button class="btn danger" data-act="papers-clear-yes">Remove files</button><button class="btn" data-act="papers-clear-no">Cancel</button></div></div>` : `<div><button class="btn" data-act="papers-clear">Remove stored files</button></div>`}</section>` : ""}
   <section class="panel"><h2>Start again</h2>
-    ${ui.confirmReset ? `<div class="confirm"><b>Erase all progress?</b><span class="small">This deletes your flashcard history, ratings, notes, papers, exams and mistakes on every device. It can't be undone.</span><div class="row"><button class="btn danger" data-act="reset-yes">Erase everything</button><button class="btn" data-act="reset-no">Cancel</button></div></div>` : `<div><button class="btn danger" data-act="reset">Erase all progress</button></div>`}
+    ${ui.confirmReset ? `<div class="confirm"><b>Erase all progress?</b><span class="small">This deletes your flashcard history, ratings, notes, papers, exams, mistakes and usage time on every device. It can't be undone.</span><div class="row"><button class="btn danger" data-act="reset-yes">Erase everything</button><button class="btn" data-act="reset-no">Cancel</button></div></div>` : `<div><button class="btn danger" data-act="reset">Erase all progress</button></div>`}
   </section>
   <section class="panel"><h2>Diagnostics</h2><p class="muted small">See what the app is doing and why something isn't working. ${NOPEN ? "" : "Turn on the live pen log to watch every pen event on screen while you write or erase in a paper."}</p>
     <div class="row">${NOPEN ? "" : `<button class="btn ${ui.dbgPen ? "primary" : ""}" data-act="dbg-pen">${ui.dbgPen ? "Live pen log: on" : "Show live pen log"}</button>`}<button class="btn" data-act="dbg-copy">Copy report</button></div>
@@ -7948,6 +8126,7 @@ const ACT = {
     ui.prefill = { subj: cur(), series: el.dataset.v, paper: m ? m[0] : "" }; ui.progTab = "results"; go("progress");
     setTimeout(() => { const f = document.getElementById("log-paper"); if (f) f.scrollIntoView({ behavior: "smooth", block: "start" }); const sc = document.getElementById("pp-score"); if (sc) sc.focus({ preventScroll: true }); }, 60);
   },
+  "use-range": el => { ui.useRange = el.dataset.v; render(); },
   "prog-tab": el => { ui.progTab = el.dataset.v; if (view !== "progress") go("progress"); else { render(); window.scrollTo(0, 0); } },
   "ref-tab": el => { ui.refTab = el.dataset.v; render(); },
   "pf-tog": el => { const f = ui.pf, s = new Set(f.topics || []); s.has(el.dataset.v) ? s.delete(el.dataset.v) : s.add(el.dataset.v); f.topics = [...s]; render(); },
