@@ -576,7 +576,7 @@ kbd { font-family: var(--f-mono); font-size: .76rem; padding: 2px 7px; border-ra
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261127-1240";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261127-1243";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -4913,18 +4913,14 @@ window.INTEL = {
     { t: "Examiner report: Physics Paper 1, June 2022", u: "https://filestore.aqa.org.uk/sample-papers-and-mark-schemes/2022/june/AQA-74081-WRE-JUN22.PDF" },
     { t: "Examiner report: Physics Paper 2, June 2019", u: "https://filestore.aqa.org.uk/sample-papers-and-mark-schemes/2019/june/AQA-74082-WRE-JUN19.PDF" }
   ],
-  // Predicted papers published by other people, shown on the Predicted paper tab. Only add what the page itself says.
+  // FREE 2027 predicted papers published by other people, shown on the Predicted paper tab. Never add paid ones. Check the
+  // page really gives the paper without payment. Entry: { s: "phys" | "chem", free: true, t, by, what, u: page,
+  //   pdf: direct question paper link (optional), ms: direct mark scheme link (optional) }
   others: {
     checked: "2026-11-27",
-    note: "These are not from AQA, nobody has advance knowledge of the exams, and Lab Book hasn't checked their quality. Prices can change. No free 2027 papers turned up in this check.",
-    list: [
-      { s: "phys", t: "AQA A-level Physics 2027 predicted papers bundle", by: "MissPhys's Shop on Tes", price: "£9.00, editable Word files", what: "Paper 1, Paper 2, Paper 3A and Paper 3B (Astrophysics only), with mark schemes.", u: "https://www.tes.com/teaching-resource/aqa-a-level-physics-2027-predicted-papers-bundle-mark-schemes-13547696" },
-      { s: "phys", t: "AQA A-level Physics predicted papers 2027", by: "MME", price: "from £24.99, printed and posted", what: "One pack is three papers with mark schemes. No download version.", u: "https://mmerevise.co.uk/shop/a-level/a-level-physics/a-level-physics-predicted-papers/" },
-      { s: "chem", t: "AQA A-level Chemistry predicted papers for June 2027", by: "Chemistry with Chloe", price: "£24.99, PDF download", what: "Papers 1, 2 and 3 with mark schemes, sold as part of a revision pack.", u: "https://chemistrywithchloe.com/aqa-a-level-chemistry-predicted-papers/" },
-      { s: "chem", t: "AQA A-level Chemistry predicted papers 2026/27", by: "MME", price: "from £24.99, printed and posted (£19.99 offer seen)", what: "One pack is three papers with mark schemes. No download version.", u: "https://mmerevise.co.uk/shop/a-level/a-level-chemistry/a-level-chemistry-predicted-papers/" }
-    ]
-  },
-  themes: {
+    note: "These would not be from AQA, and nobody has advance knowledge of the exams. If you download a free predicted paper yourself, add the PDF here to open it in Lab Book.",
+    list: []
+  },  themes: {
     phys: [
       "Unit conversions (MeV to J, cm² to m², minutes to seconds) lose easy marks, so write the units on every line.",
       "Vague practical answers earn nothing. Say what you measure, with which instrument, and how you reduce the uncertainty.",
@@ -5110,7 +5106,7 @@ function drawViewerChrome() {
   const kinds = [0, 1, 2, 3].filter(i => PDB.have.has(paperFile(subj, ser, label, i)) || ALL_FILES.has(paperFile(subj, ser, label, i)));
   el.innerHTML = `<div class="vw-bar">
       <button class="btn small" data-act="vw-close">${icon("back").replace("<svg", '<svg style="width:18px"')} Close</button>
-      <div class="vw-title"><b>${esc(SUBJ[subj].name)} ${esc(label)}</b><span class="muted small">${esc(ser)}</span></div>
+      <div class="vw-title"><b>${esc(SUBJ[subj].name)} ${esc(label)}</b><span class="muted small">${esc(ser.replace(/^Other /, ""))}</span></div>
       <div class="row vw-tools" style="gap:6px"><button class="btn small vw-timer mono" id="vw-timer" data-act="vw-timer" aria-label="Start or pause the exam timer"></button><button class="btn small" data-act="vw-timer-reset" aria-label="Reset timer">↺</button><span class="mono small muted" id="vw-page"></span><button class="btn small" data-act="vw-zoom" data-v="-1" aria-label="Zoom out">−</button><button class="btn small" data-act="vw-zoom" data-v="1" aria-label="Zoom in">+</button></div>
     </div>
     <div class="vw-sub">
@@ -7521,7 +7517,7 @@ function intelPanel(s) {
 }
 function intelPrompt() {
   const I = window.INTEL || {};
-  return `Please update the Lab Book predicted papers with the latest information about the ${I.exam || "next"} AQA A-level Physics (7408) and Chemistry (7405) exams. The predictions were last updated on ${I.updated || "an earlier date"}. Search for anything new (AQA advance information, timetable or specification changes, new examiner reports, trend analyses), and for new 2027 predicted papers published by other people or websites. Update src/predict-intel.js with the sources, dates, any topic boosts and the list of other predicted papers, rebuild, and publish the app.`;
+  return `Please update the Lab Book predicted papers with the latest information about the ${I.exam || "next"} AQA A-level Physics (7408) and Chemistry (7405) exams. The predictions were last updated on ${I.updated || "an earlier date"}. Search for anything new (AQA advance information, timetable or specification changes, new examiner reports, trend analyses), and for new FREE 2027 predicted papers published by other people or websites (no paid ones). Update src/predict-intel.js with the sources, dates, any topic boosts and the list of free predicted papers, rebuild, and publish the app.`;
 }
 // "When it appeared": one line per exam series, newest first, that opens under a topic or practical.
 function whenHTML(key, rows) {
@@ -7533,14 +7529,67 @@ function topicWhen(s, name, id, marks) {
   const arr = ((S.pred[s] || {}).papers || {})[name] || [];
   return whenHTML(`when-${name}-${id}`, arr.map(r => { const share = r.sh[id] || 0; return { ser: r.ser, hit: share ? `about ${Math.max(1, Math.round(share * marks))} mark${Math.round(share * marks) > 1 ? "s" : ""}` : "" }; }));
 }
-// Predicted papers other people have published. Claude keeps this list in predict-intel.js.
+// Free predicted papers from other people. Claude keeps the list in predict-intel.js; downloaded PDFs are stored on the
+// device under paper file names, so they open in the paper viewer with notes, answers and the mark scheme tab.
+const EXTRA_LABEL = "Predicted paper";
+const extraSeries = title => "Other " + title;
+// A file name tidied into a title. Words that only say "mark scheme" are dropped, so a paper and its scheme pair up.
+function extraInfo(fileName) {
+  const ms = /mark[ _-]*scheme|(^|[ _-])ms([ _.-]|$)/i.test(fileName);
+  const title = fileName.replace(/\.pdf$/i, "").replace(/mark[ _-]*scheme|question[ _-]*paper|(?<=^|[ _-])(ms|qp)(?=[ _-]|$)/gi, " ").replace(/[^A-Za-z0-9]+/g, " ").trim().slice(0, 60).trim() || "Paper";
+  return { title, k: ms ? 1 : 0 };
+}
+function extraPapers(s) {
+  const head = SUBJ[s].name + "_Other-", found = new Map();
+  for (const name of PDB.have) {
+    if (!name.startsWith(head)) continue;
+    const m = name.slice(head.length).match(/^(.*)_Predicted-paper_(Question-paper|Mark-scheme)\.pdf$/); if (!m) continue;
+    const title = m[1].replace(/-/g, " "), x = found.get(title) || { title, kinds: [] }; x.kinds.push(m[2] === "Mark-scheme" ? 1 : 0); found.set(title, x);
+  }
+  return [...found.values()].sort((a, b) => a.title.localeCompare(b.title));
+}
+async function addExtraFiles(s, files, title) {
+  try { await pdbOpen(); } catch (e) { toast("Papers can't be stored in this browser."); return 0; }
+  let n = 0;
+  for (const f of files) {
+    const head = new Uint8Array(await f.slice(0, 5).arrayBuffer());
+    if (String.fromCharCode(...head) !== "%PDF-") continue; // only real PDF files are kept
+    const info = extraInfo(f.name || title || "Paper");
+    try { await pdbPut(paperFile(s, extraSeries(title || info.title), EXTRA_LABEL, info.k), new Blob([f], { type: "application/pdf" })); n++; } catch (e) { toast("There isn't enough space to store that file."); break; }
+  }
+  render(); toast(n ? `Added ${n} PDF${n > 1 ? "s" : ""} to Lab Book` : "That wasn't a PDF file.");
+  return n;
+}
+// Fetches a listed paper straight into the app. Many websites don't allow that, so the download then happens in the browser.
+async function getExtra(i) {
+  const x = ((window.INTEL.others || {}).list || [])[i]; if (!x) return;
+  if (x.pdf) {
+    try {
+      const get = async u => { const r = await fetch(u); if (!r.ok) throw new Error("x"); return r.blob(); };
+      const files = [new File([await get(x.pdf)], "question paper.pdf")];
+      if (x.ms) files.push(new File([await get(x.ms)], "mark scheme.pdf"));
+      if (await addExtraFiles(x.s, files, extraInfo(x.t).title)) return;
+    } catch (e) { /* the site blocks it, so fall back to the browser */ }
+  }
+  window.open(x.pdf || x.u, "_blank", "noopener");
+  toast("Save the PDF, then use Add downloaded PDF.");
+}
 function othersPanel(s) {
   const O = (window.INTEL || {}).others; if (!O) return "";
-  const list = (O.list || []).filter(x => x.s === s);
+  const list = (O.list || []).map((x, i) => ({ ...x, i })).filter(x => x.s === s && x.free), mine = extraPapers(s);
   const when = new Date(O.checked + "T12:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-  return `<section class="panel" id="pred-others"><div class="panel-head"><div class="stack" style="gap:2px"><h2>Other people's 2027 predicted papers</h2><span class="muted small">Checked ${when}</span></div><button class="btn small" data-act="intel-ask">Ask for an update</button></div>
-    ${list.length ? `<div class="list">${list.map(x => `<div class="item" style="flex-wrap:wrap;align-items:flex-start"><span class="item-main" style="min-width:200px"><b>${esc(x.t)}</b><span class="muted small">${esc(x.by)} · ${esc(x.price)}</span><span class="small" style="display:block">${esc(x.what)}</span></span><a class="btn small" href="${esc(x.u)}" target="_blank" rel="noopener">Open website</a></div>`).join("")}</div>` : `<div class="empty">None found for ${SUBJ[s].name} yet.</div>`}
+  return `<section class="panel" id="pred-others"><div class="panel-head"><div class="stack" style="gap:2px"><h2>Free 2027 predicted papers</h2><span class="muted small">Checked ${when}</span></div><button class="btn small" data-act="intel-ask">Ask for an update</button></div>
+    ${list.length ? `<div class="list">${list.map(x => `<div class="item" style="flex-wrap:wrap;align-items:flex-start"><span class="item-main" style="min-width:200px"><b>${esc(x.t)}</b><span class="muted small">${esc(x.by)} · Free</span><span class="small" style="display:block">${esc(x.what)}</span></span><span class="row" style="gap:6px"><button class="btn small primary" data-act="pred-get" data-v="${x.i}">Download</button><a class="btn small ghost" href="${esc(x.u)}" target="_blank" rel="noopener">Website</a></span></div>`).join("")}</div>` : `<div class="empty">No free 2027 ${SUBJ[s].name} predicted papers found yet.</div>`}
+    ${mine.length ? `<div class="list">${mine.map(x => `<div class="item" style="flex-wrap:wrap;align-items:center"><span class="item-main" style="min-width:160px"><b>${esc(x.title)}</b><span class="muted small">Stored on your ${DEV}</span></span><span class="row" style="gap:6px">${x.kinds.sort().map(k => `<button class="btn small" data-act="pdf-open" data-s="${s}" data-ser="${esc(extraSeries(x.title))}" data-l="${EXTRA_LABEL}" data-k="${k}">${KIND_LABEL[k]}</button>`).join("")}<button class="btn small ghost" data-act="pred-del" data-v="${esc(x.title)}">${ui.confirmExtra === x.title ? "Tap again to remove" : "Remove"}</button></span></div>`).join("")}</div>` : ""}
+    <label class="btn" style="align-self:flex-start">Add downloaded PDF<input type="file" accept=".pdf,application/pdf" multiple data-change="pred-file" hidden></label>
     <p class="muted small">${esc(O.note)}</p></section>`;
+}
+async function removeExtra(s, title) {
+  if (ui.confirmExtra !== title) { ui.confirmExtra = title; render(); return; }
+  ui.confirmExtra = null;
+  await pdbOpen();
+  for (const k of [0, 1]) { const name = paperFile(s, extraSeries(title), EXTRA_LABEL, k); if (PDB.have.has(name)) await new Promise((res, rej) => { const tx = PDB.db.transaction("files", "readwrite"); tx.objectStore("files").delete(name); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); PDB.have.delete(name); }
+  render(); toast("Removed");
 }
 function predictedTab(s) {
   const sub = SUBJ[s], P = S.pred && S.pred[s], stored = [...ALL_FILES.entries()].filter(([n, v]) => v.subj === s && v.k === 0 && PDB.have.has(n)).length, busy = ui.predBusy;
@@ -7800,6 +7849,8 @@ const ACT = {
   "pap-tab": el => { ui.papTab = el.dataset.v; render(); },
   "pred-run": () => analysePapers(cur()),
   "pred-rp": () => analysePracticals(cur()),
+  "pred-get": el => getExtra(+el.dataset.v),
+  "pred-del": el => removeExtra(cur(), el.dataset.v),
   "pred-build": el => { const s = cur(), name = el.dataset.v, seed = (ui.predSeed && ui.predSeed[s + name]) || 1, b = buildPredicted(s, name, seed); if (!b || !b.ids.length) { toast("Couldn't build a paper. Analyse your papers first."); return; } (ui.predBuilt = ui.predBuilt || {})[s + name] = b; render(); toast("Predicted " + name + " is ready"); },
   "pred-shuffle": el => { const s = cur(), name = el.dataset.v; (ui.predSeed = ui.predSeed || {})[s + name] = ((ui.predSeed[s + name] || 1) + 1) % 100000; ACT["pred-build"](el); },
   "pred-start": el => { const s = cur(), b = ui.predBuilt && ui.predBuilt[s + el.dataset.v]; if (!b) return; startPractice({ ids: b.ids, random: false, minutes: timeMins(b.time), label: `Predicted ${SUBJ[s].name} ${el.dataset.v}` }); },
@@ -7952,6 +8003,7 @@ const ACT = {
   "reset-yes": () => { const th = S.settings.theme; S = fresh(); S.settings.theme = th; indexCustom(); ui.confirmReset = false; ui.study = null; ui.quiz = null; clearPractice(); save(); render(); toast("Progress erased"); }
 };
 const CHANGE = {
+  "pred-file": el => { const files = [...el.files]; el.value = ""; if (files.length) addExtraFiles(cur(), files); },
   "vwp-topic": el => { VWP.topic = el.value; drawVwPanel(); },
   "cp-mc": el => { const st = cpState(cur()); st.mc = !!el.checked; st.built = null; render(); },
   "cp-w": el => { const st = cpState(cur()); st.weighted = !!el.checked; st.built = null; render(); },
