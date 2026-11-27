@@ -554,7 +554,7 @@ kbd { font-family: var(--f-mono); font-size: .76rem; padding: 2px 7px; border-ra
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261127-1000";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261127-1006";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -6163,12 +6163,18 @@ function practiceSession() {
   ${q.k === "w" && !ps.kbAll && !NOPEN ? penBar() : ""}`;
 };
 const segHTML = (act, val, opts, label) => `<div class="seg" role="group" ${label ? `aria-label="${label}"` : ""}>${opts.map(([v, l]) => `<button data-act="${act}" data-v="${v}" aria-pressed="${String(val) === String(v)}">${l}</button>`).join("")}</div>`;
+// Topic lists on the Practice page are split by subject area in both subjects. Chemistry's sections already are; physics
+// topics are grouped by their specification section number (3.1 to 3.8), with the options together at the end.
+const PHYS_AREAS = { "3.1": "Measurements and their errors", "3.2": "Particles and radiation", "3.3": "Waves", "3.4": "Mechanics and materials", "3.5": "Electricity", "3.6": "Further mechanics and thermal physics", "3.7": "Fields", "3.8": "Nuclear physics" };
+const pracGroups = s => s !== "phys" ? SUBJ[s].sections.map(sec => ({ id: sec.id, name: sec.name, topics: SUBJ[s].topics.filter(t => t.sec === sec.id) }))
+  : Object.entries(PHYS_AREAS).map(([n, name]) => ({ id: n, name, topics: SUBJ[s].topics.filter(t => !t.opt && t.code.split(".").slice(0, 2).join(".") === n) }))
+    .concat({ id: "opt", name: "Options (Paper 3B)", topics: SUBJ[s].topics.filter(t => t.opt) });
 function practiceSetup() {
   const f = ui.pf || (ui.pf = defaultPF()), sel = new Set(f.topics || []), count = qFilter({ ...f, topics: sel.size ? [...sel] : null }).length;
   const flagged = qList(cur()).filter(q => (S.qs[q.id] || {}).f).length;
   const sub = SUBJ[cur()], pri = priorities(cur()).slice(0, 5);
-  const groups = sub.sections.map(sec => {
-    const ts = sub.topics.filter(t => t.sec === sec.id && (optOK(t) || sel.has(t.id)));
+  const groups = pracGroups(cur()).map(sec => {
+    const ts = sec.topics.filter(t => optOK(t) || sel.has(t.id));
     if (!ts.length) return "";
     const allOn = ts.every(t => sel.has(t.id));
     return `<div class="topic-group"><div class="row topic-group-head"><span class="field-l">${esc(sec.name)}</span><button class="btn small ghost" data-act="pf-sec" data-v="${sec.id}">${allOn ? "Clear" : "Select all"}</button></div>
@@ -6882,6 +6888,8 @@ function topicWeights(s) {
 }
 // The year a topic is taught in (12 or 13). Chemistry topics carry it; in physics only the first section is Year 12.
 const yearOf = t => (t.y ? t.y === 1 : t.sec === "p-core1") ? 12 : 13;
+// A section's name when it sits under a year heading.
+const secName = sec => sec.id === "p-core1" || sec.id === "p-core2" ? "Core topics" : sec.id === "p-opt" ? "Options (Paper 3B)" : sec.name;
 // The chosen topics that go into the paper. With one year picked, ticks in the other year are kept but left out.
 const cpTopics = st => st.topics.filter(id => TOPICS[id] && (!st.year || yearOf(TOPICS[id]) === st.year));
 function buildCustom(s, st) {
@@ -6893,7 +6901,6 @@ function buildCustom(s, st) {
 }
 function customTab(s) {
   const st = cpState(s), sub = SUBJ[s], sel = new Set(cpTopics(st)), picked = new Set(st.topics), { M, mc } = cpMarks(s, st), b = st.built;
-  const secName = sec => sec.id === "p-core1" || sec.id === "p-core2" ? "Core topics" : sec.id === "p-opt" ? "Options (Paper 3B)" : sec.name;
   const groups = [12, 13].map(y => {
     const off = !!st.year && st.year !== y;
     const secs = sub.sections.map(sec => {
@@ -7289,7 +7296,7 @@ const ACT = {
   "prog-tab": el => { ui.progTab = el.dataset.v; if (view !== "progress") go("progress"); else { render(); window.scrollTo(0, 0); } },
   "ref-tab": el => { ui.refTab = el.dataset.v; render(); },
   "pf-tog": el => { const f = ui.pf, s = new Set(f.topics || []); s.has(el.dataset.v) ? s.delete(el.dataset.v) : s.add(el.dataset.v); f.topics = [...s]; render(); },
-  "pf-sec": el => { const f = ui.pf, s = new Set(f.topics || []), ts = SUBJ[cur()].topics.filter(t => t.sec === el.dataset.v && optOK(t)).map(t => t.id); const allOn = ts.every(id => s.has(id)); ts.forEach(id => allOn ? s.delete(id) : s.add(id)); f.topics = [...s]; render(); },
+  "pf-sec": el => { const f = ui.pf, s = new Set(f.topics || []), ts = pracGroups(cur()).find(g => g.id === el.dataset.v).topics.filter(optOK).map(t => t.id); const allOn = ts.every(id => s.has(id)); ts.forEach(id => allOn ? s.delete(id) : s.add(id)); f.topics = [...s]; render(); },
   "pf-none": () => { ui.pf.topics = []; render(); },
   "pf-weak": () => { ui.pf.topics = priorities(cur()).slice(0, 5).map(p => p.t.id); render(); toast("Selected your 5 priority topics"); },
   "pf-weak-go": () => startPractice({ topics: priorities(cur()).slice(0, 5).map(p => p.t.id), n: 10, label: "Priority topics" }),
