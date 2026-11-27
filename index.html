@@ -580,6 +580,8 @@ kbd { font-family: var(--f-mono); font-size: .76rem; padding: 2px 7px; border-ra
 .ux { display: flex; flex-direction: column; gap: 12px; }
 .ux-legend { display: flex; gap: 14px; }
 .ux-stats .stat b { font-size: 1.5rem; line-height: 1.3; }
+.ux-stats .stat.on { box-shadow: inset 0 0 0 2px var(--accent); }
+@media (max-width: 599px) { .ux-stats .stat b { font-size: 1.25rem; } }
 .ux-key { display: inline-block; width: 12px; height: 12px; border-radius: 4px; margin-right: 6px; vertical-align: -1px; }
 .ux-key.phys, .ux-track i.phys { background: var(--ux-phys); }
 .ux-key.chem, .ux-track i.chem { background: var(--ux-chem); }
@@ -603,7 +605,7 @@ kbd { font-family: var(--f-mono); font-size: .76rem; padding: 2px 7px; border-ra
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261127-1437";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261127-1441";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -6504,7 +6506,7 @@ addEventListener("hashchange", () => { const v = resolveView(location.hash.slice
 const V = {};
 
 /* ---------- Usage: how long the app has been used, per subject, on every synced device ---------- */
-// S.use = { deviceId: { "YYYY-MM-DD": [physicsSeconds, chemistrySeconds] } }. Each device only ever adds to its own entry,
+// S.use = { deviceId: { "YYYY-MM-DD": [physicsSeconds, chemistrySeconds, { hour: [physicsSeconds, chemistrySeconds] }] } }. Each device only ever adds to its own entry,
 // so merging two copies takes the larger number for each device and day, and the total is the sum over devices.
 // Time counts while the app is on screen and has been touched in the last 3 minutes, or while a paper timer is running.
 const DEV_KEY = "labbook-device", IDLE_MS = 3 * 60e3;
@@ -6520,7 +6522,12 @@ function mergeUse(a, b) {
   const out = {};
   for (const src of [a, b]) for (const [dev, days] of Object.entries(src || {})) {
     const o = out[dev] || (out[dev] = {});
-    for (const [day, v] of Object.entries(days || {})) { const w = o[day] || [0, 0]; o[day] = [Math.max(w[0], +v[0] || 0), Math.max(w[1], +v[1] || 0)]; }
+    const most = (x, y) => [Math.max(x[0], +y[0] || 0), Math.max(x[1], +y[1] || 0)];
+    for (const [day, v] of Object.entries(days || {})) {
+      const w = o[day] || [0, 0], next = most(w, v);
+      if (w[2] || v[2]) { next[2] = Object.assign({}, w[2]); for (const [h, x] of Object.entries(v[2] || {})) next[2][h] = most(next[2][h] || [0, 0], x); }
+      o[day] = next;
+    }
   }
   return out;
 }
@@ -6538,7 +6545,9 @@ function useTick(force) {
   const timed = VT.running || (onQuestion() && ui.ps.minutes && now - ui.ps.t0 < ui.ps.minutes * 60e3);
   if (!timed && now - useInput > IDLE_MS) return;
   const dev = deviceId(), day = dayKey(now), days = S.use[dev] || (S.use[dev] = {}), v = days[day] || (days[day] = [0, 0]), i = useSubj() === "chem" ? 1 : 0;
-  v[i] = Math.round((v[i] + gap / 1000) * 10) / 10; useDirty = true;
+  const hours = v[2] || (v[2] = {}), h = new Date(now).getHours(), w = hours[h] || (hours[h] = [0, 0]);
+  for (const x of [v, w]) x[i] = Math.round((x[i] + gap / 1000) * 10) / 10;
+  useDirty = true;
 }
 // Only the usage figures are written into the saved copy, so this never overwrites other progress and never marks it as newer.
 function useFlush() {
@@ -6559,53 +6568,71 @@ addEventListener("pagehide", () => { if (!document.hidden) useTick(true); useFlu
 
 const NB = String.fromCharCode(160); // keeps a number and its unit on the same line
 const fmtUse = s => { if (s <= 0) return "0" + NB + "min"; if (s < 60) return "<1" + NB + "min"; const m = Math.round(s / 60); return m < 60 ? m + NB + "min" : Math.floor(m / 60) + NB + "h" + (m % 60 ? " " + (m % 60) + NB + "min" : ""); };
-const USE_RANGES = [["7", "7 days"], ["30", "30 days"], ["84", "12 weeks"]];
+const USE_RANGES = [["day", "Day", "Today"], ["week", "Week", "Past 7 days"], ["month", "Month", "Past 30 days"], ["year", "Year", "Past 12 months"]];
 const DEV_NAMES = { tablet: "Tablet", phone: "Phone", pc: "Windows" };
 function useTotals() {
   const days = {};
-  for (const byDay of Object.values(S.use)) for (const [d, v] of Object.entries(byDay)) { const t = days[d] || (days[d] = [0, 0]); t[0] += v[0]; t[1] += v[1]; }
+  for (const byDay of Object.values(S.use)) for (const [d, v] of Object.entries(byDay)) {
+    const t = days[d] || (days[d] = [0, 0, {}]); t[0] += v[0]; t[1] += v[1];
+    for (const [h, x] of Object.entries(v[2] || {})) { const y = t[2][h] || (t[2][h] = [0, 0]); y[0] += x[0]; y[1] += x[1]; }
+  }
   return days;
 }
-function useSeries(n) {
+// The points on the graph: hours of today, the last 7 or 30 days, or the last 12 months. "later" marks hours still to come.
+function useSeries(range) {
   const days = useTotals(), now = new Date(), at = back => new Date(now.getFullYear(), now.getMonth(), now.getDate() - back);
-  const short = d => d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-  const list = [];
-  if (n <= 30) {
-    for (let i = n - 1; i >= 0; i--) { const d = at(i), k = dayKey(d.getTime()), v = days[k] || [0, 0]; list.push({ keys: [k], p: v[0], c: v[1], tick: n === 7 ? d.toLocaleDateString("en-GB", { weekday: "short" }) : short(d), name: d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) }); }
-  } else {
-    const monday = (now.getDay() + 6) % 7;
-    for (let w = n / 7 - 1; w >= 0; w--) {
-      const start = at(monday + w * 7), e = { keys: [], p: 0, c: 0, tick: short(start), name: "Week of " + short(start) };
-      for (let j = 0; j < 7; j++) { const k = dayKey(new Date(start.getFullYear(), start.getMonth(), start.getDate() + j).getTime()), v = days[k]; e.keys.push(k); if (v) { e.p += v[0]; e.c += v[1]; } }
+  const fmt = (d, o) => d.toLocaleDateString("en-GB", o), list = [];
+  if (range === "day") {
+    const k = dayKey(), hours = (days[k] || [0, 0, {}])[2];
+    for (let h = 0; h < 24; h++) { const v = hours[h] || [0, 0]; list.push({ keys: [k], p: v[0], c: v[1], later: h > now.getHours(), tick: pad(h) + ":00", name: pad(h) + ":00 to " + pad((h + 1) % 24) + ":00" }); }
+  } else if (range === "year") {
+    for (let m = 11; m >= 0; m--) {
+      const first = new Date(now.getFullYear(), now.getMonth() - m, 1), e = { keys: [], p: 0, c: 0, tick: fmt(first, { month: "short" }), name: fmt(first, { month: "long", year: "numeric" }) };
+      for (let d = new Date(first); d.getMonth() === first.getMonth() && d <= now; d.setDate(d.getDate() + 1)) { const k = dayKey(d.getTime()), v = days[k]; e.keys.push(k); if (v) { e.p += v[0]; e.c += v[1]; } }
       list.push(e);
     }
+  } else {
+    const n = range === "month" ? 30 : 7;
+    for (let i = n - 1; i >= 0; i--) { const d = at(i), k = dayKey(d.getTime()), v = days[k] || [0, 0]; list.push({ keys: [k], p: v[0], c: v[1], tick: n === 7 ? fmt(d, { weekday: "short" }) : fmt(d, { day: "numeric", month: "short" }), name: fmt(d, { weekday: "short", day: "numeric", month: "short" }) }); }
   }
   return list;
 }
+// Totals for a range come from the whole days in it.
+function useSum(range, days) {
+  const keys = new Set(useSeries(range).flatMap(e => e.keys));
+  let p = 0, c = 0, used = 0;
+  for (const k of keys) { const v = days[k]; if (!v) continue; p += v[0]; c += v[1]; if (v[0] + v[1] >= 60) used++; }
+  return { keys, p, c, used };
+}
 const useReadout = e => `<b>${esc(e.name)}</b><span><i class="ux-key phys"></i>Physics ${fmtUse(e.p)}</span><span><i class="ux-key chem"></i>Chemistry ${fmtUse(e.c)}</span>`;
-function useGraph(list) {
+const useLatest = list => list.filter(e => !e.later).pop();
+function useGraph(list, range) {
   // drawn at about its on-screen width, so the labels stay readable on every device
   const vw = window.innerWidth || 800, narrow = vw < 600, W = Math.round(Math.max(300, Math.min(1040, vw - (narrow ? 68 : 160)))), H = narrow ? 220 : 270, L = 52, R = 16, T = 12, B = 28;
   const max = Math.max(1, ...list.map(e => Math.max(e.p, e.c))) / 60;
-  const step = [1, 2, 5, 10, 15, 30, 60, 120, 180, 300, 600, 900, 1800].find(s => s * 4 >= max) || Math.ceil(max / 4);
+  const step = [1, 2, 5, 10, 15, 30, 60, 120, 180, 300, 600, 900, 1800, 3000, 6000].find(s => s * 4 >= max) || Math.ceil(max / 4);
   const top = step * Math.max(1, Math.ceil(max / step));
-  const x = i => L + (list.length === 1 ? 0 : i * (W - L - R) / (list.length - 1)), y = m => T + (H - T - B) * (1 - m / top);
+  const x = i => L + i * (W - L - R) / (list.length - 1), y = m => T + (H - T - B) * (1 - m / top);
   const ylab = m => !m ? "0" : m < 60 ? m + " min" : +(m / 60).toFixed(1) + " h";
   let g = "";
   for (let m = 0; m <= top; m += step) g += `<line class="ux-grid" x1="${L}" x2="${W - R}" y1="${y(m)}" y2="${y(m)}"/><text x="${L - 6}" y="${y(m) + 4}" text-anchor="end">${ylab(m)}</text>`;
-  const every = Math.ceil(list.length / Math.max(3, Math.floor((W - L - R) / 76)));
-  list.forEach((e, i) => { if ((list.length - 1 - i) % every === 0) g += `<text x="${x(i)}" y="${H - 8}" text-anchor="${i === list.length - 1 ? "end" : "middle"}">${esc(e.tick)}</text>`; });
+  const every = range === "day" ? (narrow ? 6 : 3) : Math.ceil(list.length / Math.max(3, Math.floor((W - L - R) / (range === "year" ? 32 : 76))));
+  list.forEach((e, i) => {
+    if ((range === "day" ? i : list.length - 1 - i) % every === 0) g += `<text x="${x(i)}" y="${H - 8}" text-anchor="${i === list.length - 1 ? "end" : "middle"}">${esc(e.tick)}</text>`;
+  });
   g += `<line id="ux-cross" class="ux-cross" x1="0" x2="0" y1="${T}" y2="${H - B}" style="display:none"/>`;
+  const shown = list.filter(e => !e.later);
   for (const [k, cls] of [["p", "phys"], ["c", "chem"]]) {
-    g += `<polyline class="ux-line ${cls}" points="${list.map((e, i) => x(i).toFixed(1) + "," + y(e[k] / 60).toFixed(1)).join(" ")}"/>`;
-    if (list.length <= 14) g += list.map((e, i) => `<circle class="ux-dot ${cls}" cx="${x(i).toFixed(1)}" cy="${y(e[k] / 60).toFixed(1)}" r="4.5"/>`).join("");
+    g += `<polyline class="ux-line ${cls}" points="${shown.map((e, i) => x(i).toFixed(1) + "," + y(e[k] / 60).toFixed(1)).join(" ")}"/>`;
+    if (shown.length <= 14) g += shown.map((e, i) => `<circle class="ux-dot ${cls}" cx="${x(i).toFixed(1)}" cy="${y(e[k] / 60).toFixed(1)}" r="4.5"/>`).join("");
   }
-  const slot = (W - L - R) / Math.max(1, list.length - 1);
-  g += list.map((e, i) => `<rect class="ux-hit" data-ux="${i}" data-x="${x(i).toFixed(1)}" x="${(x(i) - slot / 2).toFixed(1)}" y="${T}" width="${slot.toFixed(1)}" height="${H - T - B}"><title>${esc(e.name)}: Physics ${fmtUse(e.p)}, Chemistry ${fmtUse(e.c)}</title></rect>`).join("");
+  const slot = (W - L - R) / (list.length - 1);
+  g += shown.map((e, i) => `<rect class="ux-hit" data-ux="${i}" data-x="${x(i).toFixed(1)}" x="${(x(i) - slot / 2).toFixed(1)}" y="${T}" width="${slot.toFixed(1)}" height="${H - T - B}"><title>${esc(e.name)}: Physics ${fmtUse(e.p)}, Chemistry ${fmtUse(e.c)}</title></rect>`).join("");
   return `<svg class="ux-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Line graph of time spent on Physics and Chemistry. The figures are in the table below.">${g}</svg>`;
 }
+const useRangeNow = () => ui.useRange || "week";
 function useShow(el) {
-  const list = useSeries(+(ui.useRange || "7")), e = list[+el.dataset.ux], out = document.getElementById("ux-read"), line = document.getElementById("ux-cross");
+  const e = useSeries(useRangeNow())[+el.dataset.ux], out = document.getElementById("ux-read"), line = document.getElementById("ux-cross");
   if (!e || !out || !line) return;
   out.innerHTML = useReadout(e); line.setAttribute("x1", el.dataset.x); line.setAttribute("x2", el.dataset.x); line.style.display = "";
 }
@@ -6615,13 +6642,11 @@ let useResize = null;
 addEventListener("resize", () => { clearTimeout(useResize); useResize = setTimeout(() => { if (view === "usage") render(); }, 200); });
 V.usage = () => {
   useTick(false);
-  const range = ui.useRange || "7", label = USE_RANGES.find(r => r[0] === range)[1], list = useSeries(+range), days = useTotals();
-  const sum = (arr, k) => arr.reduce((t, e) => t + e[k], 0);
-  const p = sum(list, "p"), c = sum(list, "c"), today = days[dayKey()] || [0, 0];
+  const range = useRangeNow(), [, , label] = USE_RANGES.find(r => r[0] === range), list = useSeries(range), days = useTotals();
+  const sums = {}; for (const [id] of USE_RANGES) sums[id] = useSum(id, days);
+  const { p, c, keys, used } = sums[range];
   const allP = Object.values(days).reduce((t, v) => t + v[0], 0), allC = Object.values(days).reduce((t, v) => t + v[1], 0);
-  const used = list.reduce((t, e) => t + e.keys.filter(k => days[k] && days[k][0] + days[k][1] >= 60).length, 0);
-  const keys = new Set(list.flatMap(e => e.keys).filter(k => k <= dayKey()));
-  const stat = (name, a, b) => `<div class="stat"><span class="muted">${name}</span><b>${fmtUse(a + b)}</b><span class="small muted">Physics ${fmtUse(a)}<br>Chemistry ${fmtUse(b)}</span></div>`;
+  const stat = ([id, , name]) => `<div class="stat ${id === range ? "on" : ""}"><span class="muted">${name}</span><b>${fmtUse(sums[id].p + sums[id].c)}</b><span class="small muted">Physics ${fmtUse(sums[id].p)}<br>Chemistry ${fmtUse(sums[id].c)}</span></div>`;
   const most = Math.max(1, p, c);
   const bar = (name, v, cls) => `<div class="ux-bar"><span>${name}</span><span class="ux-track"><i class="${cls}" style="width:${(v / most * 100).toFixed(1)}%"></i></span><span class="mono small">${fmtUse(v)}${p + c ? " · " + Math.round(v / (p + c) * 100) + "%" : ""}</span></div>`;
   // one row for each kind of device (a reinstalled app records under a new id, but is still the same tablet or phone)
@@ -6632,21 +6657,26 @@ V.usage = () => {
   }
   const devices = Object.values(kinds).filter(d => d.p + d.c >= 1).sort((a, b) => b.p + b.c - a.p - a.c);
   const synced = csGet();
+  // time recorded before hours were kept counts in the totals but has no place on the day graph
+  const unplaced = range === "day" ? p + c - list.reduce((t, e) => t + e.p + e.c, 0) : 0;
+  const unit = range === "day" ? "Hour" : range === "year" ? "Month" : "Day";
   return `${pageHead("Physics + Chemistry", "Usage", "How long you've used Lab Book, added up across your synced devices.")}
   <div class="seg" role="group" aria-label="Time range">${USE_RANGES.map(([v, l]) => `<button data-act="use-range" data-v="${v}" aria-pressed="${range === v}">${l}</button>`).join("")}</div>
-  <div class="stats ux-stats">${stat("Today", today[0], today[1])}${stat("Last " + label, p, c)}${stat("All time", allP, allC)}<div class="stat"><span class="muted">Days used</span><b>${used}<span class="muted" style="font-size:1rem"> / ${keys.size}</span></b><span class="small muted">in this range</span></div></div>
-  <section class="panel ux"><div class="panel-head"><h2>${+range > 30 ? "Time per week" : "Time per day"}</h2><div class="ux-legend small"><span><i class="ux-key phys"></i>Physics</span><span><i class="ux-key chem"></i>Chemistry</span></div></div>
-    ${useGraph(list)}
-    <div id="ux-read" class="ux-read small" aria-live="polite">${useReadout(list[list.length - 1])}</div>
-    <details><summary class="small">Show as a table</summary><div class="ux-table"><table class="small"><thead><tr><th>${+range > 30 ? "Week" : "Day"}</th><th>Physics</th><th>Chemistry</th><th>Total</th></tr></thead><tbody>${list.slice().reverse().map(e => `<tr><td>${esc(e.name)}</td><td>${fmtUse(e.p)}</td><td>${fmtUse(e.c)}</td><td>${fmtUse(e.p + e.c)}</td></tr>`).join("")}</tbody></table></div></details>
+  <div class="stats ux-stats">${USE_RANGES.map(stat).join("")}</div>
+  <p class="small muted">All time: ${fmtUse(allP + allC)} (Physics ${fmtUse(allP)}, Chemistry ${fmtUse(allC)})</p>
+  <section class="panel ux"><div class="panel-head"><h2>${label}, ${unit.toLowerCase()} by ${unit.toLowerCase()}</h2><div class="ux-legend small"><span><i class="ux-key phys"></i>Physics</span><span><i class="ux-key chem"></i>Chemistry</span></div></div>
+    ${useGraph(list, range)}
+    <div id="ux-read" class="ux-read small" aria-live="polite">${useReadout(useLatest(list))}</div>
+    ${unplaced >= 60 ? `<p class="small muted">${fmtUse(unplaced)} of today was recorded before hours were kept, so it is in the totals but not on this graph.</p>` : ""}
+    <details><summary class="small">Show as a table</summary><div class="ux-table"><table class="small"><thead><tr><th>${unit}</th><th>Physics</th><th>Chemistry</th><th>Total</th></tr></thead><tbody>${list.filter(e => !e.later).reverse().map(e => `<tr><td>${esc(e.name)}</td><td>${fmtUse(e.p)}</td><td>${fmtUse(e.c)}</td><td>${fmtUse(e.p + e.c)}</td></tr>`).join("")}</tbody></table></div></details>
   </section>
-  <section class="panel ux"><div class="panel-head"><h2>Physics and Chemistry</h2><span class="muted small">Last ${label}</span></div>
+  <section class="panel ux"><div class="panel-head"><h2>Physics and Chemistry</h2><span class="muted small">${label}${range === "day" ? "" : ` · used on ${used} day${used === 1 ? "" : "s"}`}</span></div>
     ${bar("Physics", p, "phys")}${bar("Chemistry", c, "chem")}
   </section>
-  <section class="panel ux"><div class="panel-head"><h2>By device</h2><span class="muted small">Last ${label}</span></div>
+  <section class="panel ux"><div class="panel-head"><h2>By device</h2><span class="muted small">${label}</span></div>
     ${devices.length ? devices.map(d => `<div class="row small" style="justify-content:space-between"><b>${esc(d.name)}</b><span class="mono">Physics ${fmtUse(d.p)} · Chemistry ${fmtUse(d.c)}</span></div>`).join("") : `<p class="muted small">Nothing recorded yet.</p>`}
     ${OFFLINE ? `<p class="small muted">${synced.token ? "Press Sync on each device to bring its time in." + (synced.last ? " Last synced " + new Date(synced.last).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + "." : "") : "To add up your devices, connect cloud sync in Settings, then press Sync on each one."}</p><div class="row">${synced.token ? `<button class="btn small" data-act="cloud-sync" ${CSX.busy ? "disabled" : ""}>${CSX.busy ? "Syncing…" : "Sync now"}</button>` : `<button class="btn small" data-act="go" data-v="prefs">Open Settings</button>`}</div>` : ""}
-    <p class="small muted">Time counts while Lab Book is on screen and you've touched it in the last 3 minutes, or a paper timer is running. It goes to the subject you're working in. Recording starts from this update.</p>
+    <p class="small muted">Time counts while Lab Book is on screen and you've touched it in the last 3 minutes, or a paper timer is running. It goes to the subject you're working in.</p>
   </section>`;
 };
 
