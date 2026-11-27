@@ -554,7 +554,7 @@ kbd { font-family: var(--f-mono); font-size: .76rem; padding: 2px 7px; border-ra
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261127-1017";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261127-1023";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -4702,6 +4702,176 @@ window.NOTES = {"phys":{"groups":[{"id":"01-Measurements-and-Errors","n":"01","t
   add("crp12", [],
     [acc("Draw the baseline in pencil: ink would run.", "Keep spots small and concentrated.", "Measure to the centre of each spot.", "Compare Rf only with the same solvent, plate and temperature.", "Ninhydrin shows amino acids."),
       safe("Solvents are flammable.", "Do not look into a UV lamp.")]);
+})();
+
+/* A worked example or model answer for every physics topic, with a few further points. */
+(function () {
+  const { K, S } = window.NCH, add = window.NCADD;
+  const ex = (...a) => S("Worked example", ...a), model = (...a) => S("Model answer", ...a), also = (...a) => K("Also worth knowing", ...a);
+  const sec = (id, ...blocks) => add(id, [blocks[0].title === "Model answer" ? "+Model answer" : "+Worked example", ...blocks]);
+
+  sec("p1", ex("The gradient of a graph is 4.82 on the best-fit line and 5.06 on the steepest worst-fit line.", "Difference = 5.06 − 4.82 = 0.24.", "Percentage uncertainty = 0.24 ÷ 4.82 × 100 = 5.0%.", "Quote the gradient as 4.8 ± 0.2, with its unit."),
+    also("A zero error is removed by subtracting it from every reading.", "Parallax is reduced by reading at eye level or using a set square."));
+  sec("p2", ex("Find the specific charge of a ⁴₂He nucleus.", "Charge = 2 × 1.60 × 10⁻¹⁹ = 3.20 × 10⁻¹⁹ C.", "Mass = 4 × 1.67 × 10⁻²⁷ = 6.68 × 10⁻²⁷ kg.", "Specific charge = 4.8 × 10⁷ C kg⁻¹."),
+    also("The strong force acts equally between proton–proton, proton–neutron and neutron–neutron pairs.", "Hadrons have quarks; leptons are fundamental and have no quark structure.", "Antineutrinos were proposed to conserve energy in beta decay, whose electrons have a range of energies."));
+  sec("p3", ex("Light of wavelength 250 nm hits a metal of work function 3.0 eV.", "Photon energy = hc / λ = 7.96 × 10⁻¹⁹ J = 4.97 eV.", "Maximum kinetic energy = 4.97 − 3.0 = 1.97 eV = 3.2 × 10⁻¹⁹ J.", "Stopping potential = 2.0 V."),
+    also("To convert eV to J multiply by 1.60 × 10⁻¹⁹.", "Scientific ideas about wave–particle duality changed as new evidence was tested and reviewed by other scientists."));
+  sec("p4", ex("A 0.60 m string fixed at both ends vibrates in its third harmonic at 450 Hz.", "Three half wavelengths fit: λ = 2L / 3 = 0.40 m.", "Wave speed = f λ = 450 × 0.40 = 180 m s⁻¹.", "First harmonic frequency = 450 ÷ 3 = 150 Hz."),
+    also("Microwaves reflected from a metal plate make stationary waves: nodes are half a wavelength apart.", "Sound in air is longitudinal, so it cannot be polarised."));
+  sec("p5", ex("Light passes from glass (n = 1.52) towards water (n = 1.33).", "sin θc = n₂ / n₁ = 1.33 ÷ 1.52 = 0.875.", "θc = 61°.", "At 65° the light is totally internally reflected; at 50° it refracts into the water."),
+    also("The frequency of light does not change when it is refracted.", "A single slit pattern also affects double slit fringes: their brightness falls away from the centre."));
+  sec("p6", ex("A uniform 3.0 m beam of weight 200 N rests on supports at each end. A 500 N load is 1.0 m from the left end.", "Moments about the left end: R(right) × 3.0 = 500 × 1.0 + 200 × 1.5.", "R(right) = 800 ÷ 3.0 = 267 N.", "R(left) = 700 − 267 = 433 N."),
+    also("A couple produces rotation with no resultant force.", "Always state the point you are taking moments about."));
+  sec("p7", ex("A ball is thrown upwards at 15 m s⁻¹ from ground level.", "At the top v = 0: 0 = 15² − 2 × 9.81 × s, so s = 11.5 m.", "Time to the top = 15 ÷ 9.81 = 1.53 s.", "Total time of flight = 3.06 s, and it lands at 15 m s⁻¹."),
+    also("A negative gradient on a velocity–time graph is an acceleration in the negative direction.", "Areas below the time axis count as negative displacement."));
+  sec("p8", ex("A 0.16 kg ball hits a wall at 12 m s⁻¹ and rebounds at 8.0 m s⁻¹. Contact lasts 0.040 s.", "Change in momentum = 0.16 × (12 + 8.0) = 3.2 kg m s⁻¹.", "Average force = 3.2 ÷ 0.040 = 80 N.", "The force on the ball is directed away from the wall."),
+    also("Momentum is conserved only if no external resultant force acts on the system.", "To test whether a collision is elastic, compare total kinetic energy before and after."));
+  sec("p9", ex("A motor lifts 40 kg through 6.0 m in 8.0 s, taking 400 W of electrical power.", "Useful energy = 40 × 9.81 × 6.0 = 2350 J.", "Useful power = 2350 ÷ 8.0 = 294 W.", "Efficiency = 294 ÷ 400 = 74%."),
+    also("Wasted energy is usually transferred to heating by friction or resistance.", "Efficiency can never be more than 100%."));
+  sec("p10", ex("A 2.0 m wire of cross-section 5.0 × 10⁻⁷ m² carries 60 N. Young modulus = 1.2 × 10¹¹ Pa.", "Stress = 60 ÷ 5.0 × 10⁻⁷ = 1.2 × 10⁸ Pa.", "Strain = stress ÷ E = 1.0 × 10⁻³.", "Extension = strain × L = 2.0 mm.", "Energy stored = ½ × 60 × 0.0020 = 0.060 J."),
+    also("Young modulus is a property of the material; stiffness k depends on the shape of the sample too."));
+  sec("p11", ex("A wire is 1.5 m long with diameter 0.40 mm and resistivity 4.9 × 10⁻⁷ Ω m.", "Area = π × (0.20 × 10⁻³)² = 1.26 × 10⁻⁷ m².", "R = ρL / A = 5.8 Ω.", "At 3.0 V the current is 0.51 A."),
+    also("A filament lamp curve bends because the filament heats up as current rises.", "Doubling the diameter divides the resistance by four."));
+  sec("p12", ex("A 6.0 V cell with internal resistance 0.50 Ω is connected to 5.5 Ω.", "Current = 6.0 ÷ 6.0 = 1.0 A.", "Terminal p.d. = 6.0 − 1.0 × 0.50 = 5.5 V.", "Power in the load = 5.5 W; power wasted inside the cell = 0.50 W."),
+    also("In a series circuit the biggest resistance takes the biggest share of the p.d."));
+  sec("p13", ex("A 900 kg car goes round a flat bend of radius 45 m at 15 m s⁻¹.", "Force needed = mv² / r = 900 × 225 ÷ 45 = 4500 N.", "Friction provides it.", "Angular speed = v / r = 0.33 rad s⁻¹."),
+    also("To convert revolutions per minute to rad s⁻¹, multiply by 2π and divide by 60."));
+  sec("p14", ex("A 0.20 kg mass on a spring of stiffness 80 N m⁻¹ oscillates with amplitude 0.050 m.", "T = 2π √(0.20 ÷ 80) = 0.31 s.", "ω = 2π / T = 20 rad s⁻¹.", "Maximum speed = ω A = 1.0 m s⁻¹.", "Total energy = ½ k A² = 0.10 J."),
+    also("Use x = A cos ωt if timing starts at maximum displacement; the calculator must be in radians."));
+  sec("p15", ex("Find the energy to turn 0.30 kg of ice at 0 °C into water at 20 °C. L = 3.34 × 10⁵ J kg⁻¹, c = 4180 J kg⁻¹ K⁻¹.", "Melting: 0.30 × 3.34 × 10⁵ = 1.0 × 10⁵ J.", "Heating: 0.30 × 4180 × 20 = 2.5 × 10⁴ J.", "Total = 1.25 × 10⁵ J."),
+    also("The latent heat of vaporisation is larger than that of fusion because molecules must be separated completely."));
+  sec("p16", ex("A 0.020 m³ cylinder holds gas at 3.0 × 10⁵ Pa and 300 K.", "n = pV / RT = 6000 ÷ (8.31 × 300) = 2.4 mol.", "Molecules N = n × 6.02 × 10²³ = 1.45 × 10²⁴.", "Mean kinetic energy per molecule = 1.5 k T = 6.2 × 10⁻²¹ J."),
+    also("Pressure rises with temperature at fixed volume because molecules hit the walls harder and more often.", "An ideal gas is a good model at low pressure and well above the boiling point."));
+  sec("p17", ex("Find the speed of a satellite 7.0 × 10⁶ m from the Earth's centre. GM = 3.98 × 10¹⁴ m³ s⁻².", "v = √(GM / r) = 7.5 × 10³ m s⁻¹.", "Period = 2πr / v = 5.8 × 10³ s, about 97 minutes."),
+    also("Distances are measured from the centre of the planet, so add the radius to the height.", "Inside a uniform spherical shell the field is zero."));
+  sec("p18", ex("An electron crosses a p.d. of 500 V between plates 2.0 cm apart.", "Field strength = 500 ÷ 0.020 = 2.5 × 10⁴ V m⁻¹.", "Force = eE = 4.0 × 10⁻¹⁵ N.", "Energy gained = eV = 8.0 × 10⁻¹⁷ J.", "Speed from rest = √(2E / m) = 1.3 × 10⁷ m s⁻¹."),
+    also("Electric potential from several charges is added as ordinary numbers; field strengths are added as vectors."));
+  sec("p19", ex("A 100 μF capacitor charged to 9.0 V discharges through 47 kΩ.", "Initial charge = CV = 9.0 × 10⁻⁴ C.", "Time constant = RC = 4.7 s.", "After 10 s: V = 9.0 × e^(−10 / 4.7) = 1.1 V."),
+    also("The initial current is V₀ / R, here 0.19 mA."));
+  sec("p20", ex("A 200 turn coil of area 4.0 × 10⁻³ m² faces a field that falls from 0.30 T to zero in 0.050 s.", "Change in flux linkage = N B A = 200 × 0.30 × 4.0 × 10⁻³ = 0.24 Wb turns.", "Average emf = 0.24 ÷ 0.050 = 4.8 V."),
+    also("No emf is induced while the flux linkage is constant, however large it is."));
+  sec("p21", ex("A source has activity 800 Bq and half-life 6.0 hours.", "λ = ln 2 ÷ (6.0 × 3600) = 3.2 × 10⁻⁵ s⁻¹.", "Nuclei present = A / λ = 2.5 × 10⁷.", "After 18 hours (three half-lives) the activity is 100 Bq."),
+    also("Carbon dating compares the carbon-14 activity of a sample with that of living material.", "A source for a thickness gauge needs a long half-life and suitable penetration."));
+  sec("p22", ex("A reaction has a mass defect of 0.0188 u.", "Energy = 0.0188 × 931.5 = 17.5 MeV.", "In joules = 17.5 × 10⁶ × 1.60 × 10⁻¹⁹ = 2.8 × 10⁻¹² J."),
+    also("Fusion needs very high temperatures so nuclei have enough energy to overcome electrostatic repulsion.", "High level waste is cooled in ponds, then vitrified and stored securely."));
+  sec("p23", ex("A star has peak wavelength 290 nm.", "T = 2.9 × 10⁻³ ÷ λ = 1.0 × 10⁴ K.", "A galaxy with redshift z = 0.010 moves away at v = z c = 3.0 × 10⁶ m s⁻¹.", "With H = 65 km s⁻¹ Mpc⁻¹ its distance is 3000 ÷ 65 = 46 Mpc."),
+    also("Angular magnification of a refractor is fo / fe, and the lens separation is fo + fe."));
+  sec("p24", ex("A sound has intensity 2.0 × 10⁻⁵ W m⁻².", "Level = 10 log (I / I₀) with I₀ = 1.0 × 10⁻¹² W m⁻².", "Level = 10 log (2.0 × 10⁷) = 73 dB."),
+    also("Doubling the intensity raises the level by about 3 dB.", "MRI uses no ionising radiation, but is unsuitable for people with some metal implants."));
+  sec("p25", ex("A flywheel of moment of inertia 0.80 kg m² speeds up from rest to 30 rad s⁻¹ in 6.0 s.", "α = 30 ÷ 6.0 = 5.0 rad s⁻².", "Torque = I α = 4.0 N m.", "Rotational kinetic energy = ½ × 0.80 × 30² = 360 J."),
+    also("Flywheels smooth the torque from engines and store energy in regenerative braking."));
+  sec("p26", ex("Muons travel at 0.98c. Their half-life at rest is 1.5 μs.", "γ = 1 ÷ √(1 − 0.98²) = 5.0.", "Half-life measured on Earth = 5.0 × 1.5 = 7.5 μs.", "In that time they travel about 2.2 km."),
+    also("Proper time is measured by a clock moving with the object; proper length is measured in the object's rest frame."));
+  sec("p27", ex("An inverting amplifier has Rin = 10 kΩ and Rf = 150 kΩ.", "Gain = −150 ÷ 10 = −15.", "An input of 0.20 V gives −3.0 V.", "With ±12 V supplies, inputs above about 0.80 V saturate the output."),
+    also("An ideal op-amp draws no input current, so both inputs sit at the same voltage when negative feedback is used."));
+})();
+
+/* A worked example or model answer for every chemistry topic, with a few further points. */
+(function () {
+  const { K, S } = window.NCH, add = window.NCADD;
+  const ex = (...a) => S("Worked example", ...a), model = (...a) => S("Model answer", ...a), also = (...a) => K("Also worth knowing", ...a);
+  const sec = (id, ...blocks) => add(id, [blocks[0].title === "Model answer" ? "+Model answer" : "+Worked example", ...blocks]);
+
+  sec("c1", ex("Chlorine has isotopes ³⁵Cl (75.8%) and ³⁷Cl (24.2%).", "Ar = (35 × 75.8 + 37 × 24.2) ÷ 100.", "Ar = 35.5.", "Cl₂ gives molecular ion peaks at 70, 72 and 74 in a ratio of about 9 : 6 : 1."),
+    also("A 2+ ion appears at half its mass on the m/z axis.", "Ionisation is needed so ions can be accelerated by an electric field and detected."));
+  sec("c2", ex("2.40 g of magnesium reacts with excess acid. Find the gas volume at 298 K and 100 kPa.", "n(Mg) = 2.40 ÷ 24.3 = 0.0988 mol.", "Mg + 2HCl → MgCl₂ + H₂, so n(H₂) = 0.0988 mol.", "V = nRT / p = 0.0988 × 8.31 × 298 ÷ 100 000 = 2.45 × 10⁻³ m³ = 2.45 dm³."),
+    also("A percentage yield above 100% usually means the product is still wet or impure."));
+  sec("c3", model("Question: explain why NH₃ boils at a higher temperature than PH₃.", "NH₃ has hydrogen bonding between molecules, because N is very electronegative and has a lone pair.", "PH₃ has only van der Waals and weak dipole–dipole forces.", "Hydrogen bonds are stronger, so more energy is needed to separate NH₃ molecules."),
+    also("Covalent bonds are not broken when a simple molecular substance boils.", "Graphite conducts because each carbon has one delocalised electron."));
+  sec("c4", ex("Find ΔfH of methane. ΔcH: C = −394, H₂ = −286, CH₄ = −890 kJ mol⁻¹.", "Equation: C + 2H₂ → CH₄.", "ΔfH = ΣΔcH(reactants) − ΣΔcH(products).", "ΔfH = (−394 + 2 × −286) − (−890) = −76 kJ mol⁻¹."),
+    also("The enthalpy of formation of an element in its standard state is zero."));
+  sec("c5", model("Question: explain why a small temperature rise greatly increases the rate.", "Molecules have a spread of energies.", "Raising the temperature shifts the distribution to higher energies.", "Many more molecules now have at least the activation energy.", "So there are far more successful collisions per unit time."),
+    also("The rate is fastest at the start of a reaction because reactant concentrations are highest."));
+  sec("c6", ex("For H₂ + I₂ ⇌ 2HI, an equilibrium mixture has 0.20 mol H₂, 0.20 mol I₂ and 1.40 mol HI.", "Kc = [HI]² ÷ ([H₂][I₂]).", "Volumes cancel here, so Kc = 1.40² ÷ (0.20 × 0.20) = 49.", "Kc has no units because there are equal moles on each side."),
+    also("A large Kc means the equilibrium mixture contains mostly products."));
+  sec("c7", ex("25.0 cm³ of an Fe²⁺ solution needs 21.6 cm³ of 0.0200 mol dm⁻³ KMnO₄.", "n(MnO₄⁻) = 0.0200 × 21.6 ÷ 1000 = 4.32 × 10⁻⁴ mol.", "Ratio 1 : 5, so n(Fe²⁺) = 2.16 × 10⁻³ mol.", "Concentration = 2.16 × 10⁻³ ÷ 0.0250 = 0.0864 mol dm⁻³."),
+    also("Oxidation numbers in a compound add to zero; in an ion they add to its charge."));
+  sec("c8", ex("A reaction has ΔH = +178 kJ mol⁻¹ and ΔS = +161 J K⁻¹ mol⁻¹.", "ΔG = ΔH − TΔS.", "At 298 K: ΔG = 178 − 298 × 0.161 = +130 kJ mol⁻¹, so not feasible.", "Feasible above T = 178 ÷ 0.161 = 1106 K."),
+    also("Hydration enthalpy is exothermic because attractions form between ions and polar water molecules."));
+  sec("c9", ex("Rate = k[A]²[B]. When [A] = 0.10 and [B] = 0.20 mol dm⁻³, the rate is 4.0 × 10⁻³ mol dm⁻³ s⁻¹.", "k = 4.0 × 10⁻³ ÷ (0.10² × 0.20) = 2.0.", "Units: mol⁻² dm⁶ s⁻¹.", "Doubling [A] and halving [B] makes the rate twice as large."),
+    also("Only temperature and a catalyst change the value of k."));
+  sec("c10", ex("For N₂O₄ ⇌ 2NO₂, 1.00 mol N₂O₄ is 20% dissociated at a total pressure of 150 kPa.", "Equilibrium moles: N₂O₄ 0.80, NO₂ 0.40; total 1.20.", "p(N₂O₄) = 100 kPa and p(NO₂) = 50 kPa.", "Kp = 50² ÷ 100 = 25 kPa."),
+    also("Raising the pressure of this system moves the position left, but Kp stays the same."));
+  sec("c11", ex("Fe³⁺ + e⁻ ⇌ Fe²⁺ has E° = +0.77 V and I₂ + 2e⁻ ⇌ 2I⁻ has E° = +0.54 V.", "The more positive couple is reduced: Fe³⁺ gains electrons.", "I⁻ is oxidised.", "E°cell = 0.77 − 0.54 = +0.23 V, so feasible: 2Fe³⁺ + 2I⁻ → 2Fe²⁺ + I₂."),
+    also("Rechargeable cells work because their electrode reactions can be driven backwards."));
+  sec("c12", ex("Find the pH of 0.100 mol dm⁻³ ethanoic acid, Ka = 1.74 × 10⁻⁵ mol dm⁻³.", "[H⁺] = √(Ka × [HA]) = √(1.74 × 10⁻⁶).", "[H⁺] = 1.32 × 10⁻³ mol dm⁻³.", "pH = 2.88."),
+    also("Give pH values to two decimal places."));
+  sec("c13", model("Question: explain why atomic radius decreases across period 3.", "Nuclear charge increases.", "Electrons are added to the same shell, so shielding is similar.", "The outer electrons are attracted more strongly and pulled closer."),
+    also("Noble gases are usually left out of radius comparisons because they form no bonds."));
+  sec("c14", model("Question: explain why first ionisation energy falls down Group 2.", "Atomic radius increases.", "There is more shielding from inner shells.", "These outweigh the larger nuclear charge, so the outer electron is lost more easily."),
+    also("Hydroxides get more soluble down the group; sulfates get less soluble."));
+  sec("c15", model("Question: describe how to tell NaBr and NaI solutions apart.", "Add dilute nitric acid, then silver nitrate.", "NaBr gives a cream precipitate and NaI a yellow one.", "Add concentrated ammonia: the cream precipitate dissolves, the yellow one does not."),
+    also("Oxidising power falls down Group 7 because larger atoms attract an extra electron less strongly."));
+  sec("c16", model("Question: why does MgO have a very high melting point but SO₃ a low one?", "MgO is giant ionic with strong attraction between Mg²⁺ and O²⁻.", "SO₃ is simple molecular.", "Only weak forces between SO₃ molecules need to be broken."),
+    also("An acidic oxide neutralises a basic oxide to form a salt, e.g. 6Na₂O + P₄O₁₀ → 4Na₃PO₄."));
+  sec("c17", ex("A complex absorbs light of wavelength 600 nm.", "ΔE = hc / λ = 6.63 × 10⁻³⁴ × 3.00 × 10⁸ ÷ 600 × 10⁻⁹.", "ΔE = 3.32 × 10⁻¹⁹ J per ion.", "The colour seen is the light that is not absorbed, here blue-green."),
+    also("Changing the ligand, oxidation state or co-ordination number changes ΔE and so the colour."));
+  sec("c18", model("Question: a blue solution gives a blue precipitate with a little ammonia, which dissolves in excess. Explain.", "The ion is [Cu(H₂O)₆]²⁺.", "A little ammonia acts as a base, giving Cu(H₂O)₄(OH)₂.", "Excess ammonia acts as a ligand, giving a deep blue [Cu(NH₃)₄(H₂O)₂]²⁺ solution."),
+    also("Name the type of reaction: acid–base for the precipitate, ligand substitution for the excess ammonia."));
+  sec("c19", ex("A compound is 85.7% carbon and 14.3% hydrogen with Mr 56.", "Moles: C = 85.7 ÷ 12.0 = 7.14; H = 14.3 ÷ 1.0 = 14.3.", "Ratio 1 : 2, empirical formula CH₂.", "56 ÷ 14 = 4, so C₄H₈: but-1-ene, but-2-ene and methylpropene are possible."),
+    also("A curly arrow shows the movement of a pair of electrons; a radical mechanism uses dots."));
+  sec("c20", model("Question: explain why fractional distillation separates crude oil.", "The oil is vaporised and enters a column that is cooler at the top.", "Larger molecules have stronger van der Waals forces and condense lower down.", "Smaller molecules rise further before condensing."),
+    also("Complete combustion of C₈H₁₈: C₈H₁₈ + 12½O₂ → 8CO₂ + 9H₂O."));
+  sec("c21", model("Question: outline the reaction of bromoethane with hydroxide ions.", "Draw a curly arrow from the lone pair on OH⁻ to the δ+ carbon.", "Draw a second arrow from the C−Br bond to Br.", "Products are ethanol and Br⁻. The mechanism is nucleophilic substitution."),
+    also("Ammonia substitution needs a second NH₃ molecule to remove H⁺ from the intermediate."));
+  sec("c22", model("Question: explain why 2-bromopropane is the major product from propene and HBr.", "H⁺ can add to either carbon of the double bond.", "One route gives a secondary carbocation, the other a primary one.", "The secondary carbocation is more stable because two alkyl groups push electrons towards it.", "So it forms more often."),
+    also("Poly(alkenes) are unreactive because their bonds are strong and non-polar."));
+  sec("c23", ex("4.60 g of ethanol is oxidised to 4.20 g of ethanoic acid.", "n(ethanol) = 4.60 ÷ 46.0 = 0.100 mol.", "Theoretical mass of acid = 0.100 × 60.0 = 6.00 g.", "Percentage yield = 4.20 ÷ 6.00 × 100 = 70.0%."),
+    also("Biofuel from fermentation is only close to carbon neutral if energy used in farming and distilling is ignored."));
+  sec("c24", model("Question: how can IR spectra show that an alcohol has been fully oxidised to a carboxylic acid?", "The product shows a C=O absorption near 1700 cm⁻¹.", "It shows a very broad O−H absorption from 2500 to 3000 cm⁻¹.", "The alcohol O−H absorption at 3230–3550 cm⁻¹ is gone."),
+    also("Always quote the bond and its wavenumber range from the data booklet."));
+  sec("c25", model("Question: explain why the product of ethanal with KCN and acid does not rotate polarised light.", "The carbonyl group is planar.", "CN⁻ attacks equally from above and below.", "Equal amounts of both enantiomers form, so their rotations cancel."),
+    also("A chiral carbon is often marked with an asterisk."));
+  sec("c26", model("Question: how can propanal and propanone be told apart?", "Warm each with Tollens' reagent.", "Propanal gives a silver mirror.", "Propanone gives no change, because ketones are not easily oxidised."),
+    also("Aldehydes and ketones have no hydrogen bonding between their own molecules, so boil lower than alcohols of similar Mr."));
+  sec("c27", ex("Name CH₃CH₂COOCH₃ and give its hydrolysis products.", "The acid part is propanoate and the alcohol part is methyl: methyl propanoate.", "With dilute acid: propanoic acid and methanol.", "With NaOH: sodium propanoate and methanol."),
+    also("Ethanoic anhydride is used to make aspirin because it is cheaper, safer and less corrosive than ethanoyl chloride."));
+  sec("c28", model("Question: explain why benzene needs a catalyst to react with bromine, but alkenes do not.", "Benzene's electrons are delocalised, giving a lower electron density than a C=C bond.", "It cannot polarise Br₂ strongly enough.", "A halogen carrier is needed to make a stronger electrophile."),
+    also("All carbon–carbon bonds in benzene are the same length, between single and double."));
+  sec("c29", model("Question: why is making a primary amine from a halogenoalkane inefficient?", "The amine formed has a lone pair, so it is also a nucleophile.", "It reacts further to give secondary, tertiary and quaternary products.", "Using a large excess of ammonia favours the primary amine."),
+    also("Amines are bases because the lone pair on nitrogen accepts a proton."));
+  sec("c30", model("Question: explain why polyesters biodegrade but poly(ethene) does not.", "Polyesters have polar C=O and C−O bonds.", "Nucleophiles such as water can attack the δ+ carbon, hydrolysing the chain.", "Poly(ethene) has only strong, non-polar bonds."),
+    also("Condensation polymers form with the loss of a small molecule such as water or HCl."));
+  sec("c31", model("Question: describe how the amino acids in a protein can be identified.", "Hydrolyse by heating with 6 mol dm⁻³ hydrochloric acid.", "Separate the mixture by thin-layer chromatography.", "Locate spots with ninhydrin and compare Rf values with known samples."),
+    also("The two DNA strands are held together by hydrogen bonds between complementary bases."));
+  sec("c32", ex("Plan a route from ethene to ethanoic acid.", "Step 1: ethene with steam and H₃PO₄ catalyst gives ethanol.", "Step 2: ethanol with excess acidified K₂Cr₂O₇ under reflux gives ethanoic acid.", "Overall yield is the product of the step yields: 90% then 80% gives 72%."),
+    also("Work backwards from the target: ask which functional group can make it in one step."));
+  sec("c33", model("Question: predict the ¹H NMR spectrum of ethyl ethanoate, CH₃COOCH₂CH₃.", "There are three environments, area ratio 3 : 2 : 3.", "CH₃CO is a singlet.", "OCH₂ is a quartet and the other CH₃ is a triplet."),
+    also("¹³C NMR of ethyl ethanoate shows four peaks."));
+  sec("c34", ex("A spot moves 4.5 cm and the solvent front 7.5 cm.", "Rf = 4.5 ÷ 7.5 = 0.60.", "Compare with known values measured under the same conditions."),
+    also("If two spots overlap, run the plate again with a different solvent."));
+})();
+
+/* One likely exam question for every required practical, shown below the accuracy and safety points. */
+(function () {
+  const { K } = window.NCH;
+  const q = (id, question, ...answer) => { const r = window.NC.rp[id]; (r.after = r.after || []).push(K("Likely exam question", "**" + question + "**", ...answer)); };
+
+  q("prp1", "Why is the first harmonic frequency found more than once?", "Judging resonance is subjective, so repeats reduce random error.", "Approach from above and below the resonant frequency, then average.");
+  q("prp2", "Why use a laser rather than a lamp?", "It is monochromatic, so there is a single wavelength.", "It is coherent and intense, giving clear fringes.");
+  q("prp3", "Why plot a graph instead of using one height?", "Many readings reduce random error.", "A systematic offset appears as an intercept and does not spoil the gradient.");
+  q("prp4", "Why is the percentage uncertainty in extension large?", "The extension is very small compared with the resolution of the scale.", "Use a longer wire, a thinner wire or a vernier scale.");
+  q("prp5", "Why measure several lengths?", "The gradient removes the effect of a constant contact resistance.", "Anomalous results can be spotted.");
+  q("prp6", "Why does the terminal p.d. fall as current rises?", "More p.d. is dropped across the internal resistance.", "Less energy per coulomb reaches the external circuit.");
+  q("prp7", "How would damping affect the results?", "Light damping reduces the amplitude but barely changes the period.", "Time before the amplitude becomes too small.");
+  q("prp8", "Why must the mass of gas stay constant?", "Both gas laws apply to a fixed amount of gas.", "A leak would change the pressure or volume independently of the variable studied.");
+  q("prp9", "How can the time constant be found without logs?", "Time how long V takes to fall to 37% of its start.", "Or measure the half-life and divide by 0.69.");
+  q("prp10", "Why is the change in balance reading used?", "It is due only to the magnetic force.", "F = Δm × g, with Δm in kilograms.");
+  q("prp11", "Why is an oscilloscope used instead of an ordinary voltmeter?", "The emf alternates quickly.", "The trace shows the peak value and frequency directly.");
+  q("prp12", "How do you show an inverse-square relationship from a table?", "Multiply corrected count rate by d² for each distance.", "The products should be roughly constant, allowing for any distance offset.");
+
+  q("crp1", "A burette had an air bubble below the tap that escaped during the titration. What is the effect?", "The recorded titre is larger than the volume delivered to the flask.", "A calculated concentration based on it would be wrong.");
+  q("crp2", "Why is the mass of solid not included in q = mcΔT?", "The energy is taken to heat the solution only.", "m is the mass of solution, assumed to be 1 g per cm³.");
+  q("crp3", "Why use the same flask and cross each time?", "So the same amount of sulfur is needed to hide the cross.", "The depth of liquid stays the same.");
+  q("crp4", "Why would sulfuric acid spoil the halide or sulfate tests?", "It adds sulfate ions, giving a false positive with barium ions.", "Silver sulfate may also form a precipitate.");
+  q("crp5", "Why is the yield of aldehyde often low?", "Some is oxidised further to the carboxylic acid.", "Some is lost by evaporation or left in the apparatus.");
+  q("crp6", "Why can a positive dichromate test not identify an alcohol on its own?", "Aldehydes also turn it green.", "Use Tollens' or Fehling's to rule out an aldehyde.");
+  q("crp7", "Why is only a small fraction of the reaction timed in a clock reaction?", "Concentrations barely change in that time.", "So the average rate is close to the initial rate.");
+  q("crp8", "Why might the measured emf differ from the data book value?", "Conditions are not standard.", "Electrodes may be oxidised or the concentrations inaccurate.");
+  q("crp9", "Why is a pH meter better than an indicator here?", "It gives the whole curve and numerical values.", "Weak acid with weak base has no sharp indicator change.");
+  q("crp10", "Why dry the solid before taking its melting point?", "Water or solvent acts as an impurity.", "It lowers and widens the melting range and inflates the yield.");
+  q("crp11", "How could Al³⁺ be confirmed?", "A white precipitate forms with a little sodium hydroxide.", "It dissolves in excess to a colourless solution.");
+  q("crp12", "Why might an Rf value not match the reference?", "A different solvent, plate or temperature was used.", "A large or overloaded spot makes the centre hard to judge.");
 })();
 
 /* Latest information used by the Predicted paper section. Claude updates this file when you ask for a refresh
