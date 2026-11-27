@@ -605,7 +605,7 @@ kbd { font-family: var(--f-mono); font-size: .76rem; padding: 2px 7px; border-ra
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261127-1442";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261127-1452";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -6062,20 +6062,27 @@ const csGet = () => { try { return JSON.parse(localStorage.getItem(CS_KEY) || "n
 const csPut = o => { try { if (o) localStorage.setItem(CS_KEY, JSON.stringify(o)); else localStorage.removeItem(CS_KEY); } catch (e) { /* ignore */ } };
 const CSX = { busy: false, msg: "" };
 function mergeStates(a, b) {
+  // "Erase all progress" on one device: a copy from before the erase brings nothing back (usage time is kept)
+  const wiped = x => (x.del || {})["reset:all"] || 0, newest = Math.max(wiped(a), wiped(b));
+  const since = x => wiped(x) < newest ? Object.assign(fresh(), { use: x.use, settings: x.settings, pen: x.pen, updated: x.updated, del: { "reset:all": newest } }) : x;
+  a = since(a); b = since(b);
   const out = JSON.parse(JSON.stringify(a)), aNewer = (a.updated || 0) >= (b.updated || 0), keys = (x, y) => new Set([...Object.keys(x || {}), ...Object.keys(y || {})]);
-  ["conf", "notes", "rp", "ppDone", "marked", "qtext"].forEach(k => { const A = a[k] || {}, B = b[k] || {}, o = {}; for (const id of keys(A, B)) o[id] = id in A && id in B ? (aNewer ? A[id] : B[id]) : (id in A ? A[id] : B[id]); out[k] = o; });
+  const atA = a.at || {}, atB = b.at || {};
+  out.at = {}; for (const k of keys(atA, atB)) out.at[k] = Math.max(+atA[k] || 0, +atB[k] || 0);
+  STAMPED.forEach(k => { const A = a[k] || {}, B = b[k] || {}, o = {}; for (const id of keys(A, B)) { const ta = +atA[k + ":" + id] || 0, tb = +atB[k + ":" + id] || 0, side = ta > tb ? A : tb > ta ? B : id in A && (aNewer || !(id in B)) ? A : B; if (id in side) o[id] = side[id]; } out[k] = o; });
   ["log", "newLog", "focus"].forEach(k => { const A = a[k] || {}, B = b[k] || {}, o = {}; for (const id of keys(A, B)) o[id] = Math.max(+A[id] || 0, +B[id] || 0); out[k] = o; });
   // things removed on either device stay removed (a result removed and then done again later is kept)
   const del = {}; for (const k of keys(a.del, b.del)) del[k] = Math.max(+(a.del || {})[k] || 0, +(b.del || {})[k] || 0); out.del = del;
   const aliveQ = (x, id) => { const t = del["qs:" + id]; return x && !(t && (x.ts || 0) <= t) ? x : null; };
-  out.srs = {}; for (const id of keys(a.srs, b.srs)) { if (del["card:" + id]) continue; const x = (a.srs || {})[id], y = (b.srs || {})[id]; out.srs[id] = !x ? y : !y ? x : ((y.r || 0) > (x.r || 0) || ((y.r || 0) === (x.r || 0) && (y.d || 0) > (x.d || 0))) ? y : x; }
-  out.qs = {}; for (const id of keys(a.qs, b.qs)) { const x = aliveQ((a.qs || {})[id], id), y = aliveQ((b.qs || {})[id], id); const v = !x ? y : !y ? x : ((y.n || 0) > (x.n || 0) ? y : x); if (v) out.qs[id] = v; }
+  out.srs = {}; for (const id of keys(a.srs, b.srs)) { if (del["card:" + id]) continue; const x = (a.srs || {})[id], y = (b.srs || {})[id]; out.srs[id] = !x ? y : !y ? x : ((y.r || 0) > (x.r || 0) || ((y.r || 0) === (x.r || 0) && ((y.d || 0) > (x.d || 0) || ((y.d || 0) === (x.d || 0) && canon(y) > canon(x))))) ? y : x; }
+  out.qs = {}; for (const id of keys(a.qs, b.qs)) { const x = aliveQ((a.qs || {})[id], id), y = aliveQ((b.qs || {})[id], id); const more = x && y ? (y.n || 0) - (x.n || 0) || (+atB["qs:" + id] || 0) - (+atA["qs:" + id] || 0) : 0; const v = !x ? y : !y ? x : more > 0 ? y : x; if (v) out.qs[id] = v; }
   const boxes = new Map(); for (const x of [].concat(a.boxes || [], b.boxes || [])) { const y = boxes.get(x.id); if (!y || (x.u || 0) > (y.u || 0)) boxes.set(x.id, x); }
   out.boxes = [...boxes.values()].filter(x => !del["box:" + x.id]);
   const kindOf = { custom: "card", exams: "exam", papers: "paper", mistakes: "mistake" };
   ["custom", "exams", "papers", "mistakes"].forEach(k => { const m = new Map(), first = aNewer ? b[k] : a[k], second = aNewer ? a[k] : b[k]; for (const it of [].concat(first || [], second || [])) m.set(it.id, it); out[k] = [...m.values()].filter(it => !del[kindOf[k] + ":" + it.id]); });
+  for (const x of a.mistakes || []) { const y = (b.mistakes || []).find(m => m.id === x.id), d = (+atA["mistakes:" + x.id] || 0) - (+atB["mistakes:" + x.id] || 0); if (y && d) { const i = out.mistakes.findIndex(m => m.id === x.id); if (i >= 0) out.mistakes[i] = d > 0 ? x : y; } }
   const seen = new Set(); out.quiz = [].concat(a.quiz || [], b.quiz || []).filter(q => { const j = JSON.stringify(q); if (seen.has(j)) return false; seen.add(j); return true; }).slice(-50);
-  out.pred = {}; for (const id of keys(a.pred, b.pred)) { const x = (a.pred || {})[id], y = (b.pred || {})[id]; const win = !x ? y : !y ? x : String(y.built) > String(x.built) ? y : x, rps = [x && x.rp, y && y.rp].filter(Boolean).sort((m, n) => String(n.built).localeCompare(String(m.built))); out.pred[id] = rps.length ? Object.assign({}, win, { rp: rps[0] }) : win; }
+  out.pred = {}; for (const id of keys(a.pred, b.pred)) { const x = (a.pred || {})[id], y = (b.pred || {})[id]; const later = (m, n) => String(n.built).localeCompare(String(m.built)) || canon(n).localeCompare(canon(m)); const win = !x ? y : !y ? x : later(x, y) > 0 ? y : x, rps = [x && x.rp, y && y.rp].filter(Boolean).sort(later); out.pred[id] = rps.length ? Object.assign({}, win, { rp: rps[0] }) : win; }
   out.settings = Object.assign({}, a.settings); if (!out.settings.physOpt && b.settings && b.settings.physOpt) out.settings.physOpt = b.settings.physOpt;
   out.use = mergeUse(a.use, b.use);
   out.updated = Math.max(a.updated || 0, b.updated || 0);
@@ -6083,6 +6090,7 @@ function mergeStates(a, b) {
 }
 const stripForCloud = st => { const c = JSON.parse(JSON.stringify(st)); c.settings = { physOpt: st.settings.physOpt, newPerDay: st.settings.newPerDay }; delete c.pen; return c; };
 async function ghApi(path, opt) {
+  const wait = syncBlock(); if (wait) throw new Error(blockText(wait));
   const c = csGet(); let r;
   try { r = await fetch("https://api.github.com" + path, Object.assign({}, opt, { headers: Object.assign({ Authorization: "Bearer " + c.token, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" }, opt && opt.body ? { "Content-Type": "application/json" } : {}) })); }
   catch (e) { throw new Error("Couldn't reach GitHub. Check you're online."); }
@@ -6091,35 +6099,137 @@ async function ghApi(path, opt) {
   if (!r.ok) throw new Error("GitHub error " + r.status + ". Try again.");
   return r.json();
 }
-async function cloudSync() {
-  if (CSX.busy) return;
-  const c = csGet(); if (!c.token) { go("prefs"); toast("Connect cloud sync first."); return; }
-  useTick(false);
-  CSX.busy = true; CSX.msg = "Syncing…"; render();
+// Syncing happens by itself: when the app is opened or returned to, 30 seconds after a change, every 5 minutes while it is
+// on screen, when it is left, and when a connection comes back. The phone only ever syncs over Wi-Fi.
+const AS = { pending: 0, tried: 0, error: "", waiting: false, redraw: false, typed: 0, down: 0, up: 0 };
+// "wifi", "ethernet", "cellular", "none" or "unknown". The phone app asks Android; a browser reports it itself.
+function netKind() {
+  try { if (window.LabBookNative && window.LabBookNative.network) return window.LabBookNative.network(); } catch (e) { /* older app */ }
+  const c = navigator.connection; return (c && c.type) || "unknown";
+}
+// Why syncing has to wait, or "" if it can go ahead.
+function syncBlock() {
+  const k = netKind();
+  if (navigator.onLine === false || k === "none") return "offline";
+  if (EDITION !== "phone" || k === "wifi" || k === "ethernet") return "";
+  return k === "unknown" ? "unknown" : "mobile";
+}
+const blockText = b => b === "offline" ? "You're offline. Lab Book will sync when you're back " + (EDITION === "phone" ? "on Wi-Fi." : "online.")
+  : b === "mobile" ? "Waiting for Wi-Fi. This phone doesn't sync on mobile data."
+  : "Waiting for Wi-Fi. Lab Book can't tell which connection this phone is using: install the latest Lab Book Phone app.";
+function syncStatusText() {
+  const c = csGet(), b = syncBlock();
+  if (!c.token) return "To share your work and usage time between devices, connect cloud sync in Settings. It then syncs by itself.";
+  if (c.paused) return "Automatic sync is paused because you restored a safety copy. Press Sync now to start it again.";
+  if (b) return blockText(b);
+  if (AS.error) return "Couldn't sync just now. " + AS.error + " It will try again by itself.";
+  return "Syncs between your devices by itself." + (c.last ? " Last synced " + new Date(c.last).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + "." : "");
+}
+function syncLines() { for (const id of ["ux-synced", "cs-auto"]) { const el = document.getElementById(id); if (el) el.textContent = syncStatusText(); } }
+// Busy: in the middle of typing, touching or writing, or an Undo is still on offer. Nothing is brought in until that's over.
+function syncHeld() {
+  const now = Date.now();
+  return !!document.getElementById("undo-bar") || now - AS.typed < 10e3 || (AS.down && now - AS.down < 60e3) || now - AS.up < 2000;
+}
+// Show what a sync brought in, as soon as that won't interrupt: not over an open paper, a field in use or a part-filled form.
+function syncRedraw() {
+  if (!AS.redraw || VW.open || ui.sheet || ui.confirmReset || syncHeld()) return;
+  const a = document.activeElement;
+  if (a && a.matches && a.matches("input, textarea, select, [contenteditable]")) return;
+  if ([...root.querySelectorAll("form input, form textarea")].some(el => el.type !== "hidden" && el.value !== el.defaultValue)) return;
+  AS.redraw = false;
+  const open = [...root.querySelectorAll("details")].map(d => d.open), y = window.scrollY;
+  render();
+  const now = root.querySelectorAll("details"); if (now.length === open.length) now.forEach((d, i) => { d.open = open[i]; });
+  window.scrollTo(0, y);
+}
+const canon = v => Array.isArray(v) ? "[" + v.map(canon).join() + "]" : v && typeof v === "object" ? "{" + Object.keys(v).filter(k => v[k] !== undefined).sort().map(k => JSON.stringify(k) + ":" + canon(v[k])).join() + "}" : JSON.stringify(v);
+// What two copies must share. Settings, pen choices and time stamps of the copy itself are each device's own.
+function syncCanon(s, withUse) {
+  const o = Object.assign({}, s); delete o.updated; delete o.settings; delete o.pen; if (!withUse) delete o.use;
+  for (const k of ["custom", "exams", "papers", "mistakes", "quiz", "boxes"]) o[k] = (o[k] || []).map(canon).sort();
+  return canon(o);
+}
+async function cloudSync(auto) {
+  const c = csGet();
+  if (!c.token) { if (!auto) { go("prefs"); toast("Connect cloud sync first."); } return; }
+  if (CSX.busy) { if (!auto) toast("Already syncing"); return; }
+  const block = syncBlock();
+  if (block) { AS.waiting = true; if (!auto) { CSX.msg = ""; toast(blockText(block)); render(); } else syncLines(); return; }
+  if (auto && (c.paused || (!document.hidden && syncHeld()))) return;
+  CSX.busy = true; AS.tried = Date.now(); AS.waiting = false;
+  if (!auto) { CSX.msg = "Syncing…"; render(); }
+  let unsent = 0;
   try {
     let id = c.gistId, remote = null;
     if (!id) { const list = await ghApi("/gists?per_page=100"); const g = list.find(x => x.description === CS_DESC && x.files && x.files[CS_FILE]); if (g) id = g.id; }
     if (id) {
       const g = await ghApi("/gists/" + id), f = g.files && g.files[CS_FILE];
-      if (f) { let txt = f.content; if (f.truncated || txt == null) txt = await (await fetch(f.raw_url)).text(); try { remote = JSON.parse(txt).data; } catch (e) { remote = null; } }
+      if (f) { let txt = f.content; if (f.truncated || txt == null) txt = await (await fetch(f.raw_url)).text(); try { remote = JSON.parse(txt).data; } catch (e) { remote = null; if (auto) throw new Error("The copy in the cloud couldn't be read, so nothing was changed."); } }
     }
     if (remote && (typeof remote !== "object" || !remote.srs || !remote.qs)) throw new Error("The copy in the cloud looks damaged, so nothing was changed. Your data on this device is safe.");
+    // the user may have started doing something, or disconnected, while the other copy was downloading
+    if (csGet().token !== c.token || (auto && !document.hidden && syncHeld())) return;
+    useTick(false); stampChanges();
     const before = Object.values(S.qs).filter(x => x.n).length;
-    snapshotBeforeSync();
-    if (remote) S = normalise(mergeStates(S, normalise(remote)));
-    S.updated = Date.now(); indexCustom(); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignore */ }
-    const payload = JSON.stringify({ v: 1, at: Date.now(), from: EDITION, data: stripForCloud(S) });
-    if (id) await ghApi("/gists/" + id, { method: "PATCH", body: JSON.stringify({ files: { [CS_FILE]: { content: payload } } }) });
-    else id = (await ghApi("/gists", { method: "POST", body: JSON.stringify({ description: CS_DESC, public: false, files: { [CS_FILE]: { content: payload } } }) })).id;
-    csPut(Object.assign({}, csGet(), { gistId: id, last: Date.now() }));
+    const theirs = remote ? normalise(remote) : null, merged = theirs ? normalise(mergeStates(S, JSON.parse(JSON.stringify(theirs)))) : S;
+    const incoming = !!theirs && syncCanon(merged) !== syncCanon(S), timeIn = canon(merged.use) !== canon(S.use);
+    if (incoming) {
+      const last = snaps().slice(-1)[0], reset = (merged.del["reset:all"] || 0) > (S.del["reset:all"] || 0);
+      if (!auto || reset || !last || Date.now() - last.at > 3600e3) snapshotBeforeSync();
+      const boxes = canon(S.boxes) !== canon(merged.boxes);
+      S = merged; markSaved(); indexCustom();
+      if (ui.study && ui.study.queue) ui.study.queue = ui.study.queue.filter(x => CARDS[x]);
+      if (boxes && VW.open) document.querySelectorAll("#vw-pages .vw-page").forEach(d => { if (d.dataset.state) drawBoxes(d); });
+    } else if (timeIn) S.use = merged.use;
+    if (incoming || timeIn) { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignore */ } }
+    const send = !theirs || syncCanon(S, true) !== syncCanon(theirs, true) || (!theirs.settings.physOpt && !!S.settings.physOpt);
+    unsent = AS.pending; AS.pending = 0;
+    if (send) {
+      const payload = JSON.stringify({ v: 1, at: Date.now(), from: EDITION, data: stripForCloud(S) });
+      if (id) await ghApi("/gists/" + id, { method: "PATCH", body: JSON.stringify({ files: { [CS_FILE]: { content: payload } } }) });
+      else id = (await ghApi("/gists", { method: "POST", body: JSON.stringify({ description: CS_DESC, public: false, files: { [CS_FILE]: { content: payload } } }) })).id;
+    }
+    if (csGet().token === c.token) csPut(Object.assign({}, csGet(), { gistId: id, last: Date.now(), paused: false }));
+    AS.error = "";
     const gained = Object.values(S.qs).filter(x => x.n).length - before;
-    CSX.msg = "Synced just now" + (gained > 0 ? `, ${gained} question result${gained === 1 ? "" : "s"} brought in` : "");
-    toast("Synced with your other device");
-  } catch (e) { CSX.msg = e.message; toast(e.message); if (e.code === 401) csPut(null); }
-  CSX.busy = false; render();
-  useSync();
+    CSX.msg = auto ? "" : "Synced just now" + (gained > 0 ? `, ${gained} question result${gained === 1 ? "" : "s"} brought in` : "");
+    if (!auto) toast("Synced with your other devices");
+    else if (incoming || view === "prefs" || (timeIn && view === "usage")) AS.redraw = true;
+  } catch (e) {
+    AS.pending = AS.pending || unsent; AS.error = e.message;
+    if (!auto || e.code === 401) { CSX.msg = e.message; toast(e.message); }
+    if (e.code === 401) { csPut(null); AS.redraw = true; }
+  } finally {
+    CSX.busy = false;
+    if (!auto) render(); else { syncRedraw(); syncLines(); }
+  }
 }
-// A safety copy of this device's data is kept just before every sync (the last 3), so a sync can always be undone.
+// why: "back" (opened, returned to or reconnected), "leave", "open" (a page showing sync is opened) or nothing (the regular check)
+function autoSync(why) {
+  if (!OFFLINE || (document.hidden && why !== "leave")) return;
+  syncRedraw();
+  const c = csGet(); if (!c.token || c.paused) return;
+  const now = Date.now(), since = now - AS.tried;
+  if (syncBlock()) { AS.waiting = true; syncLines(); return; }
+  const due = AS.waiting ? since > 5e3
+    : why === "leave" ? since > 20e3 || !!AS.pending
+    : why ? since > (why === "back" ? 15e3 : 30e3)
+    : (AS.pending && now - AS.pending >= 30e3 && since >= 60e3) || (AS.error && since >= 60e3) || since >= 300e3;
+  if (due) cloudSync(true);
+}
+if (OFFLINE) {
+  setTimeout(() => autoSync("back"), 3000);
+  setInterval(() => autoSync(), 10e3);
+  document.addEventListener("visibilitychange", () => autoSync(document.hidden ? "leave" : "back"));
+  addEventListener("online", () => autoSync("back"));
+  addEventListener("offline", () => { AS.waiting = true; syncLines(); });
+  if (navigator.connection && navigator.connection.addEventListener) navigator.connection.addEventListener("change", () => { autoSync(); syncLines(); });
+  for (const ev of ["input", "keydown"]) addEventListener(ev, () => { AS.typed = Date.now(); }, true);
+  addEventListener("pointerdown", () => { AS.down = Date.now(); }, true);
+  for (const ev of ["pointerup", "pointercancel"]) addEventListener(ev, () => { AS.down = 0; AS.up = Date.now(); }, true);
+}
+// Safety copies of this device's data (the last 3) are kept before a sync brings changes in: at most one an hour when it syncs by itself.
 const SNAP_KEY = "labbook-presync";
 const snaps = () => { try { return JSON.parse(localStorage.getItem(SNAP_KEY) || "[]"); } catch (e) { return []; } };
 function snapshotBeforeSync() {
@@ -6129,11 +6239,12 @@ function snapshotBeforeSync() {
 function cloudPanel() {
   const c = csGet(), ok = !!c.token, when = c.last ? new Date(c.last).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
   return `<section class="panel"><div class="panel-head"><div class="stack" style="gap:2px"><h2>Cloud sync</h2><span class="muted small">${ok ? (when ? "Last synced " + when : "Connected. Not synced yet.") : "Keep your devices in step"}</span></div>${ok ? `<button class="btn primary" data-act="cloud-sync" ${CSX.busy ? "disabled" : ""}>${CSX.busy ? "Syncing…" : "Sync now"}</button>` : ""}</div>
-    <p class="small">Press Sync on each device. It merges both copies, so finishing a question on one device and syncing shows it as done on the others. It syncs your usage time, flashcard progress, question results, marks, ratings, notes, typed answers, exams and mistakes. It does not copy papers, notes PDFs or handwriting, and your theme stays per device. Your usage time also syncs by itself; everything else waits for you to press Sync.</p>
+    <p class="small">Lab Book syncs by itself: when you open it, about 30 seconds after you make a change, every 5 minutes while it is open and when you leave it. ${EDITION === "phone" ? "This phone only syncs on Wi-Fi, never on mobile data." : ""} If you're offline, it syncs once you're connected and the app is open. It syncs your usage time, flashcard progress, question results, marks, ratings, notes, typed answers, exams and mistakes. It does not copy papers, notes PDFs or handwriting, and your theme stays per device.</p>
+    ${ok ? `<p class="small" id="cs-auto">${esc(syncStatusText())}</p>` : ""}
     ${CSX.msg ? `<p class="small" id="cs-msg">${esc(CSX.msg)}</p>` : ""}
-    ${ok ? `<p class="small"><b>Removing things:</b> if you remove an exam date, a result, a mistake or a card, or a question result (the Remove my result button on a question), it is removed on your other device too after you sync. Each removal has an Undo for a few seconds.</p>
-      ${snaps().length ? `<div class="row"><button class="btn small" data-act="cloud-restore">Undo the last sync on this device</button><span class="muted small">Restores the copy saved at ${new Date(snaps().slice(-1)[0].at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span></div>` : ""}
-      <div class="row"><button class="btn small ghost" data-act="cloud-off">Disconnect this device</button></div><p class="muted small">Your data is saved in a private GitHub gist called "Lab Book sync". GitHub keeps every earlier version of it, and a safety copy of this device is kept before each sync. You can also save a backup file below.</p>`
+    ${ok ? `<p class="small"><b>Removing things:</b> if you remove an exam date, a result, a mistake or a card, or a question result (the Remove my result button on a question), it is removed on your other devices too when they sync. Each removal has an Undo for a few seconds.</p>
+      ${snaps().length ? `<div class="row"><button class="btn small" data-act="cloud-restore">Restore the last safety copy</button><span class="muted small">Restores the copy saved at ${new Date(snaps().slice(-1)[0].at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span></div>` : ""}
+      <div class="row"><button class="btn small ghost" data-act="cloud-off">Disconnect this device</button></div><p class="muted small">Your data is saved in a private GitHub gist called "Lab Book sync". GitHub keeps every earlier version of it, and safety copies of this device are kept before syncing brings changes in. You can also save a backup file below.</p>`
     : `<ol class="tight small"><li>Tap <b>Create a sync token</b>, sign in to GitHub and tap <b>Generate token</b>. It is already limited to the <b>gist</b> permission, which only reaches your gists.</li><li>Copy the token and paste it below. Do the same on your other device with the same token.</li></ol>
       <div class="row"><a class="btn small" href="https://github.com/settings/tokens/new?description=Lab%20Book%20sync&scopes=gist" target="_blank" rel="noopener">Create a sync token</a></div>
       <form class="stack" data-form="cloud-connect"><label class="field" for="cs-token">Token<input id="cs-token" name="token" type="password" autocomplete="off" placeholder="ghp_…" required></label><div><button class="btn primary" type="submit">Connect and sync</button></div></form>`}
@@ -6167,7 +6278,7 @@ const OPTS = { astro: "Astrophysics", medical: "Medical physics", engineering: "
 
 /* ---------- State ---------- */
 function fresh() {
-  return { v: 1, updated: 0, srs: {}, conf: {}, custom: [], log: {}, newLog: {}, exams: [], papers: [], mistakes: [], notes: {}, rp: {}, quiz: [], focus: {}, ppDone: {}, boxes: [], use: {}, qs: {}, qtext: {}, marked: {}, pred: {}, del: {},
+  return { v: 1, updated: 0, srs: {}, conf: {}, custom: [], log: {}, newLog: {}, exams: [], papers: [], mistakes: [], notes: {}, rp: {}, quiz: [], focus: {}, ppDone: {}, boxes: [], use: {}, at: {}, qs: {}, qtext: {}, marked: {}, pred: {}, del: {},
     pen: { tool: "pen", color: 0, size: 1 },
     settings: { theme: "system", physOpt: "", newPerDay: 20, subj: "phys" } };
 }
@@ -6185,6 +6296,24 @@ function normalise(o) {
 let S = fresh();
 try { const raw = localStorage.getItem(KEY); if (raw) S = normalise(JSON.parse(raw)); } catch (e) { /* storage unavailable */ }
 
+// When each rating, note, typed answer, mark, result and mistake last changed, so that after two devices have both changed
+// things, syncing keeps the newest change to each one (including taking a rating or tick off).
+const STAMPED = ["conf", "notes", "rp", "ppDone", "marked", "qtext"];
+function shadowOf(s) {
+  const o = new Map();
+  for (const k of STAMPED.concat("qs")) for (const [id, v] of Object.entries(s[k] || {})) o.set(k + ":" + id, JSON.stringify(v));
+  for (const m of s.mistakes || []) o.set("mistakes:" + m.id, JSON.stringify(m));
+  return o;
+}
+let SHADOW = shadowOf(S);
+function markSaved() { SHADOW = shadowOf(S); }
+function stampChanges() {
+  const next = shadowOf(S), at = S.at || (S.at = {}), now = Date.now();
+  for (const [k, v] of next) if (SHADOW.get(k) !== v) at[k] = now;
+  for (const k of SHADOW.keys()) if (!next.has(k)) at[k] = now;
+  SHADOW = next;
+}
+
 function indexCustom() {
   for (const id in CARDS) if (CARDS[id].custom) delete CARDS[id];
   for (const t of Object.values(TOPICS)) t.cardIds = t.baseIds.slice();
@@ -6197,6 +6326,7 @@ function indexCustom() {
 indexCustom();
 
 function save() {
+  stampChanges(); if (!AS.pending) AS.pending = Date.now();
   S.updated = Date.now();
   try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignore */ }
   queueRemote();
@@ -6231,7 +6361,7 @@ async function initSync() {
       const data = snap.data() || {};
       let remote = null; try { remote = JSON.parse(data.json); } catch (e) { /* ignore */ }
       if (remote && (remote.updated || 0) > (S.updated || 0)) {
-        const mine = S.use; S = normalise(remote); S.use = mergeUse(mine, S.use); indexCustom();
+        const mine = S.use; S = normalise(remote); S.use = mergeUse(mine, S.use); markSaved(); indexCustom();
         try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignore */ }
         setSync("ok"); render(); return;
       }
@@ -6567,56 +6697,6 @@ document.addEventListener("visibilitychange", () => {
 });
 addEventListener("pagehide", () => { if (!document.hidden) useTick(true); useFlush(); });
 
-// Usage time syncs by itself. It has its own file in the private sync gist, so this reads and writes nothing else:
-// everything else is still synced only when you press Sync.
-const CS_USE = "labbook-usage.json";
-const UX = { busy: false, tried: 0, err: "" };
-const useCanon = u => JSON.stringify(mergeUse(u, {}), (k, v) => v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map(n => [n, v[n]])) : v);
-async function useSync(minGap = 0) {
-  const c = csGet();
-  if (!OFFLINE || !c.token || UX.busy || CSX.busy || Date.now() - UX.tried < minGap || navigator.onLine === false) return;
-  UX.busy = true; UX.tried = Date.now();
-  let changed = false;
-  try {
-    let id = c.gistId;
-    if (!id) { const g = (await ghApi("/gists?per_page=100")).find(x => x.description === CS_DESC && x.files && x.files[CS_FILE]); if (g) id = g.id; }
-    if (id) { // no gist yet means the first full sync hasn't happened: it creates one
-      const g = await ghApi("/gists/" + id), f = g.files && g.files[CS_USE];
-      let remote = {};
-      if (f) { let txt = f.content; if (f.truncated || txt == null) txt = await (await fetch(f.raw_url)).text(); try { remote = JSON.parse(txt).use || {}; } catch (e) { remote = {}; } }
-      useTick(false);
-      const before = useCanon(S.use);
-      S.use = mergeUse(S.use, remote); useDirty = true; useFlush();
-      const after = useCanon(S.use); changed = before !== after;
-      if (!f || after !== useCanon(remote)) await ghApi("/gists/" + id, { method: "PATCH", body: JSON.stringify({ files: { [CS_USE]: { content: JSON.stringify({ v: 1, use: S.use }) } } }) });
-      if (csGet().token === c.token) csPut(Object.assign({}, csGet(), { gistId: id, useAt: Date.now() }));
-      if (UX.err) changed = true;
-      UX.err = "";
-    }
-  } catch (e) { changed = UX.err !== e.message; UX.err = e.message; }
-  UX.busy = false;
-  if (view === "usage") useRedraw(changed);
-}
-// Redraw the Usage page after a sync, keeping the table open if it was.
-function useRedraw(changed) {
-  const line = document.getElementById("ux-synced");
-  if (!changed) { if (line) line.textContent = useSyncText(); return; }
-  const open = !!document.querySelector(".ux details[open]"), y = window.scrollY;
-  render();
-  const d = document.querySelector(".ux details"); if (d && open) d.open = true;
-  window.scrollTo(0, y);
-}
-function useSyncText() {
-  const c = csGet();
-  if (!c.token) return "To add up your devices, connect cloud sync in Settings. Usage time then syncs by itself.";
-  if (UX.err) return "Your time couldn't sync just now. " + UX.err + " It will try again by itself.";
-  return "Usage time syncs between your devices by itself." + (c.useAt ? " Last updated " + new Date(c.useAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + "." : "");
-}
-setTimeout(() => useSync(), 3000);
-setInterval(() => { if (!document.hidden) useSync(110e3); }, 30e3);
-document.addEventListener("visibilitychange", () => useSync(20e3)); // on return, and on leaving to send the latest time
-addEventListener("online", () => useSync());
-
 const NB = String.fromCharCode(160); // keeps a number and its unit on the same line
 const fmtUse = s => { if (s <= 0) return "0" + NB + "min"; if (s < 60) return "<1" + NB + "min"; const m = Math.round(s / 60); return m < 60 ? m + NB + "min" : Math.floor(m / 60) + NB + "h" + (m % 60 ? " " + (m % 60) + NB + "min" : ""); };
 const USE_RANGES = [["day", "Day", "Today"], ["week", "Week", "Past 7 days"], ["month", "Month", "Past 30 days"], ["year", "Year", "Past 12 months"]];
@@ -6693,7 +6773,7 @@ let useResize = null;
 addEventListener("resize", () => { clearTimeout(useResize); useResize = setTimeout(() => { if (view === "usage") render(); }, 200); });
 V.usage = () => {
   useTick(false);
-  useSync(30e3);
+  setTimeout(() => autoSync("open"), 0);
   const range = useRangeNow(), [, , label] = USE_RANGES.find(r => r[0] === range), list = useSeries(range), days = useTotals();
   const sums = {}; for (const [id] of USE_RANGES) sums[id] = useSum(id, days);
   const { p, c, keys, used } = sums[range];
@@ -6726,7 +6806,7 @@ V.usage = () => {
   </section>
   <section class="panel ux"><div class="panel-head"><h2>By device</h2><span class="muted small">${label}</span></div>
     ${devices.length ? devices.map(d => `<div class="row small" style="justify-content:space-between"><b>${esc(d.name)}</b><span class="mono">Physics ${fmtUse(d.p)} · Chemistry ${fmtUse(d.c)}</span></div>`).join("") : `<p class="muted small">Nothing recorded yet.</p>`}
-    ${OFFLINE ? `<p class="small muted" id="ux-synced">${esc(useSyncText())}</p>${csGet().token ? "" : `<div class="row"><button class="btn small" data-act="go" data-v="prefs">Open Settings</button></div>`}` : ""}
+    ${OFFLINE ? `<p class="small muted" id="ux-synced">${esc(syncStatusText())}</p>${csGet().token ? "" : `<div class="row"><button class="btn small" data-act="go" data-v="prefs">Open Settings</button></div>`}` : ""}
     <p class="small muted">Time counts while Lab Book is on screen and you've touched it in the last 3 minutes, or a paper timer is running. It goes to the subject you're working in.</p>
   </section>`;
 };
@@ -8102,7 +8182,7 @@ const ACT = {
   "cp-shuffle": () => { const s = cur(), st = cpState(s); st.seed = (st.seed + 1) % 100000; st.built = buildCustom(s, st); render(); },
   "cp-start": () => { const s = cur(), st = cpState(s), b = st.built; if (!b) { toast("Tap Build my paper first"); return; } startPractice({ ids: b.ids, random: false, minutes: b.minutes, label: `Custom ${SUBJ[s].name} paper` }); },
   "cloud-sync": () => cloudSync(),
-  "cloud-restore": () => { const l = snaps(), last = l[l.length - 1]; if (!last) return; if (ui.confirmRestore !== true) { ui.confirmRestore = true; toast("Tap again to restore the copy from before the last sync"); setTimeout(() => { ui.confirmRestore = false; }, 4000); return; } ui.confirmRestore = false; snapshotBeforeSync(); try { S = normalise(JSON.parse(last.data)); indexCustom(); save(); render(); toast("Restored the copy from before the last sync"); } catch (e) { toast("That safety copy couldn't be read"); } },
+  "cloud-restore": () => { const l = snaps(), last = l[l.length - 1]; if (!last) return; if (ui.confirmRestore !== true) { ui.confirmRestore = true; toast("Tap again to restore the safety copy"); setTimeout(() => { ui.confirmRestore = false; }, 4000); return; } ui.confirmRestore = false; const erased = (S.del || {})["reset:all"]; snapshotBeforeSync(); try { S = normalise(JSON.parse(last.data)); if (erased) S.del["reset:all"] = erased; indexCustom(); save(); if (csGet().token) csPut(Object.assign({}, csGet(), { paused: true })); render(); toast("Safety copy restored. Automatic sync is paused until you press Sync now."); } catch (e) { toast("That safety copy couldn't be read"); } },
   "cloud-off": () => { csPut(null); CSX.msg = ""; render(); toast("This device is disconnected from cloud sync"); },
   edition: el => { try { localStorage.setItem("labbook-edition", el.dataset.v); } catch (e) { /* ignore */ } location.reload(); },
   "pap-tab": el => { ui.papTab = el.dataset.v; render(); },
@@ -8260,7 +8340,7 @@ const ACT = {
   },
   reset: () => { ui.confirmReset = true; render(); },
   "reset-no": () => { ui.confirmReset = false; render(); },
-  "reset-yes": () => { const th = S.settings.theme; S = fresh(); S.settings.theme = th; indexCustom(); ui.confirmReset = false; ui.study = null; ui.quiz = null; clearPractice(); save(); render(); toast("Progress erased"); }
+  "reset-yes": () => { const th = S.settings.theme, time = S.use; S = fresh(); S.settings.theme = th; S.use = time; S.del["reset:all"] = Date.now(); indexCustom(); ui.confirmReset = false; ui.study = null; ui.quiz = null; clearPractice(); save(); render(); toast("Progress erased"); }
 };
 const CHANGE = {
   "pred-file": el => { const files = [...el.files]; el.value = ""; if (files.length) addExtraFiles(cur(), files); },
