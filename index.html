@@ -571,7 +571,7 @@ kbd { font-family: var(--f-mono); font-size: .76rem; padding: 2px 7px; border-ra
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261127-1047";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261127-1236";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -6034,7 +6034,7 @@ function mergeStates(a, b) {
   const kindOf = { custom: "card", exams: "exam", papers: "paper", mistakes: "mistake" };
   ["custom", "exams", "papers", "mistakes"].forEach(k => { const m = new Map(), first = aNewer ? b[k] : a[k], second = aNewer ? a[k] : b[k]; for (const it of [].concat(first || [], second || [])) m.set(it.id, it); out[k] = [...m.values()].filter(it => !del[kindOf[k] + ":" + it.id]); });
   const seen = new Set(); out.quiz = [].concat(a.quiz || [], b.quiz || []).filter(q => { const j = JSON.stringify(q); if (seen.has(j)) return false; seen.add(j); return true; }).slice(-50);
-  out.pred = {}; for (const id of keys(a.pred, b.pred)) { const x = (a.pred || {})[id], y = (b.pred || {})[id]; out.pred[id] = !x ? y : !y ? x : String(y.built) > String(x.built) ? y : x; }
+  out.pred = {}; for (const id of keys(a.pred, b.pred)) { const x = (a.pred || {})[id], y = (b.pred || {})[id]; const win = !x ? y : !y ? x : String(y.built) > String(x.built) ? y : x, rps = [x && x.rp, y && y.rp].filter(Boolean).sort((m, n) => String(n.built).localeCompare(String(m.built))); out.pred[id] = rps.length ? Object.assign({}, win, { rp: rps[0] }) : win; }
   out.settings = Object.assign({}, a.settings); if (!out.settings.physOpt && b.settings && b.settings.physOpt) out.settings.physOpt = b.settings.physOpt;
   out.updated = Math.max(a.updated || 0, b.updated || 0);
   return out;
@@ -7260,6 +7260,82 @@ function pageTopic(text, vecs) {
   vecs.forEach((v, i) => { let sc = 0; pv.forEach((x, w) => { const y = v.get(w); if (y) sc += x * y; }); sc /= pn; if (sc > bs) { second = bs; bs = sc; best = i; } else if (sc > second) second = sc; });
   return bs >= 0.05 && bs > second * 1.05 ? best : -1;
 }
+/* ---------- How likely each required practical is ---------- */
+// A page counts towards a practical when it has every phrase in any one of that practical's lists. Kept apart from the topic
+// analysis, so it never changes the topic likelihoods.
+const RP_SIGNS = {
+  prp1: [[/first harmonic|stationary wave/, /\bstring\b|\bwire\b/, /vibrat|frequency/]],
+  prp2: [[/diffraction grating/], [/double[- ]slit|young.{0,4}slit|two slits/], [/fringe/, /laser|slit/]],
+  prp3: [[/free[- ]?fall|falls? freely|released? from rest/, /electromagnet|light ?gate|trap ?door|electronic timer/], [/measur|determin/, /acceleration (of free fall|due to gravity)/, /released|dropped|light ?gate|falls through/]],
+  prp4: [[/young modulus/, /wire|extension/]],
+  prp5: [[/resistivity/, /wire|micrometer|diameter/]],
+  prp6: [[/internal resistance/, /cell|battery|emf|e\.m\.f/]],
+  prp7: [[/pendulum/, /period|oscillat/], [/spring/, /oscillat/, /period/]],
+  prp8: [[/boyle|charles/], [/\bgas\b|\bair\b/, /pressure/, /volume/, /constant temperature|syringe|column of|apparatus/]],
+  prp9: [[/capacitor/, /discharg/, /stopwatch|data ?logger|investigat|time constant/]],
+  prp10: [[/balance/, /magnet/, /current/, /wire|rod|conductor/]],
+  prp11: [[/search coil/], [/coil/, /oscilloscope/, /alternating|induced/]],
+  prp12: [[/gamma|γ/, /count rate|counter|geiger|detector/, /distance/], [/inverse[- ]square/, /count|gamma/]],
+  crp1: [[/titre|volumetric flask|burette/, /titrat|solution/]],
+  crp2: [[/enthalpy/, /temperature (rise|change)|calorimet|polystyrene|thermometer|insulated/]],
+  crp3: [[/thiosulfate/, /rate|time|temperature/], [/rate of (the )?reaction/, /temperature/, /water bath|time taken/]],
+  crp4: [[/silver nitrate|barium (chloride|nitrate)|limewater|litmus/, /test|precipitate/]],
+  crp5: [[/distil/, /apparatus|condenser|anti[- ]?bumping|heated/]],
+  crp6: [[/tollens|fehling|bromine water/], [/sodium (hydrogen)?carbonate|dichromate/, /distinguish|test/]],
+  crp7: [[/initial rate/, /experiment|concentration/], [/clock reaction|iodine clock|continuous monitoring|gas syringe/, /rate|time/]],
+  crp8: [[/e\.?m\.?f|voltmeter/, /half[- ]?cell|salt bridge|electrode/]],
+  crp9: [[/ph meter|ph curve|ph probe|ph (was )?(measured|recorded|changes)/, /titrat|added|volume/]],
+  crp10: [[/recrystalli[sz]|separating funnel/], [/melting point/, /pur(e|ity|ify)/]],
+  crp11: [[/precipitate/, /sodium hydroxide|ammonia|sodium carbonate/, /\(ii\)|\(iii\)|alumini|metal[- ]aqua|\(h2 ?o\) ?6/]],
+  crp12: [[/chromatogra/, /\btlc\b|thin[- ]layer|solvent front|plate/]]
+};
+const practicalsOnPage = (s, text) => { const t = text.toLowerCase().replace(/\s+/g, " "); return PRACS.filter(p => p.subj === s && RP_SIGNS[p.id].some(all => all.every(r => r.test(t)))).map(p => p.id); };
+// Core papers only: the physics options (Paper 3B) don't test the required practicals.
+const practicalPaper = label => /^Paper (1|2|3|3A|3 Section A)$/.test(label);
+async function analysePracticals(s) {
+  if (ui.predBusy || !S.pred || !S.pred[s]) return;
+  try { await pdbOpen(); } catch (e) { toast("Papers can't be read in this browser."); return; }
+  const files = [...ALL_FILES.entries()].filter(([n, v]) => v.subj === s && v.k === 0 && practicalPaper(v.label) && PDB.have.has(n) && seriesKey(v.ser));
+  if (!files.length) { toast("Import the past papers first (Past papers tab)."); return; }
+  ui.predBusy = { done: 0, total: files.length }; render();
+  const series = {};
+  for (const [name, v] of files) {
+    try {
+      const doc = await window.pdfjsLib.getDocument({ data: await (await pdbGet(name)).arrayBuffer() }).promise;
+      const key = seriesKey(v.ser), row = series[key] || (series[key] = { key, ser: v.ser, found: {} });
+      for (let pn = 2; pn <= doc.numPages; pn++) {
+        const tc = await (await doc.getPage(pn)).getTextContent();
+        for (const id of practicalsOnPage(s, tc.items.map(x => x.str).join(" "))) { const f = row.found[id] || (row.found[id] = []); const num = v.label.split(" ")[1].replace("3A", "3"); if (!f.includes(num)) f.push(num); }
+      }
+      doc.destroy();
+    } catch (e) { /* skip a paper that can't be read */ }
+    ui.predBusy.done++; const el = document.getElementById("pred-progress"); if (el) el.textContent = `Reading papers… ${ui.predBusy.done} of ${ui.predBusy.total}`;
+  }
+  if (S.pred && S.pred[s]) S.pred[s].rp = { built: dayKey(), series: Object.values(series).sort((a, b) => b.key - a.key) };
+  save(); ui.predBusy = null; render(); toast("Required practicals analysed");
+}
+function practicalRows(s) {
+  const R = S.pred && S.pred[s] && S.pred[s].rp; if (!R || !R.series.length) return null;
+  return PRACS.filter(p => p.subj === s).map(p => {
+    let sw = 0, sv = 0, seen = 0; const papers = new Set();
+    R.series.forEach((row, i) => { const w = Math.pow(0.88, i), hit = row.found[p.id]; sw += w; if (hit) { sv += w; seen++; hit.forEach(n => papers.add(n)); } });
+    const share = seen / R.series.length, recent = R.series.slice(0, 2).filter(row => row.found[p.id]).length, why = [];
+    let score = sv / sw;
+    if (share >= 0.35 && !recent) { score = Math.min(1, score * 1.25); why.push("not in the last two series, so it may be due"); }
+    if (recent === 2 && share >= 0.5) why.push("in both of the last two series");
+    const tier = score >= 0.7 ? "Very likely" : score >= 0.45 ? "Likely" : score >= 0.2 ? "Possible" : "Unlikely";
+    return { p, score, tier, seen, of: R.series.length, papers: [...papers].sort(), why };
+  }).sort((a, b) => b.score - a.score || a.p.n - b.p.n);
+}
+function practicalPanel(s) {
+  const rows = practicalRows(s), cls = { "Very likely": "green", Likely: "amber", Possible: "", Unlikely: "" }, busy = !!ui.predBusy;
+  return `<section class="panel" id="pred-practicals"><div class="panel-head"><div class="stack" style="gap:2px"><h2>Required practicals</h2><span class="muted small">${rows ? `How often each one shows up across ${rows[0].of} exam series` : "Not analysed yet"}</span></div>
+    <button class="btn ${rows ? "" : "primary"}" data-act="pred-rp" ${busy ? "disabled" : ""}>${rows ? "Re-analyse practicals" : "Analyse practicals"}</button></div>
+    ${rows ? `<div class="table-wrap"><table><thead><tr><th>Practical</th><th>Likelihood</th><th>Seen</th><th>Papers</th></tr></thead><tbody>${rows.map(r => `<tr><td><b>RP${r.p.n}</b> ${esc(r.p.t)}${r.why.length ? `<div class="muted small">${esc(r.why.join("; "))}</div>` : ""}</td><td><span class="chip ${cls[r.tier]}">${r.tier}</span></td><td class="mono" style="white-space:nowrap">${r.seen}/${r.of}</td><td class="mono" style="white-space:nowrap">${r.papers.join(", ") || "—"}</td></tr>`).join("")}</tbody></table></div>
+    <p class="muted small">Found by looking for each practical's apparatus and wording in the question papers, so treat it as a rough guide. Any practical can be asked: revise all of them.</p>`
+      : `<p class="small">This reads the question papers on your ${DEV} and counts how often each required practical appears. Your topic likelihoods stay as they are.</p>`}
+  </section>`;
+}
 async function analysePapers(s) {
   if (ui.predBusy) return;
   try { await pdbOpen(); } catch (e) { toast("Papers can't be read in this browser."); return; }
@@ -7286,6 +7362,7 @@ async function analysePapers(s) {
   for (const p in out) out[p].sort((a, b) => b.key - a.key);
   (S.pred = S.pred || {})[s] = { built: dayKey(), papers: out }; save(); ui.predBusy = null; render();
   toast(`Analysed ${files.length} papers`);
+  await analysePracticals(s);
 }
 function predictFor(s, name) {
   const P = S.pred && S.pred[s], arr = P && P.papers && P.papers[name]; if (!arr || !arr.length) return null;
@@ -7453,7 +7530,7 @@ function predictedTab(s) {
     </section>`;
   }).join("");
   const themes = ((window.INTEL && window.INTEL.themes) || {})[s] || [];
-  return top + cards + (themes.length ? `<section class="panel"><h2>What examiners keep flagging</h2><p class="muted small">Recurring points from AQA's published examiner reports.</p><ul class="tight">${themes.map(t => `<li>${esc(t)}</li>`).join("")}</ul></section>` : "") + intelPanel(s);
+  return top + cards + practicalPanel(s) + (themes.length ? `<section class="panel"><h2>What examiners keep flagging</h2><p class="muted small">Recurring points from AQA's published examiner reports.</p><ul class="tight">${themes.map(t => `<li>${esc(t)}</li>`).join("")}</ul></section>` : "") + intelPanel(s);
 }
 function paperLog(s) {
   const sub = SUBJ[s], pre = (ui.prefill && ui.prefill.subj === s) ? ui.prefill : {};
@@ -7687,6 +7764,7 @@ const ACT = {
   edition: el => { try { localStorage.setItem("labbook-edition", el.dataset.v); } catch (e) { /* ignore */ } location.reload(); },
   "pap-tab": el => { ui.papTab = el.dataset.v; render(); },
   "pred-run": () => analysePapers(cur()),
+  "pred-rp": () => analysePracticals(cur()),
   "pred-build": el => { const s = cur(), name = el.dataset.v, seed = (ui.predSeed && ui.predSeed[s + name]) || 1, b = buildPredicted(s, name, seed); if (!b || !b.ids.length) { toast("Couldn't build a paper. Analyse your papers first."); return; } (ui.predBuilt = ui.predBuilt || {})[s + name] = b; render(); toast("Predicted " + name + " is ready"); },
   "pred-shuffle": el => { const s = cur(), name = el.dataset.v; (ui.predSeed = ui.predSeed || {})[s + name] = ((ui.predSeed[s + name] || 1) + 1) % 100000; ACT["pred-build"](el); },
   "pred-start": el => { const s = cur(), b = ui.predBuilt && ui.predBuilt[s + el.dataset.v]; if (!b) return; startPractice({ ids: b.ids, random: false, minutes: timeMins(b.time), label: `Predicted ${SUBJ[s].name} ${el.dataset.v}` }); },
