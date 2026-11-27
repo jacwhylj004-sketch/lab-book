@@ -218,6 +218,9 @@ button.item:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); 
 .ink canvas { position: absolute; inset: 0; display: block; }
 .ink.lined { border-radius: 14px; border: 1px solid var(--line); background-color: var(--paper); background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 43px, var(--rule) 43px, var(--rule) 44px); cursor: crosshair; }
 .pdf-ink { position: absolute; inset: 0; }
+.ink.ro { pointer-events: none; cursor: default; }
+.ink.lined.ro { min-height: 88px; }
+.vw-pages.placing .pdf-ink { pointer-events: none; }
 /* Study notes */
 .nt-layout { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 18px; align-items: start; }
 .nt-tree { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 76px); max-height: calc(100vh - 100px); overflow-y: auto; background: var(--surface); border-radius: 22px; padding: 8px; display: flex; flex-direction: column; gap: 2px; }
@@ -605,7 +608,7 @@ kbd { font-family: var(--f-mono); font-size: .76rem; padding: 2px 7px; border-ra
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261127-1452";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261127-1457";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -5141,7 +5144,7 @@ function drawViewerChrome() {
     <div class="vw-sub">
       <div class="seg">${kinds.map(i => `<button data-act="vw-kind" data-v="${i}" aria-pressed="${i === k}" ${PDB.have.has(paperFile(subj, ser, label, i)) ? "" : 'style="opacity:.45"'}>${KIND_LABEL[i]}</button>`).join("")}</div>
       <div class="seg vw-help"><button data-act="vwp-toggle" data-v="notes" aria-pressed="${VWP.mode === "notes"}">${icon("book").replace("<svg", '<svg style="width:18px"')} Notes</button><button data-act="vwp-toggle" data-v="ai" aria-pressed="${VWP.mode === "ai"}">${icon("spark").replace("<svg", '<svg style="width:18px"')} Ask Gemini</button></div>
-      <div class="row" style="gap:6px">${NOPEN ? `<button class="btn small primary" data-act="vw-box" aria-pressed="false">＋ Answer box</button>` : ""}${S.marked[key] ? `<button class="btn small" data-act="ai-result" data-v="${esc(key)}">Result: ${S.marked[key].total}/${S.marked[key].max}</button>` : ""}${NOPEN ? "" : `<button class="btn small primary" data-act="vw-ai">${icon("spark")}Mark with AI</button>`}<button class="btn small ${done ? "" : "ghost"}" data-act="vw-done">${done ? "✓ Done" : "Mark done"}</button>${NOPEN ? "" : `<button class="btn small ghost" data-act="vw-clear-ink">Clear writing</button>`}</div>
+      <div class="row" style="gap:6px"><button class="btn small ${NOPEN ? "primary" : ""}" data-act="vw-box" aria-pressed="false">＋ Answer box</button>${S.marked[key] ? `<button class="btn small" data-act="ai-result" data-v="${esc(key)}">Result: ${S.marked[key].total}/${S.marked[key].max}</button>` : ""}${NOPEN ? "" : `<button class="btn small primary" data-act="vw-ai">${icon("spark")}Mark with AI</button>`}<button class="btn small ${done ? "" : "ghost"}" data-act="vw-done">${done ? "✓ Done" : "Mark done"}</button>${NOPEN ? "" : `<button class="btn small ghost" data-act="vw-clear-ink">Clear writing</button>`}</div>
     </div>
     <div class="vw-body">${vwMain()}<aside class="vw-panel" id="vw-panel" aria-label="Help panel" hidden></aside></div>
     ${NOPEN ? "" : penBar()}`;
@@ -5192,8 +5195,15 @@ async function renderPage(div) {
     // Only the page picture is swapped, so the old one stays on screen while the sharper one is drawn after a zoom.
     const old = div.querySelector(":scope > .pdf-cv"); if (old) old.replaceWith(c); else div.prepend(c);
     div.dataset.state = "done";
-    if (!NOPEN && !div.querySelector(":scope > .pdf-ink")) { const ink = document.createElement("div"); ink.className = "ink pdf-ink"; ink.dataset.ink = "pdf:" + VW.name + ":" + div.dataset.n; div.appendChild(ink); attachInk(ink); }
+    pageInk(div);
   } catch (e) { if (div.dataset.gen === gen) delete div.dataset.state; }
+}
+// The handwriting layer over a page.
+function pageInk(div) {
+  const key = "pdf:" + VW.name + ":" + div.dataset.n;
+  if (div.querySelector(":scope > .pdf-ink") || (NOPEN && !inkHas(key))) return;
+  const ink = document.createElement("div"); ink.className = "ink pdf-ink" + (NOPEN ? " ro" : ""); if (NOPEN) ink.dataset.ro = "1"; ink.dataset.ink = key;
+  div.appendChild(ink); attachInk(ink);
 }
 function unrenderPage(div) { if (div.dataset.state !== "busy" && div.firstChild && !div.contains(document.activeElement)) { div.innerHTML = ""; delete div.dataset.state; } }
 function vwPageIndicator() {
@@ -5205,7 +5215,7 @@ function vwPageIndicator() {
   vwpFollow();
 }
 /* ---------- Typed answer boxes on past papers ---------- */
-// For the phone and computer, which have no S Pen. A box sits on a page at a position and size kept as fractions of that
+// On every device. A box sits on a page at a position and size kept as fractions of that
 // page, so it stays put when zooming and looks the same on another device after a sync.
 const boxList = () => S.boxes || (S.boxes = []);
 const clamp01 = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -5214,7 +5224,7 @@ const boxSave = soon => { clearTimeout(boxTimer); boxTimer = null; if (soon) box
 addEventListener("pagehide", () => { if (boxTimer) boxSave(); });
 const boxPlace = (el, b) => { el.style.left = b.x * 100 + "%"; el.style.top = b.y * 100 + "%"; el.style.width = b.w * 100 + "%"; el.style.height = b.h * 100 + "%"; el.classList.toggle("low", b.y < 0.06); };
 function drawBoxes(div) {
-  if (!NOPEN || !VW.cur) return; // the tablet writes with the S Pen, so it never shows them
+  if (!VW.cur) return;
   div.classList.add("boxes");
   const n = +div.dataset.n;
   for (const b of boxList()) if (b.f === VW.name && b.n === n && !div.querySelector(`.ans-box[data-id="${b.id}"]`)) div.appendChild(boxEl(b));
@@ -5241,6 +5251,10 @@ function boxEl(first) {
     offerUndo("Answer box deleted", () => { b.u = Date.now(); boxList().push(b); untomb("box", id); save(); document.querySelectorAll("#vw-pages .vw-page").forEach(d => { if (d.dataset.state) drawBoxes(d); }); });
   });
   return el;
+}
+function redrawBoxes() {
+  document.querySelectorAll("#vw-pages .ans-box").forEach(el => { if (!el.contains(document.activeElement)) el.remove(); });
+  document.querySelectorAll("#vw-pages .vw-page").forEach(d => { if (d.dataset.state) drawBoxes(d); });
 }
 function boxPlacing(on) {
   VW.placing = on;
@@ -5452,7 +5466,10 @@ function inkSave(key) {
   const v = INK.cache.get(key);
   if (v && v.loading) { INK.timers[key] = setTimeout(() => inkSave(key), 300); return; }
   INK.timers[key] = setTimeout(() => {
-    pdbOpen().then(() => { const st = PDB.db.transaction("ink", "readwrite").objectStore("ink"); const v = INK.cache.get(key) || []; if (v.length) st.put(v, key); else st.delete(key); }).catch(() => {});
+    pdbOpen().then(() => {
+      const v = INK.cache.get(key) || [], st = inkStore("readwrite"); if (v.length) st.put(v, key); else st.delete(key);
+      if (v.length || INKAT[key]) { INKAT[key] = [Date.now(), v.length, 0]; inkAtSave(); if (!AS.pending) AS.pending = Date.now(); }
+    }).catch(() => {});
   }, 500);
 }
 function scrollParentOf(el) {
@@ -5462,11 +5479,19 @@ function scrollParentOf(el) {
 function mountInk(scope) { (scope || document).querySelectorAll(".ink[data-ink]:not([data-mounted])").forEach(attachInk); }
 function attachInk(el) {
   el.dataset.mounted = "1";
+  const ro = !!el.dataset.ro, on = (type, fn) => { if (!ro) el.addEventListener(type, fn); };
   const key = el.dataset.ink, cv = document.createElement("canvas"), ctx = cv.getContext("2d");
   el.appendChild(cv);
   let strokes = [], cur = null, mode = null, last = null, scroller = null, dpr = 1, hold = null, hold0 = null, holdEv = null, held = false, pid = null;
   const W = () => el.clientWidth || 1;
+  // A read-only answer box is made as tall as the writing in it.
+  function fit() {
+    if (!ro || !el.classList.contains("lined")) return;
+    let low = 0; for (const s of strokes) for (let i = 1; i < s.p.length; i += 3) low = Math.max(low, s.p[i]);
+    const h = Math.round(Math.max(88, low * W() + 24)) + "px"; if (el.style.height !== h) el.style.height = h;
+  }
   function size() {
+    fit();
     const w = el.clientWidth, h = el.clientHeight; if (!w || !h) return;
     dpr = canvasRatio(w, h);
     cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); cv.style.width = w + "px"; cv.style.height = h + "px";
@@ -5540,8 +5565,8 @@ function attachInk(el) {
     showRing(e.clientX, e.clientY);
     return changed;
   }
-  el.addEventListener("contextmenu", e => e.preventDefault());
-  el.addEventListener("pointerdown", e => {
+  on("contextmenu", e => e.preventDefault());
+  on("pointerdown", e => {
     INK.active = key;
     // A finger scrolls. It is ignored while the pen is working (a resting hand) and a second finger is left for pinch zoom.
     if (e.pointerType === "touch") { if (mode || VW.penDown) return; pid = e.pointerId; mode = "scroll"; last = { x: e.clientX, y: e.clientY }; scroller = el.closest(".vw-pages") || scrollParentOf(el); return; }
@@ -5564,8 +5589,8 @@ function attachInk(el) {
       toast("Eraser: drag over your writing"); if (ui.dbgPen) penNote("held still 0.5s → ERASE");
     }, 500);
   });
-  el.addEventListener("pointerleave", e => { if (e.pointerType === "pen" && mode === null) hideRing(); });
-  el.addEventListener("pointermove", e => {
+  on("pointerleave", e => { if (e.pointerType === "pen" && mode === null) hideRing(); });
+  on("pointermove", e => {
     if (mode && e.pointerId !== pid) return;
     // Hovering with the side button held shows the eraser circle so you can aim; touching the screen then erases.
     if (e.pointerType === "pen" && !e.buttons && mode === null) { if (window.__penBtn === true || penState().tool === "eraser") showRing(e.clientX, e.clientY); else hideRing(); }
@@ -5594,9 +5619,9 @@ function attachInk(el) {
     if (cur.t === "hl") redraw();
   });
   const end = e => { if (e.pointerId !== pid) return; clearTimeout(hold); hold0 = null; held = false; hideRing(); if (mode === "draw" || mode === "erase") inkSave(key); mode = null; cur = null; };
-  el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end); el.addEventListener("lostpointercapture", end);
+  on("pointerup", end); on("pointercancel", end); on("lostpointercapture", end);
   strokes = inkArr(key);
-  INK.els.set(key, { redraw: () => { strokes = inkArr(key); redraw(); }, el });
+  INK.els.set(key, { redraw: () => { strokes = inkArr(key); if (ro) size(); redraw(); }, el });
   size();
   if (window.ResizeObserver) new ResizeObserver(size).observe(el);
 }
@@ -5616,6 +5641,115 @@ function penBar() {
   </div>`;
 }
 function refreshPenBars() { document.querySelectorAll(".penbar").forEach(b => { b.outerHTML = penBar(); }); }
+
+/* ---------- Handwriting sync ---------- */
+// Handwriting is much bigger than everything else, so it has its own secret gist. It holds an index (when each page or
+// answer box was last written on) and the strokes, packed into up to 200 files. Only files with changes are sent.
+// On this device INKAT = { key: [changed, strokes, sent] }. The newest writing on a page or answer wins.
+const INKAT_KEY = "labbook-inkat", INK_DESC = "Lab Book handwriting (do not delete)", INK_INDEX = "ink-index.json";
+let INKAT = {};
+try { INKAT = JSON.parse(localStorage.getItem(INKAT_KEY) || "{}") || {}; } catch (e) { INKAT = {}; }
+const inkAtSave = () => { try { localStorage.setItem(INKAT_KEY, JSON.stringify(INKAT)); } catch (e) { /* ignore */ } };
+const inkHas = key => !!(INKAT[key] && INKAT[key][1]);
+const inkStore = mode => PDB.db.transaction("ink", mode).objectStore("ink");
+const inkRead = key => new Promise((res, rej) => { const r = inkStore("readonly").get(key); r.onsuccess = () => res(r.result || []); r.onerror = () => rej(r.error); });
+const inkWrite = (key, v) => new Promise((res, rej) => { const st = inkStore("readwrite"), r = v.length ? st.put(v, key) : st.delete(key); r.onsuccess = () => res(); r.onerror = () => rej(r.error); });
+// Writing from before syncing existed is given the oldest possible time, so anything newer replaces it.
+let inkReadyIndex = null;
+function inkIndex() {
+  return inkReadyIndex || (inkReadyIndex = pdbOpen().then(() => new Promise(res => {
+    const r = inkStore("readonly").openCursor();
+    r.onsuccess = () => { const c = r.result; if (!c) { inkAtSave(); res(); return; } if (!INKAT[c.key] && Array.isArray(c.value) && c.value.length) INKAT[c.key] = [1, c.value.length, 0]; c.continue(); };
+    r.onerror = () => res();
+  })));
+}
+if (OFFLINE) inkIndex().catch(() => { inkReadyIndex = null; });
+// Four or five decimal places are far finer than a pixel, and keep the files small.
+const inkRound = list => list.map(s => Object.assign({}, s, { w: +(+s.w).toFixed(6), p: s.p.map((n, i) => +(+n).toFixed(i % 3 === 2 ? 2 : 5)) }));
+const inkBucket = key => { const doc = key.replace(/:[^:]*$/, ""); let h = 0; for (let i = 0; i < doc.length; i++) h = (h * 31 + doc.charCodeAt(i)) >>> 0; return "ink-" + (h % 200) + ".txt"; };
+async function inkPack(obj) {
+  const text = JSON.stringify(obj);
+  if (!window.CompressionStream) return "j:" + text;
+  const bytes = new Uint8Array(await new Response(new Blob([text]).stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer());
+  let bin = ""; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return "g:" + btoa(bin);
+}
+async function inkUnpack(text) {
+  if (text.startsWith("j:")) return JSON.parse(text.slice(2));
+  if (!text.startsWith("g:") || !window.DecompressionStream) throw new Error("Some synced handwriting couldn't be read on this device. Update the app.");
+  const bytes = Uint8Array.from(atob(text.slice(2).trim()), c => c.charCodeAt(0));
+  return JSON.parse(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"))).text());
+}
+async function gistText(f) { if (!f.truncated && f.content != null) return f.content; const r = await fetch(f.raw_url); if (!r.ok) throw new Error("Couldn't download your handwriting. Try again."); return r.text(); }
+// Show writing that has just arrived.
+function inkShow(key, strokes) {
+  const v = INK.cache.get(key);
+  if (v && !v.loading) { v.length = 0; v.push(...strokes); }
+  const e = INK.els.get(key); if (e && e.el.isConnected) e.redraw();
+}
+// Returns true if writing arrived from another device.
+async function inkSync() {
+  await inkIndex();
+  const c = csGet(), keys = Object.keys(INKAT);
+  let id = c.inkId;
+  if (!id) {
+    const found = (await ghApi("/gists?per_page=100")).filter(x => x.description === INK_DESC && x.files && x.files[INK_INDEX]).sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+    if (found[0]) id = found[0].id;
+  }
+  if (!id && !keys.some(inkHas)) return false;
+  let files = {}, version = "";
+  if (id) {
+    const log = await ghApi("/gists/" + id + "/commits?per_page=1"); version = (log[0] && log[0].version) || "";
+    if (version && version === c.inkVer && keys.every(k => INKAT[k][0] === INKAT[k][2])) return false; // nothing new on either side
+    files = (await ghApi("/gists/" + id)).files || {};
+  }
+  let index = {};
+  if (files[INK_INDEX]) { try { index = JSON.parse(await gistText(files[INK_INDEX])); } catch (e) { throw new Error("The list of synced handwriting couldn't be read, so no handwriting was changed."); } }
+  const buckets = {};
+  const bucket = async name => buckets[name] || (buckets[name] = files[name] ? await inkUnpack(await gistText(files[name])) : {});
+  // bring in what is newer elsewhere
+  let arrived = false;
+  for (const [key, [t, n]] of Object.entries(index)) {
+    const mine = INKAT[key], was = mine ? mine[0] : 0, both = t === 1 && was === 1; // writing on both devices from before syncing
+    if (!(t > was || both)) { if (mine && t === was) mine[2] = t; continue; }
+    const theirs = (await bucket(inkBucket(key)))[key] || [];
+    const here = both ? inkRound(await inkRead(key)) : [];
+    if ((INKAT[key] ? INKAT[key][0] : 0) !== was || INK.active === key && AS.down) continue; // being written on right now
+    let next = theirs;
+    if (both) { const seen = new Set(here.map(s => JSON.stringify(s))); next = here.concat(theirs.filter(s => !seen.has(JSON.stringify(s)))); }
+    const joined = both && next.length !== theirs.length;
+    if (!both || next.length !== here.length) { await inkWrite(key, next); inkShow(key, next); arrived = true; }
+    INKAT[key] = joined ? [Date.now(), next.length, 0] : [t, next.length, t];
+  }
+  // send what is newer here
+  const send = Object.keys(INKAT).filter(k => INKAT[k][0] > ((index[k] || [0])[0]) && (INKAT[k][1] || index[k]));
+  const groups = {}; for (const k of send) (groups[inkBucket(k)] = groups[inkBucket(k)] || []).push(k);
+  let batch = {}, size = 0, stamped = [], sent = false;
+  const flush = async () => {
+    if (!stamped.length) return;
+    batch[INK_INDEX] = { content: JSON.stringify(index) };
+    if (id) await ghApi("/gists/" + id, { method: "PATCH", body: JSON.stringify({ files: batch }) });
+    else id = (await ghApi("/gists", { method: "POST", body: JSON.stringify({ description: INK_DESC, public: false, files: batch }) })).id;
+    for (const [k, t] of stamped) if (INKAT[k] && INKAT[k][0] === t) INKAT[k][2] = t;
+    inkAtSave(); csPut(Object.assign({}, csGet(), { inkId: id }));
+    batch = {}; size = 0; stamped = []; sent = true;
+  };
+  for (const [name, list] of Object.entries(groups)) {
+    const data = await bucket(name);
+    for (const k of list) {
+      const t = INKAT[k][0], strokes = inkRound(await inkRead(k));
+      if (strokes.length) data[k] = strokes; else delete data[k];
+      index[k] = [t, strokes.length]; stamped.push([k, t]);
+    }
+    batch[name] = { content: await inkPack(data) }; size += batch[name].content.length;
+    if (size > 4e6) await flush();
+  }
+  await flush();
+  inkAtSave();
+  // after sending, look once more next time in case another device sent something in between
+  if (csGet().token === c.token) csPut(Object.assign({}, csGet(), { inkId: id, inkVer: sent ? "" : version }));
+  return arrived;
+}
 
 /* ---------- Gemini AI marking (offline edition; your own key, stored only on this device) ---------- */
 const GKEY = "labbook-gemini";
@@ -5951,7 +6085,7 @@ Help without just handing over the answer: by default give hints, explain the id
     const hist = vwpHistory(chat);
     const parts = [{ text: `${c ? `Paper: ${sub.name} ${c.ser} ${c.label}. ` : ""}The student is viewing page ${pages.join(" and ")} of ${VW.doc.numPages}.${ms ? `\n\nMARK SCHEME:\n${ms}\n` : ""}` }];
     images.forEach(im => parts.push({ text: `Page ${im.n} of the paper (with the student's writing):` }, { inline_data: { mime_type: "image/jpeg", data: im.data } }));
-    const typed = NOPEN && c ? boxList().filter(b => b.f === VW.name && pages.includes(b.n) && b.text.trim()).sort((a, b) => a.n - b.n || a.y - b.y) : [];
+    const typed = c ? boxList().filter(b => b.f === VW.name && pages.includes(b.n) && b.text.trim()).sort((a, b) => a.n - b.n || a.y - b.y) : [];
     if (typed.length) parts.push({ text: "Answers the student has typed in boxes on these pages, from top to bottom:\n" + typed.map(b => `[page ${b.n}, ${Math.round(b.y * 100)}% down] ${b.text}`).join("\n") });
     parts.push({ text: "Student: " + text });
     vwpFinish(job, { r: "m", t: await gemChat(sys, hist.concat([{ role: "user", parts }]), job) });
@@ -6052,7 +6186,7 @@ function offerUndo(msg, fn) {
   undoTimer = setTimeout(() => { b.remove(); UNDO = null; }, 8000);
 }
 
-/* ---------- Cloud sync between devices (a private GitHub gist that only you can open) ---------- */
+/* ---------- Cloud sync between devices (secret GitHub gists in your own account) ---------- */
 // Each device keeps working offline. Pressing Sync downloads the other device's copy, MERGES it with this one (so nothing is
 // overwritten), saves the result here and uploads it. Question results and flashcards keep whichever side has done more;
 // days of study keep the higher count; lists (papers, mistakes, exams, cards) are combined. Papers, notes PDFs, handwriting
@@ -6084,6 +6218,8 @@ function mergeStates(a, b) {
   const seen = new Set(); out.quiz = [].concat(a.quiz || [], b.quiz || []).filter(q => { const j = JSON.stringify(q); if (seen.has(j)) return false; seen.add(j); return true; }).slice(-50);
   out.pred = {}; for (const id of keys(a.pred, b.pred)) { const x = (a.pred || {})[id], y = (b.pred || {})[id]; const later = (m, n) => String(n.built).localeCompare(String(m.built)) || canon(n).localeCompare(canon(m)); const win = !x ? y : !y ? x : later(x, y) > 0 ? y : x, rps = [x && x.rp, y && y.rp].filter(Boolean).sort(later); out.pred[id] = rps.length ? Object.assign({}, win, { rp: rps[0] }) : win; }
   out.settings = Object.assign({}, a.settings); if (!out.settings.physOpt && b.settings && b.settings.physOpt) out.settings.physOpt = b.settings.physOpt;
+  for (const k of SHARED) if (b.settings && (+atB["set:" + k] || 0) > (+atA["set:" + k] || 0)) out.settings[k] = b.settings[k];
+  const pa = a.prac || {}, pb = b.prac || {}; out.prac = (pb.t || 0) > (pa.t || 0) || ((pb.t || 0) === (pa.t || 0) && !!pb.d && canon(pb) > canon(pa)) ? pb : pa;
   out.use = mergeUse(a.use, b.use);
   out.updated = Math.max(a.updated || 0, b.updated || 0);
   return out;
@@ -6177,10 +6313,11 @@ async function cloudSync(auto) {
     if (incoming) {
       const last = snaps().slice(-1)[0], reset = (merged.del["reset:all"] || 0) > (S.del["reset:all"] || 0);
       if (!auto || reset || !last || Date.now() - last.at > 3600e3) snapshotBeforeSync();
-      const boxes = canon(S.boxes) !== canon(merged.boxes);
+      const boxes = canon(S.boxes) !== canon(merged.boxes), place = canon(S.prac) !== canon(merged.prac);
       S = merged; markSaved(); indexCustom();
+      if (place) usePractice(S.prac.d);
       if (ui.study && ui.study.queue) ui.study.queue = ui.study.queue.filter(x => CARDS[x]);
-      if (boxes && VW.open) document.querySelectorAll("#vw-pages .vw-page").forEach(d => { if (d.dataset.state) drawBoxes(d); });
+      if (boxes && VW.open) redrawBoxes();
     } else if (timeIn) S.use = merged.use;
     if (incoming || timeIn) { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignore */ } }
     const send = !theirs || syncCanon(S, true) !== syncCanon(theirs, true) || (!theirs.settings.physOpt && !!S.settings.physOpt);
@@ -6190,7 +6327,10 @@ async function cloudSync(auto) {
       if (id) await ghApi("/gists/" + id, { method: "PATCH", body: JSON.stringify({ files: { [CS_FILE]: { content: payload } } }) });
       else id = (await ghApi("/gists", { method: "POST", body: JSON.stringify({ description: CS_DESC, public: false, files: { [CS_FILE]: { content: payload } } }) })).id;
     }
-    if (csGet().token === c.token) csPut(Object.assign({}, csGet(), { gistId: id, last: Date.now(), paused: false }));
+    if (csGet().token !== c.token) return;
+    csPut(Object.assign({}, csGet(), { gistId: id, paused: false }));
+    if (await inkSync()) { if (VW.open) document.querySelectorAll("#vw-pages .vw-page").forEach(d => { if (d.dataset.state === "done") pageInk(d); }); if (auto) AS.redraw = true; }
+    if (csGet().token === c.token) csPut(Object.assign({}, csGet(), { last: Date.now() }));
     AS.error = "";
     const gained = Object.values(S.qs).filter(x => x.n).length - before;
     CSX.msg = auto ? "" : "Synced just now" + (gained > 0 ? `, ${gained} question result${gained === 1 ? "" : "s"} brought in` : "");
@@ -6239,19 +6379,19 @@ function snapshotBeforeSync() {
 function cloudPanel() {
   const c = csGet(), ok = !!c.token, when = c.last ? new Date(c.last).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
   return `<section class="panel"><div class="panel-head"><div class="stack" style="gap:2px"><h2>Cloud sync</h2><span class="muted small">${ok ? (when ? "Last synced " + when : "Connected. Not synced yet.") : "Keep your devices in step"}</span></div>${ok ? `<button class="btn primary" data-act="cloud-sync" ${CSX.busy ? "disabled" : ""}>${CSX.busy ? "Syncing…" : "Sync now"}</button>` : ""}</div>
-    <p class="small">Lab Book syncs by itself: when you open it, about 30 seconds after you make a change, every 5 minutes while it is open and when you leave it. ${EDITION === "phone" ? "This phone only syncs on Wi-Fi, never on mobile data." : ""} If you're offline, it syncs once you're connected and the app is open. It syncs your usage time, flashcard progress, question results, marks, ratings, notes, typed answers, exams and mistakes. It does not copy papers, notes PDFs or handwriting, and your theme stays per device.</p>
+    <p class="small">Lab Book syncs by itself: when you open it, about 30 seconds after you make a change, every 5 minutes while it is open and when you leave it. ${EDITION === "phone" ? "This phone only syncs on Wi-Fi, never on mobile data." : ""} If you're offline, it syncs once you're connected and the app is open. It syncs your handwriting, typed answers and answer boxes, marks, ticked-off papers and results, your place in practice, ratings, notes, flashcard progress, question results, exams, mistakes, study settings and usage time. Handwriting is written on the tablet and shown on the others. Import the paper and notes PDFs on each device: they are not copied. Your theme and Gemini key stay per device.</p>
     ${ok ? `<p class="small" id="cs-auto">${esc(syncStatusText())}</p>` : ""}
     ${CSX.msg ? `<p class="small" id="cs-msg">${esc(CSX.msg)}</p>` : ""}
     ${ok ? `<p class="small"><b>Removing things:</b> if you remove an exam date, a result, a mistake or a card, or a question result (the Remove my result button on a question), it is removed on your other devices too when they sync. Each removal has an Undo for a few seconds.</p>
       ${snaps().length ? `<div class="row"><button class="btn small" data-act="cloud-restore">Restore the last safety copy</button><span class="muted small">Restores the copy saved at ${new Date(snaps().slice(-1)[0].at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span></div>` : ""}
-      <div class="row"><button class="btn small ghost" data-act="cloud-off">Disconnect this device</button></div><p class="muted small">Your data is saved in a private GitHub gist called "Lab Book sync". GitHub keeps every earlier version of it, and safety copies of this device are kept before syncing brings changes in. You can also save a backup file below.</p>`
+      <div class="row"><button class="btn small ghost" data-act="cloud-off">Disconnect this device</button></div><p class="muted small">Your data is saved in two secret GitHub gists, "Lab Book sync" and "Lab Book handwriting". They aren't listed anywhere, but anyone given a gist's link could read it, so don't share the links. GitHub keeps every earlier version of it, and safety copies of this device are kept before syncing brings changes in. You can also save a backup file below.</p>`
     : `<ol class="tight small"><li>Tap <b>Create a sync token</b>, sign in to GitHub and tap <b>Generate token</b>. It is already limited to the <b>gist</b> permission, which only reaches your gists.</li><li>Copy the token and paste it below. Do the same on your other device with the same token.</li></ol>
       <div class="row"><a class="btn small" href="https://github.com/settings/tokens/new?description=Lab%20Book%20sync&scopes=gist" target="_blank" rel="noopener">Create a sync token</a></div>
       <form class="stack" data-form="cloud-connect"><label class="field" for="cs-token">Token<input id="cs-token" name="token" type="password" autocomplete="off" placeholder="ghp_…" required></label><div><button class="btn primary" type="submit">Connect and sync</button></div></form>`}
   </section>`;
 }
 function devicePanel() {
-  return `<section class="panel"><h2>This device</h2><div class="seg" role="group" aria-label="Device">${[["tablet", "Tablet with S Pen"], ["phone", "Phone"], ["pc", "Windows"]].map(([v, l]) => `<button data-act="edition" data-v="${v}" aria-pressed="${EDITION === v}">${l}</button>`).join("")}</div><p class="muted small">The phone and computer versions have no S Pen tools: answers are typed and papers are read-only. Lab Book picks the right one for each device.</p></section>`;
+  return `<section class="panel"><h2>This device</h2><div class="seg" role="group" aria-label="Device">${[["tablet", "Tablet with S Pen"], ["phone", "Phone"], ["pc", "Windows"]].map(([v, l]) => `<button data-act="edition" data-v="${v}" aria-pressed="${EDITION === v}">${l}</button>`).join("")}</div><p class="muted small">The phone and computer versions have no S Pen tools: you type answers there, and handwriting from the tablet is shown but can't be changed. Lab Book picks the right one for each device.</p></section>`;
 }
 
 /* ---------- Exam timer (paper viewer) ---------- */
@@ -6278,7 +6418,7 @@ const OPTS = { astro: "Astrophysics", medical: "Medical physics", engineering: "
 
 /* ---------- State ---------- */
 function fresh() {
-  return { v: 1, updated: 0, srs: {}, conf: {}, custom: [], log: {}, newLog: {}, exams: [], papers: [], mistakes: [], notes: {}, rp: {}, quiz: [], focus: {}, ppDone: {}, boxes: [], use: {}, at: {}, qs: {}, qtext: {}, marked: {}, pred: {}, del: {},
+  return { v: 1, updated: 0, srs: {}, conf: {}, custom: [], log: {}, newLog: {}, exams: [], papers: [], mistakes: [], notes: {}, rp: {}, quiz: [], focus: {}, ppDone: {}, boxes: [], use: {}, at: {}, prac: {}, qs: {}, qtext: {}, marked: {}, pred: {}, del: {},
     pen: { tool: "pen", color: 0, size: 1 },
     settings: { theme: "system", physOpt: "", newPerDay: 20, subj: "phys" } };
 }
@@ -6299,10 +6439,12 @@ try { const raw = localStorage.getItem(KEY); if (raw) S = normalise(JSON.parse(r
 // When each rating, note, typed answer, mark, result and mistake last changed, so that after two devices have both changed
 // things, syncing keeps the newest change to each one (including taking a rating or tick off).
 const STAMPED = ["conf", "notes", "rp", "ppDone", "marked", "qtext"];
+const SHARED = ["physOpt", "newPerDay"];
 function shadowOf(s) {
   const o = new Map();
   for (const k of STAMPED.concat("qs")) for (const [id, v] of Object.entries(s[k] || {})) o.set(k + ":" + id, JSON.stringify(v));
   for (const m of s.mistakes || []) o.set("mistakes:" + m.id, JSON.stringify(m));
+  for (const k of SHARED) o.set("set:" + k, JSON.stringify((s.settings || {})[k]));
   return o;
 }
 let SHADOW = shadowOf(S);
@@ -6483,7 +6625,12 @@ view = resolveView(view) || "home";
 // The topics you chose (for each subject) and the session you haven't finished are saved on this device. The session stays
 // on the Practice page, whichever subject is selected and even after closing the app, until you tap Finish session.
 const PR_KEY = "labbook-practice";
-let PR = null;
+let PR = null, PRACSIG = null;
+// Take on the practice place saved on another device.
+function usePractice(d) {
+  try { if (d) localStorage.setItem(PR_KEY, JSON.stringify(d)); else localStorage.removeItem(PR_KEY); } catch (e) { /* ignore */ }
+  PR = null; PRACSIG = null; ui.cp = null;
+}
 function prac() {
   if (PR) return PR;
   let o = null; try { o = JSON.parse(localStorage.getItem(PR_KEY) || "null"); } catch (e) { /* start fresh */ }
@@ -6508,6 +6655,10 @@ function savePractice() {
     if (ui.cp && ui.cp[s]) out.cp[s] = Object.assign({}, ui.cp[s], { built: null });
   }
   try { localStorage.setItem(PR_KEY, JSON.stringify(out)); } catch (e) { /* storage unavailable */ }
+  // share it with the other devices when the choices or the session really change (not just the clock or scrolling)
+  const sig = JSON.stringify(out, (k, v) => k === "elapsed" || k === "y" || k === "t0" || k === "aiBusy" || k === "aiWait" || k === "aiErr" || k === "built" ? undefined : v);
+  if (PRACSIG === null) { PRACSIG = sig; if (!S.prac.t && out.session) { S.prac = { t: 1, d: out }; save(); } }
+  else if (sig !== PRACSIG) { PRACSIG = sig; S.prac = { t: Date.now(), d: out }; save(); }
 }
 function clearPractice() { PR = { phys: {}, chem: {}, ps: null }; ui.cp = null; try { localStorage.removeItem(PR_KEY); } catch (e) { /* ignore */ } }
 Object.defineProperty(ui, "ps", { get: () => prac().ps, set: v => { prac().ps = v; } });
@@ -6961,7 +7112,7 @@ function practiceSession() {
       const lines = Math.max(3, p.l || 3) + (ps.lines[key] || 0);
       return `<div class="q-part">
         <div class="q-part-head"><span class="mono part-l">(${LETTERS[pi]})</span><p>${esc(p.q)}</p><span class="part-m mono">[${p.m} mark${p.m === 1 ? "" : "s"}]</span></div>
-        ${(NOPEN || ps.kb[key]) ? `<textarea class="answer-box" data-input="qtext" data-v="${esc(key)}" style="min-height:${lines * 30}px" placeholder="Type your answer${p.u ? " (unit: " + esc(p.u) + ")" : ""}">${esc(S.qtext[key] || "")}</textarea>`
+        ${NOPEN && inkHas(inkKey) ? `<span class="muted small">Written on the tablet</span><div class="ink lined ro" data-ro="1" data-ink="${esc(inkKey)}"></div>` : ""}${!NOPEN && !ps.kb[key] && (S.qtext[key] || "").trim() ? `<span class="muted small">Typed answer</span><textarea class="answer-box" data-input="qtext" data-v="${esc(key)}" style="min-height:60px">${esc(S.qtext[key])}</textarea>` : ""}${(NOPEN || ps.kb[key]) ? `<textarea class="answer-box" data-input="qtext" data-v="${esc(key)}" style="min-height:${lines * 30}px" placeholder="Type your answer${p.u ? " (unit: " + esc(p.u) + ")" : ""}">${esc(S.qtext[key] || "")}</textarea>`
           : `<div class="ink lined" data-ink="${esc(inkKey)}" style="height:${lines * 44}px"></div>`}
         <div class="row part-tools"><button class="btn small ghost" data-act="ps-lines" data-v="${esc(key)}">More lines</button>${NOPEN ? "" : `<button class="btn small ghost" data-act="ps-kb" data-v="${esc(key)}">${ps.kb[key] ? icon("pen") + "Write with S Pen" : icon("keyboard") + "Type instead"}</button>${ps.kb[key] ? "" : `<button class="btn small ghost" data-act="ink-clear" data-v="${esc(inkKey)}">Clear this answer</button>`}`}${p.u ? `<span class="muted small">Unit: ${esc(p.u)}</span>` : ""}</div>
         ${shown ? `<div class="scheme"><div class="row" style="justify-content:space-between"><b>Mark scheme</b><span class="mono">${got} / ${p.m}</span></div>
@@ -8340,7 +8491,7 @@ const ACT = {
   },
   reset: () => { ui.confirmReset = true; render(); },
   "reset-no": () => { ui.confirmReset = false; render(); },
-  "reset-yes": () => { const th = S.settings.theme, time = S.use; S = fresh(); S.settings.theme = th; S.use = time; S.del["reset:all"] = Date.now(); indexCustom(); ui.confirmReset = false; ui.study = null; ui.quiz = null; clearPractice(); save(); render(); toast("Progress erased"); }
+  "reset-yes": () => { const th = S.settings.theme, time = S.use; S = fresh(); S.settings.theme = th; S.use = time; S.del["reset:all"] = Date.now(); PRACSIG = null; indexCustom(); ui.confirmReset = false; ui.study = null; ui.quiz = null; clearPractice(); save(); render(); toast("Progress erased"); }
 };
 const CHANGE = {
   "pred-file": el => { const files = [...el.files]; el.value = ""; if (files.length) addExtraFiles(cur(), files); },
