@@ -1,5 +1,5 @@
 /* Service worker: keeps the app working with no internet. BUILD is replaced by build-offline.ps1. */
-const CACHE = "labbook-20261127-1006";
+const CACHE = "labbook-20261127-1013";
 const CORE = ["./", "./index.html", "./manifest.webmanifest", "./vendor/pdf.min.js", "./vendor/pdf.worker.min.js", "./vendor/jszip.min.js", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {
