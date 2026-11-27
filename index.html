@@ -397,6 +397,11 @@ body.ps-open .penbar { left: calc((100% - min(46%, 520px)) / 2); max-width: calc
 .nt-compact .nt-nav, .nt-compact .nt-acts { display: none; }
 .nt-forq { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 2px solid var(--accent); border-radius: 16px; }
 .nt-forq > h2 { font-size: 1.15rem; }
+.when { margin-top: 4px; }
+.when > summary { cursor: pointer; color: var(--accent); font-size: .82rem; font-weight: 500; min-height: 28px; padding: 4px 0; }
+.when ul { list-style: none; margin: 4px 0 2px; padding: 0; max-width: 330px; }
+.when li { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; font-size: .82rem; color: var(--muted); border-top: 1px solid var(--line); }
+.when li.hit { color: var(--ink); font-weight: 600; }
 .nt-all { font-size: .85rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; border-top: 1px solid var(--line); padding-top: 12px; }
 .gm { padding: 10px 14px; border-radius: 16px; max-width: 94%; line-height: 1.5; font-size: .95rem; overflow-wrap: anywhere; }
 .gm.u { align-self: flex-end; background: var(--accent-soft); border-bottom-right-radius: 4px; }
@@ -571,7 +576,7 @@ kbd { font-family: var(--f-mono); font-size: .76rem; padding: 2px 7px; border-ra
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261127-1236";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261127-1240";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -4908,6 +4913,17 @@ window.INTEL = {
     { t: "Examiner report: Physics Paper 1, June 2022", u: "https://filestore.aqa.org.uk/sample-papers-and-mark-schemes/2022/june/AQA-74081-WRE-JUN22.PDF" },
     { t: "Examiner report: Physics Paper 2, June 2019", u: "https://filestore.aqa.org.uk/sample-papers-and-mark-schemes/2019/june/AQA-74082-WRE-JUN19.PDF" }
   ],
+  // Predicted papers published by other people, shown on the Predicted paper tab. Only add what the page itself says.
+  others: {
+    checked: "2026-11-27",
+    note: "These are not from AQA, nobody has advance knowledge of the exams, and Lab Book hasn't checked their quality. Prices can change. No free 2027 papers turned up in this check.",
+    list: [
+      { s: "phys", t: "AQA A-level Physics 2027 predicted papers bundle", by: "MissPhys's Shop on Tes", price: "£9.00, editable Word files", what: "Paper 1, Paper 2, Paper 3A and Paper 3B (Astrophysics only), with mark schemes.", u: "https://www.tes.com/teaching-resource/aqa-a-level-physics-2027-predicted-papers-bundle-mark-schemes-13547696" },
+      { s: "phys", t: "AQA A-level Physics predicted papers 2027", by: "MME", price: "from £24.99, printed and posted", what: "One pack is three papers with mark schemes. No download version.", u: "https://mmerevise.co.uk/shop/a-level/a-level-physics/a-level-physics-predicted-papers/" },
+      { s: "chem", t: "AQA A-level Chemistry predicted papers for June 2027", by: "Chemistry with Chloe", price: "£24.99, PDF download", what: "Papers 1, 2 and 3 with mark schemes, sold as part of a revision pack.", u: "https://chemistrywithchloe.com/aqa-a-level-chemistry-predicted-papers/" },
+      { s: "chem", t: "AQA A-level Chemistry predicted papers 2026/27", by: "MME", price: "from £24.99, printed and posted (£19.99 offer seen)", what: "One pack is three papers with mark schemes. No download version.", u: "https://mmerevise.co.uk/shop/a-level/a-level-chemistry/a-level-chemistry-predicted-papers/" }
+    ]
+  },
   themes: {
     phys: [
       "Unit conversions (MeV to J, cm² to m², minutes to seconds) lose easy marks, so write the units on every line.",
@@ -7331,7 +7347,7 @@ function practicalPanel(s) {
   const rows = practicalRows(s), cls = { "Very likely": "green", Likely: "amber", Possible: "", Unlikely: "" }, busy = !!ui.predBusy;
   return `<section class="panel" id="pred-practicals"><div class="panel-head"><div class="stack" style="gap:2px"><h2>Required practicals</h2><span class="muted small">${rows ? `How often each one shows up across ${rows[0].of} exam series` : "Not analysed yet"}</span></div>
     <button class="btn ${rows ? "" : "primary"}" data-act="pred-rp" ${busy ? "disabled" : ""}>${rows ? "Re-analyse practicals" : "Analyse practicals"}</button></div>
-    ${rows ? `<div class="table-wrap"><table><thead><tr><th>Practical</th><th>Likelihood</th><th>Seen</th><th>Papers</th></tr></thead><tbody>${rows.map(r => `<tr><td><b>RP${r.p.n}</b> ${esc(r.p.t)}${r.why.length ? `<div class="muted small">${esc(r.why.join("; "))}</div>` : ""}</td><td><span class="chip ${cls[r.tier]}">${r.tier}</span></td><td class="mono" style="white-space:nowrap">${r.seen}/${r.of}</td><td class="mono" style="white-space:nowrap">${r.papers.join(", ") || "—"}</td></tr>`).join("")}</tbody></table></div>
+    ${rows ? `<div class="table-wrap"><table><thead><tr><th>Practical</th><th>Likelihood</th><th>Seen</th><th>Papers</th></tr></thead><tbody>${rows.map(r => `<tr><td><b>RP${r.p.n}</b> ${esc(r.p.t)}${r.why.length ? `<div class="muted small">${esc(r.why.join("; "))}</div>` : ""}${whenHTML("when-" + r.p.id, S.pred[s].rp.series.map(x => ({ ser: x.ser, hit: x.found[r.p.id] ? "Paper " + [...x.found[r.p.id]].sort().join(", ") : "" })))}</td><td><span class="chip ${cls[r.tier]}">${r.tier}</span></td><td class="mono" style="white-space:nowrap">${r.seen}/${r.of}</td><td class="mono" style="white-space:nowrap">${r.papers.join(", ") || "—"}</td></tr>`).join("")}</tbody></table></div>
     <p class="muted small">Found by looking for each practical's apparatus and wording in the question papers, so treat it as a rough guide. Any practical can be asked: revise all of them.</p>`
       : `<p class="small">This reads the question papers on your ${DEV} and counts how often each required practical appears. Your topic likelihoods stay as they are.</p>`}
   </section>`;
@@ -7505,7 +7521,26 @@ function intelPanel(s) {
 }
 function intelPrompt() {
   const I = window.INTEL || {};
-  return `Please update the Lab Book predicted papers with the latest information about the ${I.exam || "next"} AQA A-level Physics (7408) and Chemistry (7405) exams. The predictions were last updated on ${I.updated || "an earlier date"}. Search for anything new (AQA advance information, timetable or specification changes, new examiner reports, trend analyses), update src/predict-intel.js with the sources, dates and any topic boosts, rebuild, and publish the app.`;
+  return `Please update the Lab Book predicted papers with the latest information about the ${I.exam || "next"} AQA A-level Physics (7408) and Chemistry (7405) exams. The predictions were last updated on ${I.updated || "an earlier date"}. Search for anything new (AQA advance information, timetable or specification changes, new examiner reports, trend analyses), and for new 2027 predicted papers published by other people or websites. Update src/predict-intel.js with the sources, dates, any topic boosts and the list of other predicted papers, rebuild, and publish the app.`;
+}
+// "When it appeared": one line per exam series, newest first, that opens under a topic or practical.
+function whenHTML(key, rows) {
+  const last = rows.find(r => r.hit), open = (ui.noteOpen || {})[key];
+  return `<details class="when" data-key="${key}" ${open ? "open" : ""}><summary>${last ? "Last seen " + esc(last.ser) : "Not found in any series"} · when it showed up</summary><ul>${rows.map(r => `<li class="${r.hit ? "hit" : ""}"><span>${esc(r.ser)}</span><span>${r.hit || "not found"}</span></li>`).join("")}</ul></details>`;
+}
+// For a topic: roughly how many marks it had in each series, from its share of the matched pages.
+function topicWhen(s, name, id, marks) {
+  const arr = ((S.pred[s] || {}).papers || {})[name] || [];
+  return whenHTML(`when-${name}-${id}`, arr.map(r => { const share = r.sh[id] || 0; return { ser: r.ser, hit: share ? `about ${Math.max(1, Math.round(share * marks))} mark${Math.round(share * marks) > 1 ? "s" : ""}` : "" }; }));
+}
+// Predicted papers other people have published. Claude keeps this list in predict-intel.js.
+function othersPanel(s) {
+  const O = (window.INTEL || {}).others; if (!O) return "";
+  const list = (O.list || []).filter(x => x.s === s);
+  const when = new Date(O.checked + "T12:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  return `<section class="panel" id="pred-others"><div class="panel-head"><div class="stack" style="gap:2px"><h2>Other people's 2027 predicted papers</h2><span class="muted small">Checked ${when}</span></div><button class="btn small" data-act="intel-ask">Ask for an update</button></div>
+    ${list.length ? `<div class="list">${list.map(x => `<div class="item" style="flex-wrap:wrap;align-items:flex-start"><span class="item-main" style="min-width:200px"><b>${esc(x.t)}</b><span class="muted small">${esc(x.by)} · ${esc(x.price)}</span><span class="small" style="display:block">${esc(x.what)}</span></span><a class="btn small" href="${esc(x.u)}" target="_blank" rel="noopener">Open website</a></div>`).join("")}</div>` : `<div class="empty">None found for ${SUBJ[s].name} yet.</div>`}
+    <p class="muted small">${esc(O.note)}</p></section>`;
 }
 function predictedTab(s) {
   const sub = SUBJ[s], P = S.pred && S.pred[s], stored = [...ALL_FILES.entries()].filter(([n, v]) => v.subj === s && v.k === 0 && PDB.have.has(n)).length, busy = ui.predBusy;
@@ -7516,21 +7551,21 @@ function predictedTab(s) {
     <p class="small">AQA does not release what is coming, so nobody can truly predict the paper. This reads every ${sub.name} question paper stored on your ${DEV}, matches each page to its specification topic, and counts how often each topic is examined, giving more weight to recent years and a small boost to topics that have been absent for a while. Treat it as a guide for where to spend revision time, and still revise everything.</p>
     ${stored ? "" : `<p class="small"><b>Import the ${sub.name} papers first.</b> Use the Past papers tab and pick ${sub.name} papers.zip. The papers stay on your ${DEV}.</p>`}
   </section>`;
-  if (!P) return top + intelPanel(s);
+  if (!P) return top + othersPanel(s) + intelPanel(s);
   const cards = papers.map(name => {
     const pr = predictFor(s, name); if (!pr) return "";
     const paper = sub.papers.find(p => p.name === name), M = paper ? paper.marks : 0, seed = (ui.predSeed && ui.predSeed[s + name]) || 1, built = ui.predBuilt && ui.predBuilt[s + name];
     const tierCls = { "Very likely": "green", Likely: "amber", Possible: "", Unlikely: "" };
     return `<section class="panel"><div class="panel-head"><div class="stack" style="gap:2px"><h2>${esc(name)}</h2><span class="muted small">${esc(paper ? paper.covers : "")}</span></div></div>
       <p class="small muted">From ${pr.n} papers, ${esc(pr.from)} to ${esc(pr.to)}.</p>
-      <div class="table-wrap"><table><thead><tr><th>Topic</th><th>Likelihood</th><th>Seen</th><th>Expect</th></tr></thead><tbody>${pr.rows.slice(0, 14).map(r => `<tr><td><b>${esc(r.t.code)}</b> ${esc(r.t.t)}${r.why.length ? `<div class="muted small">${esc(r.why.join("; "))}</div>` : ""}</td><td><span class="chip ${tierCls[r.tier]}">${r.tier}</span></td><td class="mono" style="white-space:nowrap">${r.seen}/${r.of}</td><td class="mono" style="white-space:nowrap">~${Math.max(1, Math.round(r.pct * M))} marks</td></tr>`).join("")}</tbody></table></div>
-      ${pr.rows.length > 14 ? `<details class="disc"><summary><span class="item-main"><b>All other topics</b></span></summary><div class="body"><div class="table-wrap"><table><tbody>${pr.rows.slice(14).map(r => `<tr><td>${esc(r.t.code)} ${esc(r.t.t)}</td><td><span class="chip ${tierCls[r.tier]}">${r.tier}</span></td><td class="mono">${r.seen}/${r.of}</td></tr>`).join("")}</tbody></table></div></div></details>` : ""}
+      <div class="table-wrap"><table><thead><tr><th>Topic</th><th>Likelihood</th><th>Seen</th><th>Expect</th></tr></thead><tbody>${pr.rows.slice(0, 14).map(r => `<tr><td><b>${esc(r.t.code)}</b> ${esc(r.t.t)}${r.why.length ? `<div class="muted small">${esc(r.why.join("; "))}</div>` : ""}${topicWhen(s, name, r.t.id, M)}</td><td><span class="chip ${tierCls[r.tier]}">${r.tier}</span></td><td class="mono" style="white-space:nowrap">${r.seen}/${r.of}</td><td class="mono" style="white-space:nowrap">~${Math.max(1, Math.round(r.pct * M))} marks</td></tr>`).join("")}</tbody></table></div>
+      ${pr.rows.length > 14 ? `<details class="disc"><summary><span class="item-main"><b>All other topics</b></span></summary><div class="body"><div class="table-wrap"><table><tbody>${pr.rows.slice(14).map(r => `<tr><td>${esc(r.t.code)} ${esc(r.t.t)}${topicWhen(s, name, r.t.id, M)}</td><td><span class="chip ${tierCls[r.tier]}">${r.tier}</span></td><td class="mono">${r.seen}/${r.of}</td></tr>`).join("")}</tbody></table></div></div></details>` : ""}
       <div class="row"><button class="btn primary" data-act="pred-build" data-v="${esc(name)}">Build predicted ${esc(name)}</button>${built ? `<button class="btn" data-act="pred-start" data-v="${esc(name)}">Start it (${built.marks} marks)</button><button class="btn ghost" data-act="pred-shuffle" data-v="${esc(name)}">Different questions</button>` : ""}</div>
       ${built ? `<p class="small muted">${built.mc ? built.mc + " multiple choice and " : ""}${built.w} written questions, ${built.marks} marks out of ${built.max}. Allow ${esc(built.time)}. It is built from the question bank, weighted to the topics above.</p>` : ""}
     </section>`;
   }).join("");
   const themes = ((window.INTEL && window.INTEL.themes) || {})[s] || [];
-  return top + cards + practicalPanel(s) + (themes.length ? `<section class="panel"><h2>What examiners keep flagging</h2><p class="muted small">Recurring points from AQA's published examiner reports.</p><ul class="tight">${themes.map(t => `<li>${esc(t)}</li>`).join("")}</ul></section>` : "") + intelPanel(s);
+  return top + cards + practicalPanel(s) + othersPanel(s) + (themes.length ? `<section class="panel"><h2>What examiners keep flagging</h2><p class="muted small">Recurring points from AQA's published examiner reports.</p><ul class="tight">${themes.map(t => `<li>${esc(t)}</li>`).join("")}</ul></section>` : "") + intelPanel(s);
 }
 function paperLog(s) {
   const sub = SUBJ[s], pre = (ui.prefill && ui.prefill.subj === s) ? ui.prefill : {};
