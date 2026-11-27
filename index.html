@@ -490,6 +490,10 @@ body.ps-open .penbar { left: calc((100% - min(46%, 520px)) / 2); max-width: calc
 .topic-chip .tc-n { font-size: .72rem; color: var(--muted); }
 .topic-chip[aria-pressed="true"] { background: var(--accent-soft); border-color: transparent; box-shadow: inset 0 0 0 1.5px var(--accent); }
 .topic-chip[aria-pressed="true"]::before { content: "✓"; font-weight: 700; color: var(--accent); }
+.year-block { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
+.year-block.off { opacity: .38; filter: grayscale(1); }
+.year-block button:disabled { cursor: default; }
+.pc .year-block .topic-chip:disabled:hover { filter: none; }
 
 /* Priorities */
 .prio-list { display: flex; flex-direction: column; }
@@ -543,7 +547,7 @@ kbd { font-family: var(--f-mono); font-size: .76rem; padding: 2px 7px; border-ra
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261125-2154";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261127-0904";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -6154,23 +6158,33 @@ function topicWeights(s) {
   const w = {}, n = {}; for (const name of PRED_PAPERS[s]) { const pr = predictFor(s, name); if (!pr) continue; pr.rows.forEach(r => { w[r.t.id] = (w[r.t.id] || 0) + r.pct; n[r.t.id] = (n[r.t.id] || 0) + 1; }); }
   for (const id in w) w[id] /= n[id]; return Object.keys(w).length ? w : null;
 }
+// The year a topic is taught in (12 or 13). Chemistry topics carry it; in physics only the first section is Year 12.
+const yearOf = t => (t.y ? t.y === 1 : t.sec === "p-core1") ? 12 : 13;
+// The chosen topics that go into the paper. With one year picked, ticks in the other year are kept but left out.
+const cpTopics = st => st.topics.filter(id => TOPICS[id] && (!st.year || yearOf(TOPICS[id]) === st.year));
 function buildCustom(s, st) {
   const { M, mc } = cpMarks(s, st), w = st.weighted ? topicWeights(s) : null, rate = marksRate(s);
-  const items = st.topics.map(id => ({ tid: id, score: w ? (w[id] || 0) + 0.02 : 1 }));
+  const items = cpTopics(st).map(id => ({ tid: id, score: w ? (w[id] || 0) + 0.02 : 1 }));
   const b = assemblePaper(s, items, M, mc, st.seed);
   const short = b.marks < M - 4, minutes = short ? Math.max(5, Math.round(b.marks / rate / 5) * 5) : st.minutes;
   return { ...b, max: M, minutes, short, weighted: !!w };
 }
 function customTab(s) {
-  const st = cpState(s), sub = SUBJ[s], sel = new Set(st.topics), { M, mc } = cpMarks(s, st), b = st.built;
-  const groups = sub.sections.map(sec => {
-    const ts = sub.topics.filter(t => t.sec === sec.id && (optOK(t) || sel.has(t.id))); if (!ts.length) return "";
-    const allOn = ts.every(t => sel.has(t.id));
-    return `<div class="topic-group"><div class="row topic-group-head"><span class="field-l">${esc(sec.name)}</span><button class="btn small ghost" data-act="cp-sec" data-v="${sec.id}">${allOn ? "Clear" : "Select all"}</button></div>
-      <div class="topic-chips">${ts.map(t => { const n = qList(s).filter(q => q.t === t.id).length; return `<button class="topic-chip" data-act="cp-tog" data-v="${t.id}" aria-pressed="${sel.has(t.id)}"><span class="mono">${esc(t.code)}</span>${esc(t.t)}<span class="tc-n">${n}</span></button>`; }).join("")}</div></div>`;
+  const st = cpState(s), sub = SUBJ[s], sel = new Set(cpTopics(st)), picked = new Set(st.topics), { M, mc } = cpMarks(s, st), b = st.built;
+  const secName = sec => sec.id === "p-core1" || sec.id === "p-core2" ? "Core topics" : sec.id === "p-opt" ? "Options (Paper 3B)" : sec.name;
+  const groups = [12, 13].map(y => {
+    const off = !!st.year && st.year !== y;
+    const secs = sub.sections.map(sec => {
+      const ts = sub.topics.filter(t => t.sec === sec.id && yearOf(t) === y && (optOK(t) || picked.has(t.id))); if (!ts.length) return "";
+      const allOn = ts.every(t => sel.has(t.id));
+      return `<div class="topic-group"><div class="row topic-group-head"><span class="field-l">${esc(secName(sec))}</span><button class="btn small ghost" data-act="cp-sec" data-v="${sec.id}" data-y="${y}" ${off ? "disabled" : ""}>${allOn ? "Clear" : "Select all"}</button></div>
+        <div class="topic-chips">${ts.map(t => { const n = qList(s).filter(q => q.t === t.id).length; return `<button class="topic-chip" data-act="cp-tog" data-v="${t.id}" aria-pressed="${sel.has(t.id)}" ${off ? "disabled" : ""}><span class="mono">${esc(t.code)}</span>${esc(t.t)}<span class="tc-n">${n}</span></button>`; }).join("")}</div></div>`;
+    }).join("");
+    return secs && `<div class="year-block${off ? " off" : ""}"><h3>Year ${y}</h3>${secs}</div>`;
   }).join("");
+  const yearPick = `<div class="row" style="gap:6px" role="group" aria-label="Year">${[[0, "Both years"], [12, "Year 12"], [13, "Year 13"]].map(([v, l]) => `<button class="btn small ${(st.year || 0) === v ? "primary" : ""}" data-act="cp-year" data-v="${v}" aria-pressed="${(st.year || 0) === v}">${l}</button>`).join("")}</div>`;
   const hasPred = !!(S.pred && S.pred[s]);
-  return `<section class="panel"><div class="panel-head"><div class="stack" style="gap:2px"><h2>1. Topics</h2><span class="muted small">${sel.size ? `${sel.size} topic${sel.size === 1 ? "" : "s"} selected` : "Tap the topics you want in the paper."}</span></div>${sel.size ? `<button class="btn small ghost" data-act="cp-none">Clear all</button>` : ""}</div>${groups}</section>
+  return `<section class="panel"><div class="panel-head"><div class="stack" style="gap:2px"><h2>1. Topics</h2><span class="muted small">${sel.size ? `${sel.size} topic${sel.size === 1 ? "" : "s"} selected` : "Tap the topics you want in the paper."}</span></div>${picked.size ? `<button class="btn small ghost" data-act="cp-none">Clear all</button>` : ""}</div>${yearPick}${groups}</section>
   <section class="panel"><h2>2. How long do you have?</h2>
     <div class="row" style="gap:6px">${[30, 45, 60, 90, 120].map(m => `<button class="btn small ${st.minutes === m ? "primary" : ""}" data-act="cp-min" data-v="${m}">${fmtMins(m)}</button>`).join("")}</div>
     <label class="field" for="cp-slider">Exam length: <b id="cp-len">${fmtMins(st.minutes)}</b><input id="cp-slider" type="range" min="15" max="180" step="5" value="${st.minutes}" data-input="cp-slider"></label>
@@ -6441,10 +6455,11 @@ const ACT = {
   "upd-apply": () => applyUpdate(),
   "upd-later": () => { const b = document.getElementById("upd-bar"); if (b) b.remove(); },
   "cp-tog": el => { const st = cpState(cur()), i = st.topics.indexOf(el.dataset.v); if (i >= 0) st.topics.splice(i, 1); else st.topics.push(el.dataset.v); st.built = null; render(); },
-  "cp-sec": el => { const s = cur(), st = cpState(s), ids = SUBJ[s].topics.filter(t => t.sec === el.dataset.v && (optOK(t) || st.topics.includes(t.id))).map(t => t.id), all = ids.every(id => st.topics.includes(id)); st.topics = all ? st.topics.filter(id => !ids.includes(id)) : [...new Set(st.topics.concat(ids))]; st.built = null; render(); },
+  "cp-sec": el => { const s = cur(), st = cpState(s), ids = SUBJ[s].topics.filter(t => t.sec === el.dataset.v && yearOf(t) === +el.dataset.y && (optOK(t) || st.topics.includes(t.id))).map(t => t.id), all = ids.every(id => st.topics.includes(id)); st.topics = all ? st.topics.filter(id => !ids.includes(id)) : [...new Set(st.topics.concat(ids))]; st.built = null; render(); },
   "cp-none": () => { const st = cpState(cur()); st.topics = []; st.built = null; render(); },
   "cp-min": el => { const st = cpState(cur()); st.minutes = +el.dataset.v; st.built = null; render(); },
-  "cp-build": () => { const s = cur(), st = cpState(s); if (!st.topics.length) { toast("Choose at least one topic"); return; } const b = buildCustom(s, st); if (!b.ids.length) { toast("There are no questions for those topics yet"); return; } st.built = b; render(); toast("Your paper is ready"); },
+  "cp-year": el => { const st = cpState(cur()); st.year = +el.dataset.v; st.built = null; render(); },
+  "cp-build": () => { const s = cur(), st = cpState(s); if (!cpTopics(st).length) { toast("Choose at least one topic"); return; } const b = buildCustom(s, st); if (!b.ids.length) { toast("There are no questions for those topics yet"); return; } st.built = b; render(); toast("Your paper is ready"); },
   "cp-shuffle": () => { const s = cur(), st = cpState(s); st.seed = (st.seed + 1) % 100000; st.built = buildCustom(s, st); render(); },
   "cp-start": () => { const s = cur(), st = cpState(s), b = st.built; if (!b) { toast("Tap Build my paper first"); return; } startPractice({ ids: b.ids, random: false, minutes: b.minutes, label: `Custom ${SUBJ[s].name} paper` }); },
   "cloud-sync": () => cloudSync(),
