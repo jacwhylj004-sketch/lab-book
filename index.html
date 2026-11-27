@@ -554,7 +554,7 @@ kbd { font-family: var(--f-mono); font-size: .76rem; padding: 2px 7px; border-ra
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261127-0940";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261127-0953";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -3262,7 +3262,7 @@ window.NOTES = {"phys":{"groups":[{"id":"01-Measurements-and-Errors","n":"01","t
     H("Elimination"),
     K("Conditions", "Hot ethanolic KOH: OH⁻ acts as a base and removes an H from the adjacent carbon, forming an alkene (HBr eliminated).", "Aqueous NaOH, warm: substitution. Ethanolic KOH, hot: elimination. Both occur to some extent."),
     H("Ozone depletion"),
-    K("CFCs", "UV breaks the C–Cl bond, making Cl• radicals: Cl• + O₃ → ClO• + O₂, ClO• + O → Cl• + O₂. The overall reaction O₃ + O → 2O₂, with Cl• a catalyst.", "CFCs were replaced by HFCs and hydrocarbons, which don't release chlorine."),
+    K("CFCs", "UV breaks the C–Cl bond, making Cl• radicals: Cl• + O₃ → ClO• + O₂, ClO• + O₃ → 2O₂ + Cl•. The overall reaction is 2O₃ → 3O₂, with Cl• a catalyst.", "CFCs were replaced by HFCs and hydrocarbons, which don't release chlorine."),
     Tp("Check the conditions: 'aqueous' or 'ethanolic' decides between substitution and elimination."),
     W("Don't say the C–F bond is weak: it is the strongest, so fluoroalkanes are the least reactive.")
   ];
@@ -3835,6 +3835,711 @@ window.NOTES = {"phys":{"groups":[{"id":"01-Measurements-and-Errors","n":"01","t
   ];
 
   Object.assign(window.NC.topics, T);
+})();
+
+/* Adds extra depth to the study notes without changing their layout. Used by the notes-z*.js files that follow.
+   NCADD(topicId, [where, ...blocks], …) where "where" is:
+     an existing heading  → the blocks go at the end of that section, above its closing exam tip and common mistake
+     "+New heading"       → a new section at the end of the topic
+     "start"              → above the first heading */
+(function () {
+  const { H } = window.NCH;
+  const closing = b => b.t === "tip" || b.t === "warn";
+  window.NCADD = function (id, ...sections) {
+    const list = window.NC.topics[id];
+    if (!list) { console.warn("Notes: no topic " + id); return; }
+    const headed = list.some(b => b.t === "h");
+    for (const [where, ...blocks] of sections) {
+      if (where[0] === "+") {
+        let at = list.length; // in a topic that had no headings, the closing tips stay last
+        if (!headed) while (at && closing(list[at - 1])) at--;
+        list.splice(at, 0, H(where.slice(1)), ...blocks); continue;
+      }
+      let from = 0, end;
+      if (where === "start") { end = list.findIndex(b => b.t === "h"); if (end < 0) end = list.length; }
+      else {
+        from = list.findIndex(b => b.t === "h" && b.text === where);
+        if (from < 0) { console.warn("Notes: no heading '" + where + "' in " + id); continue; }
+        end = from + 1; while (end < list.length && list[end].t !== "h") end++;
+      }
+      while (end > from + 1 && closing(list[end - 1])) end--;
+      list.splice(end, 0, ...blocks);
+    }
+  };
+})();
+
+/* Extra depth: physics Year 12 (p1–p12). */
+(function () {
+  const { H, P, D, E, K, Tp, W, S, TB } = window.NCH, add = window.NCADD;
+
+  add("p1",
+    ["Uncertainty",
+      S("Worked example: density of a cube", "Side = 2.00 ± 0.01 cm (0.5%). Mass = 21.6 ± 0.1 g (0.46%).", "Volume = side³, so its uncertainty = 3 × 0.5% = 1.5%.", "Density = m / V = 2.70 g cm⁻³, uncertainty = 1.5% + 0.46% ≈ 2.0%.", "Quote it as 2.70 ± 0.05 g cm⁻³."),
+      K("Quoting results", "Give the uncertainty to 1 (at most 2) significant figures.", "Round the value to the same decimal place as its uncertainty.", "Give a calculated answer to no more significant figures than the least precise data.")],
+    ["Graphs",
+      TB(["Relationship", "Plot", "Gradient / intercept"], ["y = k x²", "y against x²", "gradient = k"], ["y = k / x", "y against 1/x", "gradient = k"], ["y = A xⁿ", "ln y against ln x", "gradient = n, intercept = ln A"], ["y = A e^(−kx)", "ln y against x", "gradient = −k, intercept = ln A"]),
+      K("A graph that earns full marks", "Points cover more than half of each axis, with sensible scales (1, 2, 5).", "Axes labelled as quantity / unit, e.g. T² / s².", "Gradient from a large triangle (more than half the line) using points on the line, not data points.", "Circle anomalies and leave them out of the best-fit line.")],
+    ["+Estimation",
+      D("Order of magnitude", "The nearest power of ten to a value. Two quantities differ by n orders of magnitude if their ratio is about 10ⁿ."),
+      TB(["Quantity", "Rough value"], ["Diameter of an atom", "10⁻¹⁰ m"], ["Diameter of a nucleus", "10⁻¹⁵ to 10⁻¹⁴ m"], ["Mass of an adult", "70 kg"], ["Mass of an apple", "0.1 kg (weight about 1 N)"], ["Walking speed", "1.5 m s⁻¹"], ["Room temperature", "293 K"], ["Atmospheric pressure", "1 × 10⁵ Pa"])]);
+
+  add("p2",
+    ["The atom",
+      K("Specific charge examples", "Electron: 1.76 × 10¹¹ C kg⁻¹ (the largest of any particle). Proton: 9.58 × 10⁷ C kg⁻¹.", "For an ion use the net charge (electrons lost or gained × e) and the total mass."),
+      TB(["Decay", "Change to nucleus"], ["Alpha", "A falls by 4, Z falls by 2"], ["Beta minus", "A unchanged, Z rises by 1 (n → p)"], ["Beta plus", "A unchanged, Z falls by 1 (p → n)"], ["Electron capture", "A unchanged, Z falls by 1"])],
+    ["Particles and antiparticles",
+      E("Pair production (minimum photon energy)", "h f(min) = 2 E₀", "E₀ = rest energy of one particle (0.511 MeV for an electron). It happens near a nucleus, which takes some momentum."),
+      E("Annihilation", "h f(min) = E₀  for each of the two photons", "Two photons moving in opposite directions conserve momentum. PET scanners use this.")],
+    ["The four interactions",
+      TB(["Process", "Equation", "Exchange particle"], ["β⁻ decay", "n → p + e⁻ + ν̄ₑ", "W⁻"], ["β⁺ decay", "p → n + e⁺ + νₑ", "W⁺"], ["Electron capture", "p + e⁻ → n + νₑ", "W⁺ (from the proton)"], ["Electron–proton collision", "e⁻ + p → n + νₑ", "W⁻ (from the electron)"], ["Electrons repelling", "e⁻ + e⁻ → e⁻ + e⁻", "virtual photon"])],
+    ["Classifying particles",
+      K("Decays to know", "The proton is the only stable baryon; other baryons eventually decay to a proton.", "Pions are the exchange particles of the strong force between nucleons. Kaons decay into pions.", "Muon: μ⁻ → e⁻ + ν̄ₑ + ν(μ). A muon is a heavier relative of the electron."),
+      K("Strange particles", "Made in **pairs** by the strong interaction (strangeness conserved).", "Decay by the weak interaction, so they live unusually long.", "Particle physics relies on international teams, large accelerators and shared funding and data.")]);
+
+  add("p3",
+    ["The photoelectric effect",
+      S("Explaining the threshold frequency", "One photon gives all its energy to one electron (a one-to-one interaction).", "The electron needs at least φ to leave the surface.", "If hf < φ no electron escapes, however many photons arrive.", "Electrons deeper in the metal lose some energy on the way out, so KE ranges from zero up to the maximum."),
+      E("Intensity and photon rate", "photons per second = power ÷ h f", "At fixed intensity, a higher frequency means fewer photons per second.")],
+    ["Energy levels and line spectra",
+      TB(["Process", "What happens"], ["Excitation", "An electron moves up a level by absorbing exactly the energy gap"], ["Ionisation", "An electron is removed: needs at least the energy from its level to 0 eV"], ["De-excitation", "The electron drops, in one jump or several, emitting a photon each time"]),
+
+      K("Absorption spectrum", "White light through a cool gas leaves dark lines.", "Photons matching an energy gap are absorbed, then re-emitted in all directions.")],
+    ["Wave–particle duality",
+      E("Electrons accelerated through a p.d. V", "½ m v² = e V     λ = h / √(2 m e V)", "A bigger V gives a faster electron and a shorter wavelength."),
+]);
+
+  add("p4",
+    ["+Describing waves",
+      TB(["Term", "Meaning"], ["Amplitude", "Maximum displacement from equilibrium"], ["Wavelength", "Shortest distance between two points in phase"], ["Period", "Time for one complete oscillation"], ["Phase difference", "How far one point is through a cycle compared with another (rad or degrees)"], ["Intensity", "Power per unit area, proportional to amplitude²"]),
+      E("Phase difference", "Δφ = 2π d / λ", "d = distance between the points along the wave. In phase: 0, 2π. Antiphase: π.")],
+    ["+Polarisation",
+      D("Polarised wave", "A transverse wave whose oscillations are in one plane only. Longitudinal waves cannot be polarised."),
+      K("Uses and evidence", "Proof that light and other EM waves are transverse.", "Polaroid sunglasses cut glare, which is partly polarised by reflection.", "TV and radio aerials must be lined up with the plane of polarisation.", "Two filters at 90° block the light completely.")],
+    ["+Harmonics on a string",
+      TB(["Harmonic", "Loops", "Length", "Frequency"], ["First", "1", "L = λ/2", "f"], ["Second", "2", "L = λ", "2f"], ["Third", "3", "L = 3λ/2", "3f"]),
+      E("Wave speed on a string", "v = √(T / μ)", "Adjacent nodes are λ/2 apart. A node to the next antinode is λ/4."),
+]);
+
+  add("p5",
+    ["Refraction",
+      E("Absolute and relative index", "ₙ1→2 = n₂ / n₁ = c₁ / c₂", "Air has n ≈ 1.00."),
+      K("Fibre losses", "**Absorption** reduces the amplitude of the signal.", "**Pulse broadening** from dispersion can make pulses overlap, limiting the data rate.", "Repeaters regenerate the signal; step-index fibres have a core of one index inside cladding of a lower one.", "Uses: communications and medical endoscopes.")],
+    ["Diffraction",
+      E("Central maximum width (single slit)", "width ∝ λ D / a", "a = slit width. The central maximum is twice as wide as the others.")],
+    ["Interference",
+      S("Why two slits give fringes", "Each slit diffracts the light so the two beams overlap.", "The slits are coherent because one source lights both.", "Bright where the path difference is a whole number of wavelengths; dark at half-integer values."),
+      K("White light patterns", "Double slit: white central fringe, then fringes with blue nearer the centre and red outside.", "Grating: white central order, then spectra. Red is deviated most, and higher orders can overlap."),
+      S("Deriving d sin θ = nλ", "Take two adjacent slits a distance d apart.", "At angle θ the path difference between them is d sin θ.", "For a maximum this equals nλ."),
+      E("Highest order visible", "n(max) = d / λ  (round down)", "Number of maxima seen = 2n(max) + 1. d = 1 ÷ (lines per metre)."),
+      K("Grating uses", "Splitting starlight to identify elements from spectral lines.", "X-ray diffraction, using crystal planes as the grating, to find atomic spacing.")]);
+
+  add("p6",
+    ["Resolving vectors",
+      E("On a slope at angle θ", "along the slope: m g sin θ     into the slope: m g cos θ", "Normal reaction = mg cos θ if no other force has a perpendicular component."),
+      K("Three forces in equilibrium", "They can be drawn as a closed triangle.", "Their lines of action pass through one point.", "Solve by resolving, or with the sine and cosine rules on the triangle.")],
+    ["Moments",
+      S("Beam with two supports", "Draw every force, including the weight at the centre of mass.", "Take moments about one support to find the force at the other.", "Use upward forces = downward forces to find the first."),
+      K("Stability and toppling", "An object topples when the line of action of its weight falls outside its base.", "A low centre of mass and a wide base make it more stable.", "For a uniform regular object the centre of mass is at its geometric centre.")]);
+
+  add("p7",
+    ["Motion graphs",
+      K("Reading curves", "Instantaneous velocity or acceleration = gradient of a tangent.", "Estimate area under a curve by counting squares.", "Average velocity = total displacement ÷ total time.", "Bouncing ball on a v–t graph: parallel sloping lines (gradient g) joined by near-vertical jumps at each bounce.")],
+    ["Free fall and projectiles",
+      S("Reaching terminal velocity", "At the start only weight acts (little drag), so acceleration is g.", "Speed rises, so drag rises and the resultant force falls.", "Acceleration decreases.", "Drag equals weight: constant terminal velocity."),
+      K("Effect of air resistance on a projectile", "Lower maximum height and shorter range.", "The path is no longer symmetrical: it comes down more steeply.", "Horizontal velocity decreases during the flight."),
+      K("Vehicles", "Top speed is reached when driving force equals total resistive force.", "Lift acts upwards on wings; drag opposes motion through the air."),
+      S("Worked example", "A ball is thrown horizontally at 12 m s⁻¹ from 20 m up.", "Vertical: 20 = ½ × 9.81 × t², so t = 2.02 s.", "Horizontal: x = 12 × 2.02 = 24 m.", "Final vertical velocity = 9.81 × 2.02 = 19.8 m s⁻¹, so speed = √(12² + 19.8²) = 23 m s⁻¹.")]);
+
+  add("p8",
+    ["Newton's laws",
+      K("Free-body diagrams", "Draw only the forces acting **on** the chosen object.", "Weight acts down from the centre of mass; the normal reaction is at right angles to the surface; friction opposes relative motion."),
+      E("Lift accelerating upwards", "R − m g = m a", "R is what scales would read. Accelerating downwards R < mg; in free fall R = 0."),
+],
+    ["Momentum",
+      TB(["Event", "Momentum", "Kinetic energy"], ["Elastic collision", "Conserved", "Conserved"], ["Inelastic collision", "Conserved", "Some transferred to other stores"], ["Explosion", "Conserved (total often zero)", "Increases"]),
+      E("Rebound off a wall", "Δp = m (v + u)", "Velocity reverses, so the speeds add. A bounce gives a bigger force than sticking."),
+
+      E("Force from a continuous jet", "F = v × (Δm / Δt)", "Used for hoses, rockets and wind on a surface.")]);
+
+  add("p9",
+    ["start",
+
+
+
+
+      S("Worked example", "A 2.0 kg block slides 5.0 m down a 30° slope from rest, with friction 4.0 N.", "Ep lost = 2.0 × 9.81 × 5.0 sin 30° = 49 J.", "Work against friction = 4.0 × 5.0 = 20 J.", "Ek = 29 J, so v = √(2 × 29 / 2.0) = 5.4 m s⁻¹.")]);
+
+  add("p10",
+    ["Springs and Hooke's law",
+      TB(["Springs", "Combined stiffness"], ["In series (same force)", "1/k = 1/k₁ + 1/k₂ (softer)"], ["In parallel (same extension)", "k = k₁ + k₂ (stiffer)"]),
+      K("Energy transfers", "Area under a force–extension graph = work done on the sample.", "In an elastic spring system: elastic energy ⇌ kinetic ⇌ gravitational potential.", "Materials that deform plastically absorb energy, which is useful in crumple zones and car safety.")],
+    ["Stress, strain and the Young modulus",
+      TB(["Point on the curve", "Meaning"], ["Limit of proportionality", "Stress stops being proportional to strain"], ["Elastic limit", "Beyond this the sample is permanently stretched"], ["Yield point", "Large extra strain for little extra stress"], ["Ultimate tensile stress", "Maximum stress the material can withstand"], ["Breaking point", "The sample fractures"]),
+      E("Energy per unit volume", "energy / volume = ½ × stress × strain", "Area under a stress–strain graph (linear region)."),
+      K("Loading and unloading", "A metal stretched past its elastic limit unloads parallel to the original line, leaving a permanent extension.", "Rubber returns to its length but follows a different curve: the area of the loop is energy transferred to heating.")]);
+
+  add("p11",
+    ["start",
+      E("Charge carriers", "Q = I t     number of electrons = Q / e", "Potential difference is the work done per unit charge: V = W / Q.")],
+    ["I–V characteristics",
+      S("Measuring a characteristic", "Use a potential divider (variable supply) so the p.d. can start from zero.", "Ammeter in series (ideally zero resistance), voltmeter in parallel (ideally infinite resistance).", "Reverse the supply to take negative values.", "Add a protective resistor for a diode."),
+      K("Check which way round the axes are", "On an I against V graph, resistance = V / I at a point, not 1 / gradient (unless the line goes through the origin).")],
+    ["Resistivity",
+
+
+]);
+
+  add("p12",
+    ["Series and parallel",
+
+      E("Two resistors in parallel", "R = R₁ R₂ / (R₁ + R₂)", "The total is always smaller than the smallest branch. In parallel the larger current takes the smaller resistance.")],
+    ["emf and internal resistance",
+
+      TB(["Identical cells", "Total emf", "Total internal resistance"], ["n in series", "n ε", "n r"], ["n in parallel", "ε", "r / n"]),
+      K("Choosing internal resistance", "A car battery needs very low r to deliver large currents.", "A high-voltage supply has high r to limit the current if short-circuited.", "Maximum power reaches the load when R = r."),
+      K("Divider under load", "A component connected across one resistor lowers that section's resistance, so its share of the p.d. falls.")]);
+})();
+
+/* Extra depth: physics Year 13 and options (p13–p27). */
+(function () {
+  const { H, P, D, E, K, Tp, W, S, TB } = window.NCH, add = window.NCADD;
+
+  add("p13",
+    ["start",
+
+],
+    ["start",
+      TB(["Situation", "Force equation (towards centre)"], ["Top of a vertical circle", "T + mg = mv²/r"], ["Bottom of a vertical circle", "T − mg = mv²/r"], ["Car over a hump", "mg − R = mv²/r"], ["Car on a flat bend", "friction = mv²/r"], ["Banked track, no friction", "tan θ = v² / (r g)"], ["Conical pendulum", "T sin θ = mv²/r and T cos θ = mg"]),
+      E("Minimum speed at the top of a loop", "v = √(g r)", "Here the tension or reaction is zero and weight alone provides the force. Over a hump, contact is lost above this speed.")]);
+
+  add("p14",
+    ["start",
+
+      E("Maximum values", "v(max) = ω A     a(max) = ω² A", "Maximum speed at the centre; maximum acceleration at the extremes."),
+      TB(["Graph against time", "Relationship to displacement"], ["Velocity", "Gradient of x–t; leads x by a quarter cycle"], ["Acceleration", "Gradient of v–t; in antiphase with x"], ["Kinetic and potential energy", "Each goes through two cycles per oscillation"])],
+    ["start",
+],
+    ["Damping and resonance",
+      K("Sharpness of resonance", "At resonance the driver frequency equals the natural frequency and the driver leads by π/2.", "More damping gives a lower, broader peak at a slightly lower frequency.", "Well below resonance the system is in phase with the driver; well above it is in antiphase."),
+      K("Examples", "Useful: radio tuning circuits, musical instruments, MRI.", "Harmful: bridges and buildings in wind or earthquakes, vibrating machinery. Reduce with damping or by changing the natural frequency.")]);
+
+  add("p15",
+    ["start",
+      K("Changing internal energy", "Heat the system, or do work on it.", "Temperature measures the average kinetic energy of particles.", "During a change of state potential energy changes; kinetic energy (temperature) stays the same."),
+      D("Absolute zero", "0 K (−273 °C), where particles have minimum internal energy. T(K) = θ(°C) + 273.")],
+    ["start",
+      E("Continuous flow method", "P t = m c ΔT + Q(lost)", "Run twice with different flow rates but the same ΔT. Subtracting the two equations removes the heat loss."),
+      S("Reducing heat loss", "Insulate and use a lid.", "Stir, then record the highest temperature reached after switching off.", "Start as far below room temperature as you finish above it."),
+      S("Mixing problems", "Energy lost by the hot object = energy gained by the cold one.", "Include mL for any melting or boiling, and mcΔT for each stage separately.")]);
+
+  add("p16",
+    ["Gas laws",
+      E("Moles and molecules", "N = n Nₐ     p V = n R T = N k T", "k = R / Nₐ = 1.38 × 10⁻²³ J K⁻¹. Molar mass is the mass of one mole; molecular mass = molar mass / Nₐ."),
+      E("Work done by a gas", "W = p ΔV", "At constant pressure. In general it is the area under a p–V graph.")],
+    ["Kinetic theory",
+      S("Deriving pV = ⅓ N m (c rms)²", "One molecule hits a wall of a box of length L: Δp = 2mu.", "Time between hits on that wall = 2L / u.", "Average force = Δp / Δt = m u² / L.", "Sum over N molecules and divide by area: p = N m (mean u²) / V.", "Motion is random, so mean u² = ⅓ of mean c²."),
+      E("Root mean square speed", "c(rms) = √(3 k T / m)", "Square the speeds, average them, then take the square root. Lighter molecules move faster at the same temperature."),
+      K("Evidence and history", "Gas laws are empirical (from experiment); kinetic theory is derived from a model.", "For an ideal gas, internal energy is all kinetic.")]);
+
+  add("p17",
+    ["start",
+      E("Potential and field strength", "g = −ΔV / Δr     ΔW = m ΔV", "Potential is zero at infinity and negative elsewhere. Gradient of V–r gives g; area under g–r gives ΔV."),
+      K("Field lines and equipotentials", "Radial field lines point towards the mass; closer lines mean a stronger field.", "Equipotentials are at right angles to field lines. No work is done moving along one.")],
+    ["Orbits",
+      E("Kepler's third law", "T² = (4π² / G M) r³", "From GMm/r² = mω²r. A log T against log r graph has gradient 1.5."),
+      E("Energy of a satellite", "Ek = G M m / 2r     Ep = −G M m / r     total = −G M m / 2r", "Dropping to a lower orbit: speed rises, total energy falls."),
+      TB(["Orbit", "Features", "Uses"], ["Geostationary", "24 h, above the equator, same direction as Earth's spin, about 36 000 km up", "TV and communications"], ["Low polar", "About 90 min, covers the whole Earth as it spins", "Imaging, weather, mapping"])]);
+
+  add("p18",
+    ["start",
+
+      E("Field and potential", "E = ΔV / Δr (magnitude)     ΔW = Q ΔV", "Field points from high to low potential. Area under E–r gives ΔV."),
+      K("Charged particle entering a uniform field at right angles", "Constant velocity along the plates.", "Constant acceleration a = EQ/m across them.", "The path is a parabola, like a projectile."),
+      K("Spheres", "Outside a charged sphere, treat all the charge as at the centre.", "Air behaves almost like a vacuum.")]);
+
+  add("p19",
+    ["start",
+      E("Parallel plate capacitor", "C = A ε₀ εᵣ / d", "εᵣ = relative permittivity (dielectric constant)."),
+      K("How a dielectric works", "Polar molecules rotate to line up with the field.", "Their field opposes the applied field, so p.d. falls for the same charge.", "Capacitance therefore increases."),
+      K("Energy graphs", "Q against V is a straight line: gradient = C, area = energy.", "A battery supplies QV; half is stored and half is transferred in the resistance."),
+      K("Rules of thumb", "In one time constant the charge falls to 37% on discharge, or rises to 63% on charging.", "About 5RC is effectively complete."),
+
+      TB(["Graph", "Gradient", "Area"], ["Q–t", "Current", "—"], ["I–t", "—", "Charge moved"])]);
+
+  add("p20",
+    ["Forces in magnetic fields",
+      E("Circular path of a charge", "r = m v / (B Q)", "From BQv = mv²/r. The force is perpendicular to v, so speed is unchanged."),
+      E("Cyclotron frequency", "f = B Q / (2π m)", "Independent of speed, so an alternating p.d. of this frequency accelerates the particle each time it crosses between the dees."),
+      K("Direction", "For electrons the current is opposite to their motion.", "B is measured in tesla: 1 T gives 1 N on 1 m of wire carrying 1 A at right angles.")],
+    ["Electromagnetic induction",
+      D("Lenz's law", "The induced emf acts in the direction that opposes the change causing it. This follows from conservation of energy."),
+      E("Rotating coil", "N Φ = B A N cos ωt     ε = B A N ω sin ωt", "emf is greatest when the flux linkage is zero (changing fastest)."),
+      E("Rod cutting field lines", "ε = B l v")],
+    ["Transformers",
+      K("Why power is sent at high voltage", "For the same power, higher V means lower I.", "Cable losses are I²R, so they fall sharply.", "Step up for transmission, step down for use."),
+      E("Efficiency", "efficiency = (Is Vs) / (Ip Vp)")],
+    ["+Alternating current",
+      E("Rms values", "V(rms) = V₀ / √2     I(rms) = I₀ / √2", "The rms value is the d.c. value that gives the same mean power. UK mains: 230 V rms, about 325 V peak, 50 Hz."),
+      E("Mean power", "P = I(rms) V(rms)"),
+      K("Oscilloscope", "Vertical: volts per division gives peak voltage (peak-to-peak ÷ 2).", "Horizontal: time per division gives period, so f = 1/T.", "With the time base off, a.c. shows as a vertical line.")]);
+
+  add("p21",
+    ["Types of radiation",
+      K("Rutherford scattering", "Most alpha particles pass straight through: the atom is mostly empty space.", "A few deflect by more than 90°: a tiny, dense, positive nucleus holds most of the mass.", "Done in a vacuum, with a thin gold foil."),
+      E("Inverse-square law for gamma", "I = k / x²", "Applies to a point source with negligible absorption."),
+      K("Handling safely", "Tongs, source pointed away, short exposure time, lead-lined storage, distance.", "Alpha is most dangerous inside the body (highly ionising); gamma and beta are the bigger risk outside.")],
+    ["Decay law",
+      E("Decay constant", "ΔN / Δt = −λ N     A = λ N", "λ is the probability of a nucleus decaying per second. Mass m contains N = (m / M) × Nₐ nuclei."),
+      K("Random and spontaneous", "Random: you cannot say which nucleus decays next, or when.", "Spontaneous: not affected by temperature, pressure or chemical state.", "A ln N or ln A against t graph is a straight line with gradient −λ.")],
+    ["+Nuclear stability",
+      K("N–Z graph", "Stable light nuclei have N ≈ Z; heavy ones need more neutrons to offset proton repulsion.", "Above the line of stability (neutron rich): β⁻ decay.", "Below it (proton rich): β⁺ decay or electron capture.", "Very heavy nuclei (Z > about 82): alpha decay."),
+      K("Excited nuclei", "After a decay a nucleus may be left excited and emit gamma.", "Technetium-99m is metastable: it emits only gamma with a 6 h half-life, ideal for medical tracing.")]);
+
+  add("p22",
+    ["Nuclear size",
+      E("Closest approach (upper limit for radius)", "Ek = Q q / (4π ε₀ r)", "All the alpha particle's kinetic energy becomes electric potential energy in a head-on approach."),
+      E("Electron diffraction", "sin θ ≈ 0.61 λ / R", "θ = angle of the first minimum. Electrons are better than alphas because they do not feel the strong force."),
+],
+    ["Mass and energy",
+      E("Mass defect", "Δm = Z mₚ + (A − Z) mₙ − m(nucleus)", "1 u = 931.5 MeV. If atomic masses are given, subtract the electrons."),
+      K("Binding energy per nucleon graph", "Rises steeply for light nuclei, peaks near iron-56 (about 8.8 MeV), then falls slowly.", "Energy is released when products have **more** binding energy per nucleon.")],
+    ["Fission and fusion",
+
+      D("Critical mass", "The smallest mass of fuel that sustains a chain reaction (on average one neutron from each fission causes another).")]);
+
+  add("p23",
+    ["Telescopes",
+      E("Resolving power (Rayleigh criterion)", "θ ≈ λ / D", "θ in radians; D = aperture diameter. Smaller θ means finer detail."),
+      TB(["Telescope", "Main points"], ["Radio", "Long λ so poor resolution; works from the ground"], ["Infrared", "Cooled; placed high or in space"], ["UV and X-ray", "In space, since the atmosphere absorbs them"], ["CCD detector", "Quantum efficiency over 70%, far better than the eye at about 1%"])],
+    ["Stars",
+      E("Distance modulus", "m − M = 5 log₁₀(d / 10)", "m = apparent magnitude, M = absolute magnitude (at 10 pc), d in parsecs. A difference of 1 magnitude is a brightness ratio of 2.51."),
+      TB(["Class", "Colour", "Temperature / K"], ["O", "blue", "25 000 – 50 000"], ["B", "blue", "11 000 – 25 000"], ["A", "blue-white", "7500 – 11 000"], ["F", "white", "6000 – 7500"], ["G", "yellow-white", "5000 – 6000"], ["K", "orange", "3500 – 5000"], ["M", "red", "below 3500"])],
+    ["Cosmology",
+      K("Exotic objects", "**Quasars**: very distant, very powerful sources, powered by supermassive black holes.", "**Type 1a supernovae** are standard candles and showed that expansion is accelerating (dark energy).", "**Exoplanets** are found from the star's Doppler wobble or dips in brightness (transits)."),
+      E("Schwarzschild radius", "Rs = 2 G M / c²")]);
+
+  add("p24",
+    ["The eye and ear",
+],
+    ["X-rays",
+      E("Half-value thickness", "x½ = ln 2 / μ     μₘ = μ / ρ", "μₘ = mass attenuation coefficient."),
+      K("Better image, lower dose", "Small focal spot gives sharper edges.", "A grid removes scattered X-rays.", "Intensifying screens or flat panel detectors reduce the dose.", "Contrast media such as barium absorb strongly.")],
+    ["Radionuclide imaging and ultrasound",
+      E("Effective half-life", "1 / Tₑ = 1 / Tₚ + 1 / T_b", "Tₚ = physical half-life, T_b = biological half-life."),
+      E("Acoustic impedance and reflection", "Z = ρ c     Ir / I₀ = ((Z₂ − Z₁) / (Z₂ + Z₁))²", "A coupling gel matches impedances so ultrasound enters the body."),
+      K("Gamma camera", "Lead collimator picks out photons travelling straight in.", "A scintillator turns each gamma photon into light.", "Photomultiplier tubes turn light into electrical pulses to build the image.")]);
+
+  add("p25",
+    ["Rotational dynamics",
+      E("Torque, work and power", "T = I α     W = T θ     P = T ω     rotational Ek = ½ I ω²", "Angular momentum = I ω; angular impulse = T Δt."),
+      E("Moment of inertia of point masses", "I = Σ m r²", "Mass further from the axis gives a larger I.")],
+    ["Thermodynamics",
+      TB(["Process", "Condition", "First law Q = ΔU + W"], ["Isothermal", "T constant, pV constant", "Q = W"], ["Adiabatic", "No heat, pV^γ constant", "ΔU = −W"], ["Constant pressure", "W = pΔV", "Q = ΔU + pΔV"], ["Constant volume", "W = 0", "Q = ΔU"]),
+      E("Maximum (Carnot) efficiency", "efficiency = (T_H − T_C) / T_H", "Temperatures in kelvin. Real engines fall well short."),
+      E("Engine power", "indicated power = area of p–V loop × cycles per second × cylinders", "Friction power = indicated − brake power (brake power = Tω). Input = calorific value × fuel flow rate."),
+      E("Coefficient of performance", "refrigerator: Q_C / W     heat pump: Q_H / W")]);
+
+  add("p26",
+    ["Discovering the electron",
+      K("Measuring e/m", "Magnetic deflection: r = mv / Be.", "Find v from the accelerating p.d. (½mv² = eV) or balance fields (v = E/B).", "The value was about 1800 times that of the hydrogen ion."),
+      E("Millikan's oil drop", "stationary: Q V / d = m g     falling: m g = 6π η r v", "Terminal speed with the field off gives r and so m. Charges came in multiples of 1.6 × 10⁻¹⁹ C.")],
+    ["Light and electrons as waves and particles",
+      TB(["Scientist", "Contribution"], ["Newton", "Corpuscles: predicted light speeds up in water (wrong)"], ["Huygens", "Wavelets: explains refraction with light slowing down"], ["Young", "Double slit interference supports waves"], ["Maxwell", "EM waves with c = 1 / √(μ₀ ε₀)"], ["Hertz", "Produced and detected radio waves"], ["Planck and Einstein", "Quanta explain black-body and photoelectric results"]),
+      K("Electron microscopes", "TEM: electrons pass through a thin sample; higher p.d. gives shorter λ and better resolution, limited by lens aberrations and sample thickness.", "STM: electrons tunnel across a tiny gap; the current tracks the surface height.")],
+    ["Special relativity",
+      K("Evidence", "Michelson–Morley found no fringe shift, so no ether was detected and c is constant.", "Muons made high in the atmosphere reach the ground because of time dilation.", "Bertozzi's experiment showed electrons never exceed c, however much energy they gain."),
+      E("Relativistic kinetic energy", "Ek = (γ − 1) m₀ c²     γ = 1 / √(1 − v²/c²)")]);
+
+  add("p27",
+    ["+Discrete devices",
+      TB(["Device", "Behaviour", "Use"], ["MOSFET", "Gate voltage controls current; very high input resistance", "Switching with almost no input current"], ["Zener diode", "Holds a steady p.d. in reverse breakdown", "Voltage regulation"], ["Photodiode", "Reverse current proportional to light intensity", "Light detectors, fibre receivers"], ["Hall sensor", "Voltage proportional to magnetic field", "Position and rotation sensing"])],
+    ["Operational amplifiers",
+      TB(["Circuit", "Output"], ["Comparator", "Saturates positive or negative depending on which input is larger"], ["Inverting", "−(Rf / Rin) × Vin"], ["Non-inverting", "(1 + Rf / R1) × Vin"], ["Summing", "−Rf × (V1/R1 + V2/R2 + …)"], ["Difference", "(V+ − V−) × Rf / R1"]),
+      E("Gain–bandwidth", "gain × bandwidth = constant", "More gain means a narrower frequency range.")],
+    ["Filters, logic and conversion",
+      E("Sampling", "sampling rate ≥ 2 × highest signal frequency", "More bits give finer voltage steps: 2ⁿ levels."),
+      K("Communication", "AM: bandwidth = 2 × the highest signal frequency.", "FM: bandwidth = 2 (Δf + fₘ); less noisy but wider.", "Time-division multiplexing shares one link between several signals.")]);
+})();
+
+/* Extra depth: physical and inorganic chemistry (c1–c18). */
+(function () {
+  const { H, P, D, E, K, Tp, W, S, TB } = window.NCH, add = window.NCADD;
+
+  add("c1",
+    ["Mass spectrometry (time of flight)",
+      E("Time of flight", "KE = ½ m v²     t = d / v     so  t = d √(m / 2KE)", "m = mass of one ion in kg = (M ÷ 1000) ÷ (6.022 × 10²³)"),
+      K("Two ways to ionise", "**Electron impact**: high-energy electrons knock off an electron. X(g) → X⁺(g) + e⁻. Causes fragmentation.", "**Electrospray**: sample in a volatile solvent through a charged needle; molecules gain H⁺. Peak at Mr + 1; little fragmentation.", "Detection: ions gain electrons at the detector; the current is proportional to abundance.")],
+    ["Electron configuration",
+      TB(["Species", "Configuration"], ["Fe", "[Ar] 3d⁶ 4s²"], ["Fe²⁺", "[Ar] 3d⁶"], ["Fe³⁺", "[Ar] 3d⁵"])],
+    ["Ionisation energy",
+      K("Reading successive ionisation energies", "Each is bigger than the last: the same nuclear charge holds fewer electrons.", "A large jump means the next electron comes from a shell closer to the nucleus.", "The number of electrons removed before the jump gives the group."),
+      E("Second ionisation energy", "X⁺(g) → X²⁺(g) + e⁻")]);
+
+  add("c2",
+    ["start",
+      TB(["Conversion", "Do this"], ["cm³ to dm³", "÷ 1000"], ["cm³ to m³", "÷ 1 000 000"], ["kPa to Pa", "× 1000"], ["°C to K", "+ 273"], ["mol dm⁻³ to g dm⁻³", "× Mr"])],
+    ["Formulae and yield",
+      S("Water of crystallisation", "Heat the hydrated salt to constant mass.", "Mass lost = water.", "Divide moles of water by moles of anhydrous salt to get x."),
+      S("Back titration", "React the sample with a known excess of reagent.", "Titrate what is left over.", "Moles reacted with sample = moles added − moles left."),
+      S("Titration calculation", "Moles of the known solution = c × V / 1000.", "Use the equation ratio to find moles of the unknown.", "Scale up if only a portion (e.g. 25.0 cm³ of 250 cm³) was titrated.", "Divide by volume or convert to mass as asked."),
+      K("Limiting reagent", "Find moles of each reactant and divide by its coefficient: the smallest is limiting.", "Always calculate product from the limiting reagent.")]);
+
+  add("c3",
+    ["Types of bonding",
+
+      K("Strength factors", "Ionic: bigger charges and smaller ions give stronger attraction.", "Metallic: more delocalised electrons, higher charge and smaller ions give stronger bonding.")],
+    ["Shapes of molecules",
+      S("Working out a shape", "Count outer electrons on the central atom.", "Add one per bond, and adjust for any charge.", "Halve to get the number of pairs; split into bonding and lone pairs.", "Lone pairs repel more: each reduces the bond angle by about 2.5°.", "Explain: pairs repel to be as far apart as possible.")],
+    ["Polarity and intermolecular forces",
+      K("Hydrogen bonding", "Needs H bonded to N, O or F, and a lone pair on N, O or F.", "Draw the lone pair, partial charges and a straight (180°) O−H···O arrangement.", "Explains the high boiling points of H₂O, HF and NH₃.", "Ice is less dense than water: hydrogen bonds hold molecules in an open lattice."),
+      K("Comparing boiling points", "Longer chains: more electrons and surface contact, so stronger van der Waals forces.", "Branching reduces contact, lowering the boiling point.")]);
+
+  add("c4",
+    ["start",
+      K("Standard conditions", "100 kPa and a stated temperature, usually 298 K, with substances in standard states.")],
+    ["Measuring it",
+
+      K("Assumptions", "Solution has the density and heat capacity of water.", "The container absorbs no heat.", "The reaction is complete.")],
+    ["Hess's law and bond enthalpies",
+      D("Mean bond enthalpy", "The enthalpy needed to break one mole of a covalent bond in the gas phase, averaged over a range of compounds."),
+
+      Tp("Bond enthalpy answers differ from data-book values because mean values are used, and only gases are allowed.")]);
+
+  add("c5",
+    ["+Maxwell–Boltzmann distribution",
+      K("Features of the curve", "Starts at the origin; no molecules have zero energy.", "Never touches the energy axis at high energy.", "Area under the curve = total number of molecules.", "Only molecules beyond Eₐ can react."),
+      TB(["Change", "Effect on curve", "Effect on rate"], ["Higher temperature", "Peak lower and to the right; same area", "Many more molecules exceed Eₐ, so a large increase"], ["Catalyst", "Curve unchanged; Eₐ moves left", "More molecules exceed the lower Eₐ"], ["Higher concentration or pressure", "Larger area", "More frequent collisions"]),
+      E("Rate of reaction", "rate = change in concentration ÷ time", "Units mol dm⁻³ s⁻¹. From a graph, use the gradient of a tangent.")]);
+
+  add("c6",
+    ["start",
+],
+    ["+Using Kc",
+      S("Units of Kc", "Write the expression.", "Substitute mol dm⁻³ for each concentration.", "Cancel to find the units, e.g. N₂ + 3H₂ ⇌ 2NH₃ gives mol⁻² dm⁶."),
+
+      Tp("Reverse the equation and Kc becomes 1 / Kc. Use equilibrium amounts, divided by volume, never the starting amounts.")]);
+
+  add("c7",
+    ["start",
+],
+    ["Half-equations",
+      S("Combining half-equations", "Multiply each so the electrons match.", "Add them and cancel electrons.", "Cancel any H⁺ and H₂O on both sides.", "Check atoms and charge balance."),
+      E("Manganate(VII) with iron(II)", "MnO₄⁻ + 8H⁺ + 5Fe²⁺ → Mn²⁺ + 4H₂O + 5Fe³⁺", "Self-indicating: the end point is the first permanent pale pink."),
+      K("Titration choices", "Use sulfuric acid: HCl would be oxidised, and nitric acid is itself an oxidising agent.", "With ethanedioate, warm the flask: 2MnO₄⁻ + 16H⁺ + 5C₂O₄²⁻ → 2Mn²⁺ + 8H₂O + 10CO₂.")]);
+
+  add("c8",
+    ["Born–Haber cycles",
+      TB(["Enthalpy change", "Definition (per mole)", "Sign"], ["Atomisation", "Gaseous atoms formed from the element", "+"], ["First ionisation", "Electrons removed from gaseous atoms", "+"], ["First electron affinity", "Gaseous atoms gain electrons", "−"], ["Second electron affinity", "Gaseous 1− ions gain electrons", "+"]),
+      E("Enthalpy of solution", "ΔH(solution) = ΔH(lattice dissociation) + ΣΔH(hydration)"),
+      K("Size and charge", "Smaller, more highly charged ions give a larger lattice enthalpy and more exothermic hydration.", "A big gap between Born–Haber and theoretical values shows covalent character.")],
+    ["Entropy and free energy",
+      K("Predicting the sign of ΔS", "Solid < liquid < gas.", "More moles of gas gives a positive ΔS.", "Dissolving usually increases entropy."),
+      E("Temperature at which a reaction becomes feasible", "T = ΔH / ΔS", "Set ΔG = 0. Convert ΔS from J to kJ first."),
+      E("Graph of ΔG against T", "gradient = −ΔS     intercept = ΔH", "A change in gradient marks a change of state."),
+]);
+
+  add("c9",
+    ["start",
+      TB(["Order", "Concentration–time", "Rate–concentration", "Units of k"], ["0", "Straight line down", "Horizontal line", "mol dm⁻³ s⁻¹"], ["1", "Curve with constant half-life", "Straight line through origin", "s⁻¹"], ["2", "Steeper curve, half-life increases", "Upward curve", "mol⁻¹ dm³ s⁻¹"]),
+      K("Rate-determining step", "Species in the rate equation take part in or before the slow step.", "The order shows how many particles of each are involved up to that step.", "Catalysts can appear in the rate equation; zero-order reactants react after the slow step.")],
+    ["Temperature and k",
+
+      E("Halogenoalkane mechanisms", "primary: rate = k[RX][OH⁻]     tertiary: rate = k[RX]", "Tertiary react through a carbocation formed in the slow step.")]);
+
+  add("c10",
+    ["start",
+      S("Units of Kp", "Put the pressure unit (usually kPa) into the expression for each gas.", "Cancel. If gas moles are equal on both sides, there are no units."),
+      TB(["Row", "What goes in it"], ["Initial moles", "Given in the question"], ["Change", "Use the equation ratio"], ["Equilibrium moles", "Initial plus change"], ["Mole fraction", "Moles ÷ total gas moles"], ["Partial pressure", "Mole fraction × total pressure"]),
+      Tp("Use round brackets or p(X) for partial pressures. Square brackets mean concentration and lose the mark.")]);
+
+  add("c11",
+    ["start",
+      K("Writing cells", "The more negative electrode is written on the left; emf = E(right) − E(left).", "Use a platinum electrode when no solid metal is present."),
+
+      S("Predicting a reaction", "Compare the two E° values.", "The more positive half-equation goes forwards (reduction).", "The more negative one goes backwards (oxidation).", "Feasible if the resulting emf is positive."),
+      K("Effect of conditions", "Use Le Chatelier on the half-equation: anything pushing it towards electrons being gained makes E more positive.", "A predicted reaction may not happen if it is very slow or conditions are not standard.")],
+    ["Practical cells",
+      TB(["Cell", "Negative electrode", "Positive electrode"], ["Lithium cell", "Li → Li⁺ + e⁻", "Li⁺ + CoO₂ + e⁻ → Li⁺[CoO₂]⁻"], ["Alkaline H₂ fuel cell", "H₂ + 2OH⁻ → 2H₂O + 2e⁻", "O₂ + 2H₂O + 4e⁻ → 4OH⁻"])]);
+
+  add("c12",
+    ["start",
+
+
+],
+    ["Titration curves",
+      K("Dilution", "Diluting a weak acid raises its pH less than diluting a strong acid.")],
+    ["Buffers",
+      S("Buffer after adding a small amount of acid", "Find moles of HA and A⁻.", "Added H⁺ lowers A⁻ and raises HA by the same amount.", "Put the new values into [H⁺] = Ka × [HA] / [A⁻]."),
+]);
+
+  add("c13",
+    ["Trends across period 3",
+      K("Why first ionisation energy dips", "Al below Mg: the electron lost is in 3p, higher in energy than 3s.", "S below P: the pair in one 3p orbital repel."),
+      K("Electronegativity", "Increases across the period: more protons, smaller atoms, similar shielding.")],
+    ["Melting points",
+      K("Explaining the pattern", "Na to Al: metallic bonding strengthens (more charge, more delocalised electrons).", "Si: giant covalent, the highest.", "S₈ > P₄ > Cl₂ > Ar: van der Waals forces rise with molecule size.", "Always name the structure, then the force broken.")]);
+
+  add("c14",
+    ["Reactions",
+      TB(["Equation", "Use or observation"], ["Mg + H₂O(g) → MgO + H₂", "Bright white flame with steam"], ["Ca + 2H₂O → Ca(OH)₂ + H₂", "Fizzing, cloudy solution"], ["TiCl₄ + 2Mg → Ti + 2MgCl₂", "Titanium extraction"])],
+    ["Compounds",
+
+      E("Flue gas desulfurisation", "CaO + SO₂ → CaSO₃     CaCO₃ + SO₂ → CaSO₃ + CO₂")]);
+
+  add("c15",
+    ["Disproportionation",
+      E("Chlorine water in sunlight", "2Cl₂ + 2H₂O → 4HCl + O₂"),
+],
+    ["Halide ions",
+      TB(["Product from NaI + conc. H₂SO₄", "Sulfur state", "Observation"], ["SO₂", "+4", "Choking gas"], ["S", "0", "Yellow solid"], ["H₂S", "−2", "Bad-egg smell"], ["I₂", "(iodine)", "Black solid, purple vapour"]),
+      K("Reducing power", "Increases from Cl⁻ to I⁻: larger ions with more shielding lose electrons more easily.", "NaF and NaCl give only the hydrogen halide (acid–base reaction).")]);
+
+  add("c16",
+    ["Oxides",
+      TB(["Oxide in water", "Equation", "Approx. pH"], ["Na₂O", "Na₂O + H₂O → 2NaOH", "14"], ["MgO", "MgO + H₂O → Mg(OH)₂", "9"], ["Al₂O₃ and SiO₂", "Insoluble", "7"], ["P₄O₁₀", "P₄O₁₀ + 6H₂O → 4H₃PO₄", "1"], ["SO₂", "SO₂ + H₂O → H₂SO₃", "3"], ["SO₃", "SO₃ + H₂O → H₂SO₄", "0"]),
+]);
+
+  add("c17",
+    ["Complex ions",
+      TB(["Shape", "Example"], ["Octahedral", "[Cu(H₂O)₆]²⁺ (small ligands)"], ["Tetrahedral", "[CuCl₄]²⁻ (large Cl⁻ ligands)"], ["Square planar", "Cisplatin, Pt(NH₃)₂Cl₂"], ["Linear", "[Ag(NH₃)₂]⁺ (Tollens')"]),
+      K("Chelate effect", "Replacing monodentate ligands with bidentate or multidentate ones is favoured.", "More particles are made, so ΔS is positive while ΔH is near zero.", "Haem holds Fe²⁺; O₂ binds reversibly, but CO binds more strongly and is toxic.")],
+    ["Colour",
+      E("Colorimetry", "absorbance ∝ concentration", "Choose the filter that is absorbed most, make a calibration curve, then read off the unknown.")],
+    ["Variable oxidation states and catalysis",
+      TB(["Vanadium state", "Species", "Colour"], ["+5", "VO₂⁺", "yellow"], ["+4", "VO²⁺", "blue"], ["+3", "V³⁺", "green"], ["+2", "V²⁺", "violet"]),
+]);
+
+  add("c18",
+    ["With hydroxide and ammonia",
+      TB(["Ion", "With Na₂CO₃"], ["Fe²⁺", "Green precipitate, FeCO₃"], ["Cu²⁺", "Blue-green precipitate, CuCO₃"], ["Fe³⁺", "Brown precipitate and CO₂ bubbles"], ["Al³⁺", "White precipitate and CO₂ bubbles"]),
+      E("3+ ions with carbonate", "2[Fe(H₂O)₆]³⁺ + 3CO₃²⁻ → 2Fe(H₂O)₃(OH)₃ + 3CO₂ + 3H₂O"),
+      E("Copper(II) with excess ammonia", "Cu(H₂O)₄(OH)₂ + 4NH₃ → [Cu(NH₃)₄(H₂O)₂]²⁺ + 2H₂O + 2OH⁻", "Pale blue precipitate dissolves to a deep blue solution."),
+]);
+})();
+
+/* Extra depth: organic chemistry (c19–c34). */
+(function () {
+  const { H, P, D, E, K, Tp, W, S, TB } = window.NCH, add = window.NCADD;
+
+  add("c19",
+    ["Naming and types of formula",
+
+],
+    ["Isomerism",
+      S("Assigning E or Z", "On each C of the double bond, rank the two groups by atomic number of the first atom.", "If tied, move along the chain to the first difference.", "Higher priority groups on the same side: Z. Opposite sides: E.")],
+    ["Reaction types and mechanisms",
+      TB(["Mechanism", "Typical reactants"], ["Free-radical substitution", "Alkane + halogen, UV"], ["Nucleophilic substitution", "Halogenoalkane + OH⁻, CN⁻, NH₃"], ["Elimination", "Halogenoalkane + OH⁻ in ethanol; alcohol + acid"], ["Electrophilic addition", "Alkene + HBr, Br₂, H₂SO₄"], ["Nucleophilic addition", "Aldehyde or ketone + HCN, NaBH₄"], ["Electrophilic substitution", "Benzene + NO₂⁺ or RCO⁺"], ["Addition–elimination", "Acyl chloride + water, alcohol, NH₃, amine"])]);
+
+  add("c20",
+    ["Crude oil",
+      TB(["Cracking", "Conditions", "Main products"], ["Thermal", "About 1000 K or more, high pressure", "Many alkenes"], ["Catalytic", "About 720 K, slight pressure, zeolite", "Motor fuels and aromatics"]),
+      K("Why crack?", "Long-chain fractions are in surplus; short ones are in higher demand.", "Alkenes are valuable for polymers.")],
+    ["Combustion and pollution",
+      TB(["Pollutant", "Problem", "Removal"], ["CO", "Toxic", "Catalytic converter"], ["NOₓ", "Acid rain, smog", "Catalytic converter"], ["SO₂", "Acid rain", "CaO or CaCO₃ scrubbing"], ["Particulates", "Breathing problems", "Filters"], ["CO₂ and H₂O vapour", "Greenhouse gases", "Reduce fuel use"]),
+      E("Catalytic converter", "2CO + 2NO → 2CO₂ + N₂", "Pt, Pd and Rh spread thinly on a honeycomb for a large surface area.")],
+    ["Radical substitution",
+      S("Chlorination of methane", "Initiation: Cl₂ → 2Cl• (UV).", "Propagation: Cl• + CH₄ → HCl + •CH₃.", "Propagation: •CH₃ + Cl₂ → CH₃Cl + Cl•.", "Termination: any two radicals combine, e.g. 2•CH₃ → C₂H₆.")]);
+
+  add("c21",
+    ["Nucleophilic substitution",
+
+      S("Comparing hydrolysis rates", "Warm each halogenoalkane with aqueous AgNO₃ in ethanol.", "Time the precipitates.", "Iodo is fastest because the C−I bond is weakest.")],
+    ["Elimination",
+      TB(["Favours", "Conditions"], ["Substitution", "Warm, aqueous, primary halogenoalkane"], ["Elimination", "Hot, ethanolic, tertiary halogenoalkane"]),
+      Tp("In elimination OH⁻ acts as a base; in substitution it acts as a nucleophile. Unsymmetrical molecules can give more than one alkene.")],
+    ["Ozone depletion",
+
+      P("Research evidence led to international bans on CFCs; chemists developed chlorine-free replacements such as HFCs.")]);
+
+  add("c22",
+    ["+Markownikoff's rule",
+      K("Which product is major?", "The H adds to the carbon that already has more H atoms.", "This goes through the more stable carbocation: tertiary > secondary > primary.", "Alkyl groups push electron density towards the positive carbon."),
+      TB(["Reagent", "Conditions", "Product"], ["HBr", "Room temperature", "Bromoalkane"], ["Conc. H₂SO₄, then water", "Cold, then warm", "Alcohol"], ["Steam", "H₃PO₄ catalyst, about 300 °C, 60–70 atm", "Alcohol"])],
+    ["+Addition polymers",
+      K("Alkenes as monomers", "The double bond opens and monomers join into a long chain.", "Name as poly(alkene).", "The repeat unit has two backbone carbons, with bonds extending through the brackets.")]);
+
+  add("c23",
+    ["Making ethanol",
+],
+    ["Oxidation",
+      TB(["Alcohol", "Distil as it forms", "Reflux with excess oxidant"], ["Primary", "Aldehyde", "Carboxylic acid"], ["Secondary", "Ketone", "Ketone"], ["Tertiary", "No reaction", "No reaction"]),
+      E("Dehydration", "alcohol → alkene + H₂O", "Conc. H₂SO₄ or H₃PO₄, heat. Makes alkenes, and so polymers, without crude oil.")]);
+
+  add("c24",
+    ["Tests for functional groups",
+      Tp("State reagent, conditions and the colour change from start to finish. Include what happens with the substance that does not react.")],
+    ["Infrared spectroscopy",
+      K("Impurities and greenhouse gases", "Impurities show as extra peaks.", "Gases such as CO₂, CH₄ and water vapour absorb infrared and contribute to warming.")],
+    ["Mass spectrometry",
+      E("High-resolution mass spectrometry", "precise Mr identifies the molecular formula", "e.g. CO = 27.9949, N₂ = 28.0062, C₂H₄ = 28.0313.")]);
+
+  add("c25",
+    ["+Racemic mixtures",
+      D("Racemate", "An equal mixture of both enantiomers. It does not rotate plane-polarised light, because the two effects cancel."),
+      S("Why a racemate forms", "The C=O group (or carbocation) is planar.", "The nucleophile can attack from either side with equal probability.", "Equal amounts of each enantiomer are made."),
+      TB(["Test", "Pure enantiomer", "Racemate"], ["Plane-polarised light", "Rotates it", "No rotation"], ["Melting point and boiling point", "Same for both enantiomers", "Solid may differ"])]);
+
+  add("c26",
+    ["Oxidation and reduction",
+      E("Reduction", "RCHO + 2[H] → RCH₂OH     RCOR' + 2[H] → RCH(OH)R'", "NaBH₄ in aqueous solution supplies the H⁻ nucleophile.")],
+    ["Nucleophilic addition",
+      S("Mechanism with CN⁻", "CN⁻ lone pair attacks the δ+ carbon.", "The C=O pair moves onto oxygen.", "The O⁻ takes H⁺ from HCN or dilute acid to give a hydroxynitrile."),
+      K("Safety and isomers", "Use KCN with dilute acid; HCN and KCN are very toxic.", "Aldehydes and unsymmetrical ketones give racemic mixtures.")]);
+
+  add("c27",
+    ["Carboxylic acids",
+      E("Acid reactions", "2RCOOH + Na₂CO₃ → 2RCOONa + H₂O + CO₂")],
+    ["Esters",
+
+],
+    ["Acyl chlorides and anhydrides",
+      TB(["Nucleophile", "Product from RCOCl"], ["Water", "Carboxylic acid + HCl"], ["Alcohol", "Ester + HCl"], ["Ammonia", "Amide + NH₄Cl"], ["Primary amine", "N-substituted amide"]),
+      S("Addition–elimination", "Nucleophile attacks the δ+ carbon.", "C=O becomes C−O⁻.", "The C=O reforms and Cl⁻ leaves.", "H⁺ is lost.")]);
+
+  add("c28",
+    ["Structure of benzene",
+      TB(["Compound", "Enthalpy of hydrogenation / kJ mol⁻¹"], ["Cyclohexene", "−120"], ["Predicted for three C=C bonds", "−360"], ["Benzene (measured)", "−208"]),
+],
+    ["Electrophilic substitution",
+
+      S("Three-step mechanism", "Make the electrophile.", "Arrow from the ring to the electrophile, giving an intermediate with a broken ring of delocalisation and a positive charge.", "Arrow from the C−H bond back into the ring, losing H⁺ and restoring the catalyst."),
+      K("Why nitration matters", "Used to make explosives such as TNT.", "Reduction of nitrobenzene gives phenylamine, used for dyes.")]);
+
+  add("c29",
+    ["Properties",
+      TB(["Amine", "Base strength", "Reason"], ["Aliphatic (e.g. ethylamine)", "Stronger than NH₃", "Alkyl group pushes electrons onto N"], ["Ammonia", "Middle", "Reference"], ["Aromatic (phenylamine)", "Weaker than NH₃", "Lone pair partly delocalised into the ring"])],
+    ["Making amines",
+],
+    ["+Quaternary salts",
+      K("Making and using them", "Made with excess halogenoalkane.", "Used as cationic surfactants in fabric softeners and hair conditioners.")]);
+
+  add("c30",
+    ["Addition polymers",
+      K("Properties", "Unreactive: non-polar C−C backbone.", "Plasticisers make PVC more flexible.")],
+    ["Condensation polymers",
+      TB(["Polymer", "Monomers", "Use"], ["Terylene (PET)", "Benzene-1,4-dicarboxylic acid + ethane-1,2-diol", "Bottles, fibres"], ["Nylon 6,6", "Hexane-1,6-diamine + hexanedioic acid", "Fabrics, rope"], ["Kevlar", "Benzene-1,4-diamine + benzene-1,4-dicarboxylic acid", "Body armour"]),
+      S("Finding monomers from a chain", "Find the ester or amide links.", "Break each C−O or C−N link.", "Add OH to the C=O side and H to the O or N side."),
+      TB(["Disposal", "Advantage", "Drawback"], ["Landfill", "Cheap", "Uses space; slow to break down"], ["Incineration", "Releases useful energy", "Toxic gases and CO₂"], ["Recycling", "Saves resources", "Sorting is costly"])]);
+
+  add("c31",
+    ["Amino acids",
+      K("Zwitterions", "H₃N⁺−CHR−COO⁻: ionic attractions give high melting points.", "In acid: H₃N⁺−CHR−COOH. In alkali: H₂N−CHR−COO⁻.", "TLC of amino acids: spray with ninhydrin or use UV, then compare Rf values.")],
+    ["Peptides and proteins",
+
+      K("Enzyme action", "The active site is stereospecific: usually only one enantiomer fits.", "Inhibitor drugs block the site; computers help design them.")],
+    ["DNA",
+      TB(["Base pair", "Hydrogen bonds"], ["A with T", "2"], ["C with G", "3"]),
+      K("Cisplatin", "A Pt(II) drug that binds to nitrogen on guanine, replacing Cl⁻ ligands.", "This stops DNA replication and cell division.", "It also affects healthy cells, causing side effects.")]);
+
+  add("c32",
+    ["start",
+      TB(["Change", "Reagents and conditions"], ["Alkane → halogenoalkane", "Halogen, UV"], ["Alkene → alkane", "H₂, Ni"], ["Alkene → halogenoalkane", "HX"], ["Alkene → alcohol", "Steam, H₃PO₄"], ["Halogenoalkane → alcohol", "NaOH(aq), warm"], ["Halogenoalkane → alkene", "KOH in ethanol, hot"], ["Halogenoalkane → nitrile", "KCN, ethanol, reflux"], ["Halogenoalkane → amine", "Excess NH₃, ethanol"], ["Nitrile → amine", "LiAlH₄ or H₂ / Ni"], ["Alcohol → alkene", "Conc. H₂SO₄ or H₃PO₄, heat"], ["Alcohol → aldehyde or ketone", "Acidified K₂Cr₂O₇, distil"], ["Alcohol → carboxylic acid", "Excess K₂Cr₂O₇, reflux"], ["Aldehyde or ketone → alcohol", "NaBH₄"], ["Carbonyl → hydroxynitrile", "KCN then dilute acid"], ["Acid + alcohol → ester", "Conc. H₂SO₄, heat"]),
+      TB(["Aromatic change", "Reagents and conditions"], ["Benzene → nitrobenzene", "Conc. HNO₃ + conc. H₂SO₄"], ["Nitrobenzene → phenylamine", "Sn + HCl, then NaOH"], ["Benzene → phenyl ketone", "RCOCl, AlCl₃"])],
+    ["Practical techniques",
+      K("A good synthesis", "Few steps and high yield.", "High atom economy and non-hazardous materials.", "Avoids solvents where possible.")]);
+
+  add("c33",
+    ["¹³C NMR",
+      K("TMS and solvents", "TMS is the zero standard: inert, volatile, one strong signal from equivalent atoms, upfield of most others.", "Solvents must give no ¹H signal: CCl₄ or deuterated CDCl₃.", "Count environments using symmetry.")],
+    ["¹H NMR",
+      TB(["Splitting pattern", "Typical group"], ["Triplet + quartet", "−CH₂CH₃"], ["Doublet + septet", "−CH(CH₃)₂"], ["Singlet, area 3", "CH₃ with no neighbouring H, e.g. CH₃CO−"]),
+      S("Solving a structure", "Count the signals (environments).", "Use integration for the ratio of H atoms.", "Use shifts with the data sheet to find groups.", "Use splitting (n + 1) to join the pieces.", "Check against Mr and the formula.")]);
+
+  add("c34",
+    ["start",
+      K("How separation works", "The mobile phase carries the mixture over or through the stationary phase.", "Components with greater affinity for the stationary phase move more slowly."),
+      TB(["Method", "Stationary phase", "Mobile phase"], ["TLC", "Silica or alumina on a plate", "Liquid solvent"], ["Column", "Silica or alumina in a column", "Liquid solvent"], ["GC", "Liquid coated on a solid in a heated tube", "Unreactive gas"]),
+      K("GC–MS", "Peak area shows relative amount; retention time helps identify, under the same conditions.")]);
+})();
+
+/* Extra depth for the required practicals: "before" sits above the method, "after" sits below it. */
+(function () {
+  const { K, E, S, TB, W } = window.NCH;
+  const vars = (independent, dependent, control) => TB(["Variable", "In this practical"], ["Independent", independent], ["Dependent", dependent], ["Control", control]);
+  const acc = (...items) => K("Accuracy and uncertainty", ...items);
+  const safe = (...items) => K("Safety", ...items);
+  const add = (id, before, after) => { const r = window.NC.rp[id] || (window.NC.rp[id] = {}); r.before = before; r.after = after; };
+
+  /* Physics */
+  add("prp1", [vars("Length, tension or mass per unit length (one at a time)", "Frequency of the first harmonic", "The other two quantities")],
+    [acc("Find resonance by the largest amplitude with a clear node at each end.", "Measure the mass of several metres of string on a top-pan balance for a smaller percentage uncertainty in μ.", "Graphs: f against √T has gradient 1/(2L√μ); f against 1/L has gradient ½√(T/μ)."),
+      safe("Wear goggles in case the string snaps.", "Put a cushion under the hanging masses.")]);
+  add("prp2", [vars("Slit separation, grating spacing or distance D", "Fringe spacing w or angle θ", "Laser wavelength")],
+    [acc("A larger D gives wider fringes and a smaller percentage uncertainty.", "Measure w over about 10 fringes, from centre to centre, in a darkened room.", "Grating: measure the distance between the two same-order spots, halve it, then θ = tan⁻¹(x / D).", "Check D is measured perpendicular to the screen."),
+      W("10 bright fringes from first to tenth contain only 9 spacings. Count the gaps.")]);
+  add("prp3", [vars("Drop height h", "Fall time t", "Same ball, same release method")],
+    [acc("Take at least three times per height and use the mean.", "A t² against h graph has gradient 2/g; check which way round you plotted.", "A constant error in h shows as an intercept and leaves the gradient unchanged.", "Use a set square to measure h and avoid parallax."),
+      safe("Clamp the stand to the bench and place a catching tray below.")]);
+  add("prp4", [vars("Force (load)", "Extension", "Same wire, original length, temperature")],
+    [acc("Diameter gives the biggest percentage uncertainty (it is squared), so use a micrometer at several places and angles.", "Add a small starting load to straighten the wire before measuring L.", "Searle's apparatus compares with a second wire, cancelling temperature changes and support sag.", "From a force–extension graph, E = gradient × L / A."),
+      safe("Goggles, and a box of soft material under the masses to protect feet.")]);
+  add("prp5", [vars("Length L", "Resistance R = V / I", "Same wire, diameter and temperature")],
+    [acc("Keep the wire straight and taut along a metre ruler.", "Use at least six lengths over a wide range.", "ρ has units Ω m."),
+      safe("A high current makes the wire hot enough to burn.")]);
+  add("prp6", [vars("External resistance, which changes I", "Terminal p.d. V", "Same cell and temperature")],
+    [acc("Use a high-resistance voltmeter.", "Use a wide range of currents for a long line.", "V = ε − Ir matches y = mx + c."),
+      safe("Never short-circuit the cell: it gets hot.")]);
+  add("prp7", [vars("Mass m or length l", "Period T", "Spring (or amplitude), same stand")],
+    [acc("Count from zero as the object passes the marker in the same direction.", "Maximum speed at the equilibrium position makes the timing there most precise.", "Measure l from the pivot to the centre of the bob.", "A T² against m line may have an intercept because the spring itself has mass."),
+      safe("Clamp the stand so it cannot topple.")]);
+  add("prp8", [vars("Pressure (Boyle) or temperature (Charles)", "Volume or column length", "Mass of gas, and temperature or pressure")],
+    [acc("Read the volume at eye level.", "Charles's: V against θ is a straight line that crosses the axis near −273 °C."),
+      safe("Goggles for the pressurised apparatus and hot water.")]);
+  add("prp9", [vars("Time t", "p.d. across the capacitor (or current)", "Capacitance, resistance, starting p.d.")],
+    [E("Linear form", "ln V = −t / (R C) + ln V₀"),
+      acc("A data logger gives many readings and suits short time constants.", "Use a high-resistance voltmeter so it does not give a second discharge path.", "Check: the time to halve is 0.69 RC every time.", "For charging, V = V₀(1 − e^(−t/RC))."),
+      safe("Stay within the voltage rating.", "Discharge the capacitor when finished.")]);
+  add("prp10", [vars("Current I (then length or B)", "Balance reading", "Length of wire in the field, flux density, angle")],
+    [acc("A positive change means the force on the magnet is downwards, so the force on the wire is upwards.", "A balance reading to 0.01 g or better is needed.", "L is the length of wire inside the field.", "Zero the balance before each reading."),
+      safe("Switch off between readings so wires and rheostat do not overheat.")]);
+  add("prp11", [vars("Angle θ between the coil's normal and the field", "Peak induced emf", "Frequency, current in the field coil, position, number of turns")],
+    [acc("Set the oscilloscope volts per division so the trace fills the screen.", "Turning the time base off leaves a vertical line that is easier to measure.", "Use a protractor under the search coil.", "At θ = 0 the flux linkage, and so the emf, is greatest; at 90° it is zero."),
+      safe("Do not let the field coil overheat.")]);
+  add("prp12", [vars("Distance d", "Corrected count rate", "Same source, tube, counting time")],
+    [acc("Radioactive decay is random: count for longer or repeat to reduce the percentage uncertainty (about √N counts).", "Subtract the background rate from every reading.", "Choose a source with a long half-life so activity stays constant."),
+      safe("Keep exposure short and never point the source at anyone.")]);
+
+  /* Chemistry */
+  add("crp1", [],
+    [acc("Weigh by difference: mass of bottle plus solid, minus the emptied bottle.", "Remove the funnel from the burette and fill the space below the tap.", "A white tile makes the colour change clear.", "Ignore the rough titre; average only concordant ones.", "Burette: ±0.05 cm³ per reading, so ±0.10 cm³ per titre."),
+      TB(["Indicator", "Acid colour → alkali colour", "Use for"], ["Phenolphthalein", "colourless → pink", "Weak acid + strong base"], ["Methyl orange", "red → yellow", "Strong acid + weak base"]),
+      safe("Goggles; many alkalis and acids are corrosive or irritant.")]);
+  add("crp2", [vars("Amount of reactant added", "Temperature change", "Volume and concentration of solution, same cup")],
+    [acc("The polystyrene cup and lid cut heat loss.", "Stir continuously.", "Use powdered solid so it reacts quickly.", "The reactant in excess does not set the moles: use the limiting one.", "Main errors: heat loss and ignoring the cup's heat capacity."),
+      E("Percentage uncertainty in ΔT", "(2 × uncertainty per reading ÷ ΔT) × 100"),
+      safe("Goggles; copper sulfate and sodium hydroxide are harmful or corrosive.")]);
+  add("crp3", [vars("Temperature", "Time for the cross to disappear", "Concentrations, volumes, same flask, cross and observer"), E("Reaction", "Na₂S₂O₃ + 2HCl → 2NaCl + S + SO₂ + H₂O")],
+    [acc("Use the mean of the start and end temperatures.", "Judging when the cross vanishes is subjective: a colorimeter or light sensor is better.", "The same amount of sulfur forms each time, so 1/t measures rate."),
+      safe("SO₂ is toxic: use a ventilated room and stay below about 55 °C.", "Pour used mixtures into a stop bath of sodium carbonate.")]);
+  add("crp4", [TB(["Ion", "Positive result"], ["NH₄⁺", "Damp red litmus turns blue"], ["Mg²⁺", "White precipitate with NaOH"], ["Ba²⁺", "White precipitate with sulfate"], ["Cl⁻", "White precipitate, dissolves in dilute NH₃"], ["Br⁻", "Cream precipitate, dissolves in concentrated NH₃"], ["I⁻", "Yellow precipitate, insoluble in NH₃"], ["SO₄²⁻", "White precipitate with acidified BaCl₂"], ["CO₃²⁻", "Fizzing; limewater turns milky"], ["OH⁻", "Red litmus turns blue"])],
+    [K("Why the order matters", "BaCO₃ and Ag₂SO₄ can give false precipitates.", "The added acid removes carbonate ions.", "Use clean tubes and a fresh sample for each test."),
+      safe("Goggles; barium chloride is toxic and silver nitrate stains.")]);
+  add("crp5", [E("Partial oxidation", "CH₃CH₂OH + [O] → CH₃CHO + H₂O")],
+    [acc("Distil off the aldehyde as it forms so it is not oxidised further.", "Aldehydes boil lower than their alcohols (no hydrogen bonding between molecules).", "Thermometer bulb level with the side arm.", "Cool the receiver in ice to reduce evaporation."),
+      safe("Acidified dichromate is toxic and oxidising; wear gloves.", "Ethanal is volatile and flammable.")]);
+  add("crp6", [TB(["Test", "Positive", "Negative"], ["Bromine water", "Orange → colourless", "Stays orange"], ["Acidified K₂Cr₂O₇", "Orange → green", "Stays orange"], ["Tollens'", "Silver mirror", "Stays colourless"], ["Fehling's", "Blue → brick-red precipitate", "Stays blue"], ["NaHCO₃", "Fizzing", "No change"])],
+    [acc("Run a known sample alongside as a comparison.", "Use small volumes and clean tubes.", "Work out the order: acid test, then Tollens', then dichromate."),
+      safe("Water bath only: most of these liquids are flammable.", "Dispose of Tollens' reagent promptly; it can become explosive if left.")]);
+  add("crp7", [vars("Concentration of one reactant", "Time to a fixed change, or concentration over time", "Temperature, total volume, other concentrations")],
+    [K("The iodine clock", "A small, fixed amount of thiosulfate removes iodine as it forms.", "When it runs out, starch turns blue-black.", "Initial rate ∝ 1/t."),
+      acc("Keep the temperature constant with a water bath.", "Plot log(rate) against log(concentration): gradient = order.", "Gas syringes lose some gas at the start; add the reactant quickly."),
+      safe("Goggles; check hazards of the chosen reagents.")]);
+  add("crp8", [vars("Half-cell or ion concentration", "Cell emf", "Temperature 298 K, other concentration 1.00 mol dm⁻³")],
+    [acc("The salt bridge completes the circuit by letting ions move.", "KNO₃ is used because it does not react with the ions.", "A reading below zero means the leads are the wrong way round."),
+      safe("Some metal ion solutions are toxic or irritant; propanone used to degrease is flammable.")]);
+  add("crp9", [vars("Volume of base added", "pH", "Temperature, concentrations, volume of acid")],
+    [TB(["Pair", "Equivalence pH", "Indicator"], ["Strong acid + strong base", "About 7", "Either"], ["Weak acid + strong base", "Above 7", "Phenolphthalein"], ["Strong acid + weak base", "Below 7", "Methyl orange"], ["Weak acid + weak base", "About 7", "None suitable"]),
+      acc("Calibrate with at least two buffers, such as pH 4 and 9.", "The equivalence point is the middle of the steepest part."),
+      safe("Goggles: even dilute sodium hydroxide damages eyes.")]);
+  add("crp10", [TB(["Step", "Why"], ["Minimum hot solvent", "So crystals form on cooling"], ["Hot filtration", "Removes insoluble impurities"], ["Cool in ice", "More product crystallises"], ["Filter under reduced pressure", "Fast and drier"], ["Wash with cold solvent", "Removes soluble impurities without dissolving product"])],
+    [acc("An impure solid melts lower and over a wider range.", "A drying agent is working when the cloudy liquid turns clear.", "Yield is lost in transfers, side reactions and dissolved product."),
+      safe("Ethanoic anhydride and concentrated acid are corrosive.", "Heat flammable liquids with an electric heater or water bath.")]);
+  add("crp11", [TB(["Ion", "NaOH or NH₃ dropwise", "Excess NaOH", "Excess NH₃"], ["Fe²⁺", "Green precipitate", "Stays", "Stays"], ["Cu²⁺", "Blue precipitate", "Stays", "Deep blue solution"], ["Fe³⁺", "Brown precipitate", "Stays", "Stays"], ["Al³⁺", "White precipitate", "Colourless solution", "Stays"])],
+    [acc("Add reagent drop by drop and shake after each drop.", "Record the colour of the solution and the precipitate, before and after.", "Use equal volumes so tests compare fairly."),
+      safe("Concentrated ammonia in a fume cupboard.", "Goggles: sodium hydroxide is corrosive.")]);
+  add("crp12", [],
+    [acc("Draw the baseline in pencil: ink would run.", "Keep spots small and concentrated.", "Measure to the centre of each spot.", "Compare Rf only with the same solvent, plate and temperature.", "Ninhydrin shows amino acids."),
+      safe("Solvents are flammable.", "Do not look into a UV lamp.")]);
 })();
 
 /* Latest information used by the Predicted paper section. Claude updates this file when you ask for a refresh
@@ -5687,8 +6392,9 @@ function rpBlocks(p, d) {
   const blocks = [{ t: "def", term: "Aim", text: p.aim }];
   if (d && d.fig) blocks.push({ t: "fig", svg: d.fig, cap: d.cap });
   if (d && d.eq) blocks.push({ t: "eq", name: "Key equation", eq: d.eq, vars: d.vars });
+  blocks.push(...((d && d.before) || []));
   if (d && d.plot) blocks.push({ t: "key", title: "Analysis", items: [d.plot] });
-  blocks.push({ t: "steps", title: "Method", items: p.method }, { t: "tip", text: p.tips.join(" ") });
+  blocks.push({ t: "steps", title: "Method", items: p.method }, ...((d && d.after) || []), { t: "tip", text: p.tips.join(" ") });
   return blocksHTML(blocks.map(b => b.t === "tip" ? { t: "key", title: "Exam points", items: p.tips } : b)).replace('class="nb key"><span class="lbl">Exam points', 'class="nb tip"><span class="lbl">Exam points');
 }
 function rpTab() {
