@@ -450,6 +450,20 @@ body.ps-open .penbar { left: calc((100% - min(46%, 520px)) / 2); max-width: calc
 .vw-doc { display: flex; flex-direction: column; align-items: center; gap: 12px; width: max-content; min-width: 100%; }
 .vw-page { position: relative; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.18); flex: none; }
 .vw-page > .pdf-cv { display: block; width: 100%; height: 100%; }
+/* Typed answer boxes. Text grows with the page, so zooming in makes it easier to read and type. */
+.vw-page { container-type: inline-size; }
+.ans-box { position: absolute; z-index: 3; border: 1.5px dashed #1a5fd0; border-radius: 4px; background: rgba(26, 95, 208, .07); }
+.ans-box textarea { display: block; width: 100%; height: 100%; resize: none; border: 0; border-radius: 4px; background: transparent; color: #0b2f6b; padding: 2px 4px; font: inherit; font-size: max(9px, 2.3cqw); line-height: 1.3; touch-action: auto; user-select: text; }
+.ans-box textarea::placeholder { color: #5b7bb5; }
+.ans-box:focus-within { border-style: solid; background: rgba(255, 255, 255, .94); z-index: 4; }
+.ans-bar { position: absolute; left: -2px; bottom: 100%; display: none; gap: 4px; padding-bottom: 3px; white-space: nowrap; }
+.ans-box.low .ans-bar { bottom: auto; top: 100%; padding: 3px 0 0; }
+.ans-box:focus-within .ans-bar, .ans-box.moving .ans-bar, .pc .ans-box:hover .ans-bar { display: flex; }
+.ans-bar button { min-height: 30px; min-width: 34px; padding: 2px 10px; border: 0; border-radius: 15px; background: #1a5fd0; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+.ans-move { cursor: move; touch-action: none; }
+.ans-size { position: absolute; right: -9px; bottom: -9px; width: 20px; height: 20px; border-radius: 50%; border: 2px solid #fff; background: #1a5fd0; cursor: nwse-resize; touch-action: none; display: none; }
+.ans-box:focus-within .ans-size, .ans-box.moving .ans-size, .pc .ans-box:hover .ans-size { display: block; }
+.vw-pages.placing, .vw-pages.placing * { cursor: crosshair !important; }
 /* side scroll bar and zoom level */
 .vw-sb { position: absolute; top: 8px; bottom: calc(88px + env(safe-area-inset-bottom, 0px)); right: max(2px, env(safe-area-inset-right, 0px)); width: 36px; z-index: 20; pointer-events: none; }
 .vw-sb[hidden] { display: none; }
@@ -557,7 +571,7 @@ kbd { font-family: var(--f-mono); font-size: .76rem; padding: 2px 7px; border-ra
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261127-1027";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261127-1044";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -5086,7 +5100,7 @@ function drawViewerChrome() {
     <div class="vw-sub">
       <div class="seg">${kinds.map(i => `<button data-act="vw-kind" data-v="${i}" aria-pressed="${i === k}" ${PDB.have.has(paperFile(subj, ser, label, i)) ? "" : 'style="opacity:.45"'}>${KIND_LABEL[i]}</button>`).join("")}</div>
       <div class="seg vw-help"><button data-act="vwp-toggle" data-v="notes" aria-pressed="${VWP.mode === "notes"}">${icon("book").replace("<svg", '<svg style="width:18px"')} Notes</button><button data-act="vwp-toggle" data-v="ai" aria-pressed="${VWP.mode === "ai"}">${icon("spark").replace("<svg", '<svg style="width:18px"')} Ask Gemini</button></div>
-      <div class="row" style="gap:6px">${S.marked[key] ? `<button class="btn small" data-act="ai-result" data-v="${esc(key)}">Result: ${S.marked[key].total}/${S.marked[key].max}</button>` : ""}${NOPEN ? "" : `<button class="btn small primary" data-act="vw-ai">${icon("spark")}Mark with AI</button>`}<button class="btn small ${done ? "" : "ghost"}" data-act="vw-done">${done ? "✓ Done" : "Mark done"}</button>${NOPEN ? "" : `<button class="btn small ghost" data-act="vw-clear-ink">Clear writing</button>`}</div>
+      <div class="row" style="gap:6px">${NOPEN ? `<button class="btn small primary" data-act="vw-box" aria-pressed="false">＋ Answer box</button>` : ""}${S.marked[key] ? `<button class="btn small" data-act="ai-result" data-v="${esc(key)}">Result: ${S.marked[key].total}/${S.marked[key].max}</button>` : ""}${NOPEN ? "" : `<button class="btn small primary" data-act="vw-ai">${icon("spark")}Mark with AI</button>`}<button class="btn small ${done ? "" : "ghost"}" data-act="vw-done">${done ? "✓ Done" : "Mark done"}</button>${NOPEN ? "" : `<button class="btn small ghost" data-act="vw-clear-ink">Clear writing</button>`}</div>
     </div>
     <div class="vw-body">${vwMain()}<aside class="vw-panel" id="vw-panel" aria-label="Help panel" hidden></aside></div>
     ${NOPEN ? "" : penBar()}`;
@@ -5123,6 +5137,7 @@ async function layoutPages(keepFrac) {
 const canvasRatio = (w, h) => Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(12e6 / Math.max(1, w * h)));
 async function renderPage(div) {
   if (div.dataset.state) return; div.dataset.state = "busy";
+  drawBoxes(div);
   const token = VW.token, zoom = VW.zoom, gen = div.dataset.gen = String(VW.gen = (VW.gen || 0) + 1);
   const stale = () => token !== VW.token || zoom !== VW.zoom || div.dataset.gen !== gen || !div.isConnected;
   try {
@@ -5139,7 +5154,7 @@ async function renderPage(div) {
     if (!NOPEN && !div.querySelector(":scope > .pdf-ink")) { const ink = document.createElement("div"); ink.className = "ink pdf-ink"; ink.dataset.ink = "pdf:" + VW.name + ":" + div.dataset.n; div.appendChild(ink); attachInk(ink); }
   } catch (e) { if (div.dataset.gen === gen) delete div.dataset.state; }
 }
-function unrenderPage(div) { if (div.dataset.state !== "busy" && div.firstChild) { div.innerHTML = ""; delete div.dataset.state; } }
+function unrenderPage(div) { if (div.dataset.state !== "busy" && div.firstChild && !div.contains(document.activeElement)) { div.innerHTML = ""; delete div.dataset.state; } }
 function vwPageIndicator() {
   const cont = document.getElementById("vw-pages"), out = document.getElementById("vw-page"); if (!cont || !out || !VW.doc) return;
   const pages = cont.querySelectorAll(".vw-page"); let n = 1;
@@ -5148,6 +5163,58 @@ function vwPageIndicator() {
   vwThumb();
   vwpFollow();
 }
+/* ---------- Typed answer boxes on past papers ---------- */
+// For the phone and computer, which have no S Pen. A box sits on a page at a position and size kept as fractions of that
+// page, so it stays put when zooming and looks the same on another device after a sync.
+const boxList = () => S.boxes || (S.boxes = []);
+const clamp01 = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+let boxTimer = null;
+const boxSave = soon => { clearTimeout(boxTimer); boxTimer = null; if (soon) boxTimer = setTimeout(() => { boxTimer = null; save(); }, 600); else save(); };
+addEventListener("pagehide", () => { if (boxTimer) boxSave(); });
+const boxPlace = (el, b) => { el.style.left = b.x * 100 + "%"; el.style.top = b.y * 100 + "%"; el.style.width = b.w * 100 + "%"; el.style.height = b.h * 100 + "%"; el.classList.toggle("low", b.y < 0.06); };
+function drawBoxes(div) {
+  if (!VW.cur) return;
+  const n = +div.dataset.n;
+  for (const b of boxList()) if (b.f === VW.name && b.n === n && !div.querySelector(`.ans-box[data-id="${b.id}"]`)) div.appendChild(boxEl(b));
+}
+function boxEl(first) {
+  const id = first.id, el = document.createElement("div"); el.className = "ans-box"; el.dataset.id = id;
+  el.innerHTML = `<div class="ans-bar"><button type="button" class="ans-move" aria-label="Drag to move this box">✥ Move</button><button type="button" class="ans-del" aria-label="Delete this box">✕</button></div><textarea aria-label="Your answer" placeholder="Type your answer"></textarea><span class="ans-size" aria-label="Drag to resize this box" role="button"></span>`;
+  const now = () => boxList().find(b => b.id === id), area = el.querySelector("textarea");
+  area.value = first.text || ""; boxPlace(el, first);
+  area.addEventListener("input", () => { const b = now(); if (!b) return; b.text = area.value; b.u = Date.now(); boxSave(true); });
+  area.addEventListener("blur", () => { if (boxTimer) boxSave(); });
+  const drag = (handle, apply) => {
+    let from = null;
+    handle.addEventListener("pointerdown", e => { const b = now(); if (!b) return; e.preventDefault(); e.stopPropagation(); const r = el.parentElement.getBoundingClientRect(); from = { x: e.clientX, y: e.clientY, W: r.width, H: r.height, b: { ...b } }; try { handle.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } el.classList.add("moving"); });
+    handle.addEventListener("pointermove", e => { const b = now(); if (!from || !b) return; apply(b, from.b, (e.clientX - from.x) / from.W, (e.clientY - from.y) / from.H); boxPlace(el, b); });
+    const end = () => { if (!from) return; from = null; el.classList.remove("moving"); const b = now(); if (b) { b.u = Date.now(); boxSave(); } };
+    ["pointerup", "pointercancel", "lostpointercapture"].forEach(k => handle.addEventListener(k, end));
+  };
+  drag(el.querySelector(".ans-move"), (b, o, dx, dy) => { b.x = clamp01(o.x + dx, 0, 1 - o.w); b.y = clamp01(o.y + dy, 0, 1 - o.h); });
+  drag(el.querySelector(".ans-size"), (b, o, dx, dy) => { b.w = clamp01(o.w + dx, 0.12, 1 - o.x); b.h = clamp01(o.h + dy, 0.03, 1 - o.y); });
+  el.querySelector(".ans-del").addEventListener("click", () => {
+    const b = now(); if (!b) return;
+    S.boxes = boxList().filter(x => x.id !== id); tomb("box", id); save(); el.remove();
+    offerUndo("Answer box deleted", () => { b.u = Date.now(); boxList().push(b); untomb("box", id); save(); document.querySelectorAll("#vw-pages .vw-page").forEach(d => { if (d.dataset.state) drawBoxes(d); }); });
+  });
+  return el;
+}
+function boxPlacing(on) {
+  VW.placing = on;
+  const b = document.querySelector('[data-act="vw-box"]'); if (b) { b.setAttribute("aria-pressed", String(on)); b.textContent = on ? "Cancel box" : "＋ Answer box"; }
+  const c = document.getElementById("vw-pages"); if (c) c.classList.toggle("placing", on);
+}
+// The tap after "Answer box" puts the new box where you tapped.
+function vwTapBox(e) {
+  if (!VW.placing || !VW.cur) return;
+  const page = e.target.closest(".vw-page"); if (!page || e.target.closest(".ans-box")) return;
+  const r = page.getBoundingClientRect(), w = 0.6, h = 0.08;
+  const b = { id: "b-" + uid(), f: VW.name, n: +page.dataset.n, x: clamp01((e.clientX - r.left) / r.width - 0.03, 0, 1 - w), y: clamp01((e.clientY - r.top) / r.height - h / 2, 0, 1 - h), w, h, text: "", u: Date.now() };
+  boxList().push(b); save(); boxPlacing(false);
+  const el = boxEl(b); page.appendChild(el); el.querySelector("textarea").focus({ preventScroll: true });
+}
+
 /* ---------- Zoom and the side scroll bar, like Samsung Notes ---------- */
 const ZOOM_MIN = 0.5, ZOOM_MAX = 5;
 const clampZoom = z => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
@@ -5204,6 +5271,7 @@ function vwBindZoom() {
   const drop = () => { grab = null; bar.classList.remove("drag"); wake(); };
   t.addEventListener("pointerup", drop); t.addEventListener("pointercancel", drop); t.addEventListener("lostpointercapture", drop);
   if (PC) mousePan(cont);
+  cont.addEventListener("click", vwTapBox); VW.placing = false;
   // Pinch with two fingers. While the fingers move the pages are just stretched; they're redrawn sharp when you let go.
   let g = null;
   const two = ts => ({ x: (ts[0].clientX + ts[1].clientX) / 2, y: (ts[0].clientY + ts[1].clientY) / 2, d: Math.max(1, Math.hypot(ts[0].clientX - ts[1].clientX, ts[0].clientY - ts[1].clientY)) });
@@ -5841,6 +5909,8 @@ Help without just handing over the answer: by default give hints, explain the id
     const hist = vwpHistory(chat);
     const parts = [{ text: `${c ? `Paper: ${sub.name} ${c.ser} ${c.label}. ` : ""}The student is viewing page ${pages.join(" and ")} of ${VW.doc.numPages}.${ms ? `\n\nMARK SCHEME:\n${ms}\n` : ""}` }];
     images.forEach(im => parts.push({ text: `Page ${im.n} of the paper (with the student's writing):` }, { inline_data: { mime_type: "image/jpeg", data: im.data } }));
+    const typed = c ? boxList().filter(b => b.f === VW.name && pages.includes(b.n) && b.text.trim()).sort((a, b) => a.n - b.n || a.y - b.y) : [];
+    if (typed.length) parts.push({ text: "Answers the student has typed in boxes on these pages, from top to bottom:\n" + typed.map(b => `[page ${b.n}, ${Math.round(b.y * 100)}% down] ${b.text}`).join("\n") });
     parts.push({ text: "Student: " + text });
     vwpFinish(job, { r: "m", t: await gemChat(sys, hist.concat([{ role: "user", parts }]), job) });
   } catch (e) { vwpFinish(job, vwpFailure(e, text)); }
@@ -5958,6 +6028,8 @@ function mergeStates(a, b) {
   const aliveQ = (x, id) => { const t = del["qs:" + id]; return x && !(t && (x.ts || 0) <= t) ? x : null; };
   out.srs = {}; for (const id of keys(a.srs, b.srs)) { if (del["card:" + id]) continue; const x = (a.srs || {})[id], y = (b.srs || {})[id]; out.srs[id] = !x ? y : !y ? x : ((y.r || 0) > (x.r || 0) || ((y.r || 0) === (x.r || 0) && (y.d || 0) > (x.d || 0))) ? y : x; }
   out.qs = {}; for (const id of keys(a.qs, b.qs)) { const x = aliveQ((a.qs || {})[id], id), y = aliveQ((b.qs || {})[id], id); const v = !x ? y : !y ? x : ((y.n || 0) > (x.n || 0) ? y : x); if (v) out.qs[id] = v; }
+  const boxes = new Map(); for (const x of [].concat(a.boxes || [], b.boxes || [])) { const y = boxes.get(x.id); if (!y || (x.u || 0) > (y.u || 0)) boxes.set(x.id, x); }
+  out.boxes = [...boxes.values()].filter(x => !del["box:" + x.id]);
   const kindOf = { custom: "card", exams: "exam", papers: "paper", mistakes: "mistake" };
   ["custom", "exams", "papers", "mistakes"].forEach(k => { const m = new Map(), first = aNewer ? b[k] : a[k], second = aNewer ? a[k] : b[k]; for (const it of [].concat(first || [], second || [])) m.set(it.id, it); out[k] = [...m.values()].filter(it => !del[kindOf[k] + ":" + it.id]); });
   const seen = new Set(); out.quiz = [].concat(a.quiz || [], b.quiz || []).filter(q => { const j = JSON.stringify(q); if (seen.has(j)) return false; seen.add(j); return true; }).slice(-50);
@@ -6050,7 +6122,7 @@ const OPTS = { astro: "Astrophysics", medical: "Medical physics", engineering: "
 
 /* ---------- State ---------- */
 function fresh() {
-  return { v: 1, updated: 0, srs: {}, conf: {}, custom: [], log: {}, newLog: {}, exams: [], papers: [], mistakes: [], notes: {}, rp: {}, quiz: [], focus: {}, ppDone: {}, qs: {}, qtext: {}, marked: {}, pred: {}, del: {},
+  return { v: 1, updated: 0, srs: {}, conf: {}, custom: [], log: {}, newLog: {}, exams: [], papers: [], mistakes: [], notes: {}, rp: {}, quiz: [], focus: {}, ppDone: {}, boxes: [], qs: {}, qtext: {}, marked: {}, pred: {}, del: {},
     pen: { tool: "pen", color: 0, size: 1 },
     settings: { theme: "system", physOpt: "", newPerDay: 20, subj: "phys" } };
 }
@@ -7698,6 +7770,7 @@ const ACT = {
   "vw-zoom": el => { if (VW.lock) { vwPill(); toast("Zoom is locked. Tap the padlock to unlock it"); return; } vwSetZoom(VW.zoom * (el.dataset.v === "1" ? 1.25 : 0.8)); },
   "vw-zoom-reset": () => { if (VW.lock) { vwPill(); return; } vwSetZoom(1); },
   "vw-lock": () => { VW.lock = !VW.lock; vwPill(); toast(VW.lock ? "Zoom locked" : "Zoom unlocked"); },
+  "vw-box": () => { boxPlacing(!VW.placing); if (VW.placing) toast(`${PC ? "Click" : "Tap"} the paper where you want your answer box`); },
   "vw-done": () => { const c = VW.cur, k = c.subj + "|" + c.ser + "|" + c.label; if (S.ppDone[k]) delete S.ppDone[k]; else S.ppDone[k] = dayKey(); save(); const b = document.querySelector('[data-act="vw-done"]'); if (b) { b.textContent = S.ppDone[k] ? "✓ Done" : "Mark done"; b.classList.toggle("ghost", !S.ppDone[k]); } render(); },
   "vw-log": () => { const c = VW.cur, m = c.label.match(/Paper \d/); leaveViewer(() => { if (cur() !== c.subj) S.settings.subj = c.subj; ui.prefill = { subj: c.subj, series: c.ser, paper: m ? m[0] : "" }; ui.progTab = "results"; go("progress"); setTimeout(() => { const f = document.getElementById("log-paper"); if (f) f.scrollIntoView({ block: "start" }); }, 50); }); },
   "papers-clear": () => { ui.confirmClearPapers = true; render(); },
@@ -7862,7 +7935,7 @@ function pcWording(el) {
 }
 function mousePan(cont) {
   let p = null; cont.classList.add("grab");
-  cont.addEventListener("pointerdown", e => { if (e.pointerType !== "mouse" || e.button !== 0 || !VW.doc) return; e.preventDefault(); p = { x: e.clientX, y: e.clientY }; try { cont.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } cont.classList.add("panning"); });
+  cont.addEventListener("pointerdown", e => { if (e.pointerType !== "mouse" || e.button !== 0 || !VW.doc || VW.placing || e.target.closest(".ans-box")) return; e.preventDefault(); p = { x: e.clientX, y: e.clientY }; try { cont.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } cont.classList.add("panning"); });
   cont.addEventListener("pointermove", e => { if (!p) return; cont.scrollLeft += p.x - e.clientX; cont.scrollTop += p.y - e.clientY; p = { x: e.clientX, y: e.clientY }; });
   const stop = () => { p = null; cont.classList.remove("panning"); };
   ["pointerup", "pointercancel", "lostpointercapture"].forEach(t => cont.addEventListener(t, stop));
