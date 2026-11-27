@@ -451,7 +451,7 @@ body.ps-open .penbar { left: calc((100% - min(46%, 520px)) / 2); max-width: calc
 .vw-page { position: relative; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.18); flex: none; }
 .vw-page > .pdf-cv { display: block; width: 100%; height: 100%; }
 /* Typed answer boxes. Text grows with the page, so zooming in makes it easier to read and type. */
-.vw-page { container-type: inline-size; }
+.vw-page.boxes { container-type: inline-size; }
 .ans-box { position: absolute; z-index: 3; border: 1.5px dashed #1a5fd0; border-radius: 4px; background: rgba(26, 95, 208, .07); }
 .ans-box textarea { display: block; width: 100%; height: 100%; resize: none; border: 0; border-radius: 4px; background: transparent; color: #0b2f6b; padding: 2px 4px; font: inherit; font-size: max(9px, 2.3cqw); line-height: 1.3; touch-action: auto; user-select: text; }
 .ans-box textarea::placeholder { color: #5b7bb5; }
@@ -571,7 +571,7 @@ kbd { font-family: var(--f-mono); font-size: .76rem; padding: 2px 7px; border-ra
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261127-1044";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261127-1047";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -5173,7 +5173,8 @@ const boxSave = soon => { clearTimeout(boxTimer); boxTimer = null; if (soon) box
 addEventListener("pagehide", () => { if (boxTimer) boxSave(); });
 const boxPlace = (el, b) => { el.style.left = b.x * 100 + "%"; el.style.top = b.y * 100 + "%"; el.style.width = b.w * 100 + "%"; el.style.height = b.h * 100 + "%"; el.classList.toggle("low", b.y < 0.06); };
 function drawBoxes(div) {
-  if (!VW.cur) return;
+  if (!NOPEN || !VW.cur) return; // the tablet writes with the S Pen, so it never shows them
+  div.classList.add("boxes");
   const n = +div.dataset.n;
   for (const b of boxList()) if (b.f === VW.name && b.n === n && !div.querySelector(`.ans-box[data-id="${b.id}"]`)) div.appendChild(boxEl(b));
 }
@@ -5909,7 +5910,7 @@ Help without just handing over the answer: by default give hints, explain the id
     const hist = vwpHistory(chat);
     const parts = [{ text: `${c ? `Paper: ${sub.name} ${c.ser} ${c.label}. ` : ""}The student is viewing page ${pages.join(" and ")} of ${VW.doc.numPages}.${ms ? `\n\nMARK SCHEME:\n${ms}\n` : ""}` }];
     images.forEach(im => parts.push({ text: `Page ${im.n} of the paper (with the student's writing):` }, { inline_data: { mime_type: "image/jpeg", data: im.data } }));
-    const typed = c ? boxList().filter(b => b.f === VW.name && pages.includes(b.n) && b.text.trim()).sort((a, b) => a.n - b.n || a.y - b.y) : [];
+    const typed = NOPEN && c ? boxList().filter(b => b.f === VW.name && pages.includes(b.n) && b.text.trim()).sort((a, b) => a.n - b.n || a.y - b.y) : [];
     if (typed.length) parts.push({ text: "Answers the student has typed in boxes on these pages, from top to bottom:\n" + typed.map(b => `[page ${b.n}, ${Math.round(b.y * 100)}% down] ${b.text}`).join("\n") });
     parts.push({ text: "Student: " + text });
     vwpFinish(job, { r: "m", t: await gemChat(sys, hist.concat([{ role: "user", parts }]), job) });
