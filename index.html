@@ -526,7 +526,7 @@ body.ps-open .penbar { left: calc((100% - min(46%, 520px)) / 2); max-width: calc
 
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); z-index: 70; background: var(--ink); color: var(--bg); padding: 12px 20px; border-radius: 12px; font-weight: 500; box-shadow: var(--shadow); max-width: calc(100% - 32px); }
 .confirm { background: var(--red-soft); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
-/* Computer edition (Windows 11 and Chromebook) */
+/* Computer edition (Windows 11) */
 kbd { font-family: var(--f-mono); font-size: .76rem; padding: 2px 7px; border-radius: 6px; border: 1px solid var(--line); border-bottom-width: 2px; background: var(--surface); color: var(--ink); white-space: nowrap; }
 .keys-tip { text-align: center; }
 .keys-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
@@ -554,7 +554,7 @@ kbd { font-family: var(--f-mono); font-size: .76rem; padding: 2px 7px; border-ra
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261127-0953";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261127-1000";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -4584,6 +4584,11 @@ window.INTEL = {
 
 (() => {
 "use strict";
+// Chromebooks are not supported. Nothing saved on the device is touched.
+if (/CrOS/.test(navigator.userAgent)) {
+  document.body.innerHTML = '<main style="max-width:30rem;margin:20vh auto;padding:0 16px;text-align:center"><h1>Lab Book isn&#39;t available on Chromebook</h1></main>';
+  return;
+}
 const P = window.PHYS, C = window.CHEM, R = window.REF;
 const SUBJ = { phys: P, chem: C };
 const DAY = 864e5;
@@ -4606,17 +4611,17 @@ for (const s of [P, C]) for (const t of s.topics) {
 }
 const PRACS = [...P.practicals.map(p => ({ ...p, subj: "phys" })), ...C.practicals.map(p => ({ ...p, subj: "chem" }))];
 const OFFLINE = !!window.OFFLINE;
-// Which device this is. The phone edition (Galaxy S25 FE) and the computer edition (Windows 11 and Chromebook) have no
+// Which device this is. The phone edition (Galaxy S25 FE) and the computer edition (Windows 11) have no
 // S Pen, so answers are typed and the pen tools are hidden. The phone and Windows apps open the site with ?edition=...; the
-// choice is remembered, and can be changed in Settings. Otherwise Windows and ChromeOS get the computer edition.
+// choice is remembered, and can be changed in Settings. Otherwise Windows gets the computer edition. Chromebooks are not supported.
 const EDITION = (() => {
   try {
     const q = new URLSearchParams(location.search).get("edition"); if (q === "phone" || q === "tablet" || q === "pc") localStorage.setItem("labbook-edition", q);
-    return localStorage.getItem("labbook-edition") || (/Windows NT|CrOS/.test(navigator.userAgent) ? "pc" : matchMedia("(max-width: 700px) and (pointer: coarse)").matches ? "phone" : "tablet");
+    return localStorage.getItem("labbook-edition") || (/Windows NT/.test(navigator.userAgent) ? "pc" : matchMedia("(max-width: 700px) and (pointer: coarse)").matches ? "phone" : "tablet");
   } catch (e) { return "tablet"; }
 })();
 const PHONE = EDITION === "phone", PC = EDITION === "pc", NOPEN = PHONE || PC;
-const DEV = PC ? "computer" : PHONE ? "phone" : "tablet", CHROMEOS = /CrOS/.test(navigator.userAgent);
+const DEV = PC ? "computer" : PHONE ? "phone" : "tablet";
 const clickWords = s => s.replace(/\bTap\b/g, "Click").replace(/\btap\b/g, "click");
 
 /* ---------- Offline paper store (IndexedDB) ---------- */
@@ -5616,7 +5621,7 @@ function cloudPanel() {
   </section>`;
 }
 function devicePanel() {
-  return `<section class="panel"><h2>This device</h2><div class="seg" role="group" aria-label="Device">${[["tablet", "Tablet with S Pen"], ["phone", "Phone"], ["pc", "Windows or Chromebook"]].map(([v, l]) => `<button data-act="edition" data-v="${v}" aria-pressed="${EDITION === v}">${l}</button>`).join("")}</div><p class="muted small">The phone and computer versions have no S Pen tools: answers are typed and papers are read-only. Lab Book picks the right one for each device.</p></section>`;
+  return `<section class="panel"><h2>This device</h2><div class="seg" role="group" aria-label="Device">${[["tablet", "Tablet with S Pen"], ["phone", "Phone"], ["pc", "Windows"]].map(([v, l]) => `<button data-act="edition" data-v="${v}" aria-pressed="${EDITION === v}">${l}</button>`).join("")}</div><p class="muted small">The phone and computer versions have no S Pen tools: answers are typed and papers are read-only. Lab Book picks the right one for each device.</p></section>`;
 }
 
 /* ---------- Exam timer (paper viewer) ---------- */
@@ -7454,10 +7459,10 @@ function showKeys() {
 let INSTALL = null;
 function pcPanels() {
   const installed = matchMedia("(display-mode: standalone)").matches;
-  const app = !OFFLINE ? "" : `<section class="panel"><h2>${CHROMEOS ? "Lab Book on this Chromebook" : "Lab Book on this PC"}</h2>${installed
-    ? `<p class="small">Lab Book is running in its own window and works without internet. ${CHROMEOS ? "To keep it on the shelf, right-click its icon and choose Pin." : "To keep it on the taskbar, right-click its icon and choose Pin to taskbar."}</p>`
+  const app = !OFFLINE ? "" : `<section class="panel"><h2>Lab Book on this PC</h2>${installed
+    ? `<p class="small">Lab Book is running in its own window and works without internet. To keep it on the taskbar, right-click its icon and choose Pin to taskbar.</p>`
     : INSTALL ? `<p class="small">Install it to get its own icon and window. It then works without internet.</p><div><button class="btn primary" data-act="install-app">Install Lab Book</button></div>`
-    : `<p class="small">To install it: ${CHROMEOS ? "click the install icon at the right of the address bar, or open the ⋮ menu, then <b>Cast, save and share</b>, then <b>Install page as app</b>." : "in Edge, open the ⋯ menu, then <b>Apps</b>, then <b>Install this site as an app</b>."} If you don't see that option, it is already installed.</p>`}</section>`;
+    : `<p class="small">To install it: in Edge, open the ⋯ menu, then <b>Apps</b>, then <b>Install this site as an app</b>. If you don't see that option, it is already installed.</p>`}</section>`;
   return app + `<section class="panel"><h2>Keyboard and mouse</h2><div class="keys-grid">${shortcutList()}</div></section>`;
 }
 function pcKey(e) {
