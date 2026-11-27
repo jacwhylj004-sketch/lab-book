@@ -615,7 +615,7 @@ kbd { font-family: var(--f-mono); font-size: .76rem; padding: 2px 7px; border-ra
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261127-1521";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261127-1535";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -6885,9 +6885,15 @@ function syncBlock() {
   if (EDITION !== "phone" || k === "wifi" || k === "ethernet") return "";
   return k === "unknown" ? "unknown" : "mobile";
 }
+// Why the connection can't be read: the first phone app (1.0.0) has no way to ask Android; 1.1.0 and later do.
+function unknownText() {
+  const inApp = /LabBookApp/.test(navigator.userAgent), canAsk = !!(window.LabBookNative && window.LabBookNative.network);
+  return inApp && !canAsk ? "Not synced: this is the older Lab Book Phone app (1.0.0), which can't check for Wi-Fi. Install version 1.1.0 over it; your data stays."
+    : canAsk ? "Waiting for Wi-Fi. Android didn't say this connection is Wi-Fi. If you use a VPN, turn it off and try again."
+    : "Waiting for Wi-Fi. This browser can't tell which connection you're on. Open the Lab Book Phone app (1.1.0) instead.";
+}
 const blockText = b => b === "offline" ? "You're offline. Lab Book will sync when you're back " + (EDITION === "phone" ? "on Wi-Fi." : "online.")
-  : b === "mobile" ? "Waiting for Wi-Fi. This phone doesn't sync on mobile data."
-  : "Waiting for Wi-Fi. Lab Book can't tell which connection this phone is using: install the latest Lab Book Phone app.";
+  : b === "mobile" ? "Waiting for Wi-Fi. This phone doesn't sync on mobile data." : unknownText();
 function syncStatusText() {
   const c = csGet(), b = syncBlock();
   if (!c.token) return "To share your work and usage time between devices, connect cloud sync in Settings. It then syncs by itself.";
