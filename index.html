@@ -581,6 +581,13 @@ kbd { font-family: var(--f-mono); font-size: .76rem; padding: 2px 7px; border-ra
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --ux-phys: #3987e5; --ux-chem: #199e70; } }
 :root[data-theme="dark"] { --ux-phys: #3987e5; --ux-chem: #199e70; }
 .ux { display: flex; flex-direction: column; gap: 12px; }
+/* Definitions tab */
+.def-tools { align-items: flex-end; } .def-tools .field { flex: 1; min-width: 180px; }
+.def-topic > summary { gap: 10px; }
+.def-list { display: flex; flex-direction: column; gap: 8px; padding: 4px 0 8px; }
+.def { background: var(--surface); border-radius: 12px; border-left: 4px solid var(--c-blue); padding: 10px 14px; }
+.def p { margin-top: 2px; }
+.def > summary { cursor: pointer; font-weight: 600; min-height: 28px; }
 .ux-legend { display: flex; gap: 14px; }
 .ux-stats .stat b { font-size: 1.5rem; line-height: 1.3; }
 .ux-stats .stat.on { box-shadow: inset 0 0 0 2px var(--accent); }
@@ -608,7 +615,7 @@ kbd { font-family: var(--f-mono); font-size: .76rem; padding: 2px 7px; border-ra
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261127-1457";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261127-1505";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -4928,6 +4935,634 @@ window.NOTES = {"phys":{"groups":[{"id":"01-Measurements-and-Errors","n":"01","t
   q("crp12", "Why might an Rf value not match the reference?", "A different solvent, plate or temperature was used.", "A large or overloaded spot makes the centre hard to judge.");
 })();
 
+/* Definitions by topic, for the Notes "Definitions" tab and the mock revision sets. Chemistry. "Term :: definition". */
+(function () {
+  const all = window.DEFS || (window.DEFS = {});
+  const D = (topic, ...list) => { all[topic] = list.map(x => { const i = x.indexOf(" :: "); return [x.slice(0, i), x.slice(i + 4)]; }); };
+
+  D("c1",
+    "Atomic (proton) number :: The number of protons in the nucleus of an atom.",
+    "Mass number :: The total number of protons and neutrons in the nucleus of an atom.",
+    "Isotopes :: Atoms with the same number of protons but different numbers of neutrons.",
+    "Relative atomic mass :: The average mass of an atom of an element compared with one twelfth of the mass of an atom of carbon-12.",
+    "Relative isotopic mass :: The mass of an atom of an isotope compared with one twelfth of the mass of an atom of carbon-12.",
+    "Relative molecular mass :: The average mass of a molecule compared with one twelfth of the mass of an atom of carbon-12.",
+    "First ionisation energy :: The enthalpy change to remove one electron from each atom in one mole of gaseous atoms, forming one mole of gaseous 1+ ions.",
+    "Second ionisation energy :: The enthalpy change to remove one electron from each ion in one mole of gaseous 1+ ions, forming one mole of gaseous 2+ ions.",
+    "Electron configuration :: The arrangement of electrons in the energy levels, sub-levels and orbitals of an atom or ion.",
+    "Orbital :: A region around the nucleus that can hold up to two electrons with opposite spins.");
+  D("c2",
+    "Mole :: The amount of substance containing 6.022 × 10²³ particles.",
+    "Avogadro constant :: The number of particles in one mole, 6.022 × 10²³ mol⁻¹.",
+    "Molar mass :: The mass of one mole of a substance, in g mol⁻¹.",
+    "Empirical formula :: The simplest whole number ratio of atoms of each element in a compound.",
+    "Molecular formula :: The actual number of atoms of each element in a molecule.",
+    "Ideal gas equation :: pV = nRT, using Pa, m³, mol and K.",
+    "Concentration :: The amount of solute, in moles, per cubic decimetre of solution.",
+    "Percentage yield :: The mass of product obtained as a percentage of the theoretical maximum mass.",
+    "Percentage atom economy :: The molecular mass of the desired product as a percentage of the total molecular masses of all reactants.",
+    "Limiting reagent :: The reactant that is used up first and so fixes the amount of product.",
+    "Standard solution :: A solution of accurately known concentration.");
+  D("c3",
+    "Ionic bonding :: The strong electrostatic attraction between oppositely charged ions in a lattice.",
+    "Covalent bond :: A shared pair of electrons.",
+    "Co-ordinate (dative covalent) bond :: A shared pair of electrons in which both electrons come from the same atom.",
+    "Metallic bonding :: The attraction between delocalised electrons and positive metal ions in a lattice.",
+    "Electronegativity :: The power of an atom to attract the pair of electrons in a covalent bond.",
+    "Polar bond :: A covalent bond with an unequal distribution of electrons because the atoms differ in electronegativity.",
+    "Permanent dipole–dipole force :: The attraction between molecules with permanent dipoles.",
+    "Van der Waals (induced dipole–dipole) force :: The attraction between temporary and induced dipoles, caused by the uneven movement of electrons; it exists between all molecules.",
+    "Hydrogen bond :: The attraction between a δ+ hydrogen bonded to N, O or F and a lone pair on N, O or F of another molecule.",
+    "Lone pair :: A pair of outer electrons not used in bonding.",
+    "Electron pair repulsion theory :: Electron pairs around a central atom arrange themselves as far apart as possible; lone pairs repel more than bonding pairs.");
+  D("c4",
+    "Enthalpy change :: The heat energy change measured at constant pressure.",
+    "Standard conditions :: A pressure of 100 kPa and a stated temperature, usually 298 K.",
+    "Standard enthalpy of formation :: The enthalpy change when one mole of a compound is formed from its elements, all reactants and products in their standard states under standard conditions.",
+    "Standard enthalpy of combustion :: The enthalpy change when one mole of a substance burns completely in oxygen, all substances in their standard states under standard conditions.",
+    "Hess's law :: The enthalpy change of a reaction is independent of the route taken.",
+    "Mean bond enthalpy :: The enthalpy needed to break one mole of a covalent bond in the gas phase, averaged over a range of compounds.",
+    "Exothermic :: A change that releases heat energy; ΔH is negative.",
+    "Endothermic :: A change that absorbs heat energy; ΔH is positive.",
+    "Specific heat capacity :: The energy needed to raise the temperature of 1 g of a substance by 1 K.");
+  D("c5",
+    "Activation energy :: The minimum energy that particles must have when they collide for a reaction to occur.",
+    "Collision theory :: A reaction happens only when particles collide with at least the activation energy.",
+    "Rate of reaction :: The change in concentration (or amount) of a reactant or product per unit time.",
+    "Catalyst :: A substance that increases the rate of a reaction without being used up, by providing an alternative route with a lower activation energy.",
+    "Maxwell–Boltzmann distribution :: The spread of molecular energies in a gas at a given temperature.",
+    "Most probable energy :: The energy at the peak of the Maxwell–Boltzmann distribution.");
+  D("c6",
+    "Reversible reaction :: A reaction that can proceed in both the forward and backward directions.",
+    "Dynamic equilibrium :: The forward and backward reactions occur at equal rates, so concentrations remain constant, in a closed system.",
+    "Le Chatelier's principle :: When a change is made to a system in equilibrium, the position of equilibrium moves to oppose the change.",
+    "Equilibrium constant Kc :: The product of the equilibrium concentrations of the products divided by that of the reactants, each raised to the power of its coefficient.",
+    "Closed system :: A system that no substances can enter or leave.",
+    "Homogeneous system :: A system in which all substances are in the same phase.",
+    "Position of equilibrium :: The relative proportions of reactants and products in the equilibrium mixture.");
+  D("c7",
+    "Oxidation :: The loss of electrons; the oxidation state increases.",
+    "Reduction :: The gain of electrons; the oxidation state decreases.",
+    "Oxidising agent :: A species that accepts electrons and is itself reduced.",
+    "Reducing agent :: A species that donates electrons and is itself oxidised.",
+    "Oxidation state :: The charge an atom would have if all its bonds were completely ionic.",
+    "Redox reaction :: A reaction in which electrons are transferred, so oxidation and reduction happen together.",
+    "Half-equation :: An equation showing either the oxidation or the reduction, including the electrons.",
+    "Disproportionation :: The same element is both oxidised and reduced in one reaction.");
+  D("c8",
+    "Lattice enthalpy of formation :: The enthalpy change when one mole of a solid ionic compound is formed from its gaseous ions.",
+    "Lattice enthalpy of dissociation :: The enthalpy change when one mole of a solid ionic compound is separated into its gaseous ions.",
+    "Enthalpy of atomisation :: The enthalpy change when one mole of gaseous atoms is formed from an element in its standard state.",
+    "Bond dissociation enthalpy :: The enthalpy needed to break one mole of a particular covalent bond into gaseous atoms.",
+    "First electron affinity :: The enthalpy change when each atom in one mole of gaseous atoms gains one electron to form gaseous 1− ions.",
+    "Enthalpy of hydration :: The enthalpy change when one mole of gaseous ions dissolves to form aqueous ions.",
+    "Enthalpy of solution :: The enthalpy change when one mole of an ionic solid dissolves in enough water that the ions do not interact.",
+    "Entropy :: A measure of the disorder of a system.",
+    "Gibbs free-energy change :: ΔG = ΔH − TΔS; a reaction is feasible when ΔG is zero or negative.",
+    "Born–Haber cycle :: An enthalpy cycle used to find a lattice enthalpy using Hess's law.",
+    "Perfect ionic model :: Ions treated as point charges (perfect spheres) with purely ionic attraction.");
+  D("c9",
+    "Rate equation :: An experimentally found expression, rate = k[A]^m[B]^n, relating rate to concentrations.",
+    "Order of reaction (for a reactant) :: The power to which its concentration is raised in the rate equation.",
+    "Overall order :: The sum of the orders for all reactants in the rate equation.",
+    "Rate constant :: The constant k in the rate equation, which increases with temperature.",
+    "Initial rate :: The rate at the start of the reaction, from the gradient of the tangent at time zero.",
+    "Rate-determining step :: The slowest step in a mechanism, which controls the overall rate.",
+    "Arrhenius equation :: k = Ae^(−Ea/RT), linking the rate constant to temperature and activation energy.",
+    "Half-life :: The time for the concentration of a reactant to halve.");
+  D("c10",
+    "Mole fraction :: The number of moles of a gas divided by the total number of moles of gas.",
+    "Partial pressure :: The mole fraction of a gas multiplied by the total pressure.",
+    "Equilibrium constant Kp :: The product of the partial pressures of gaseous products divided by that of gaseous reactants, each raised to the power of its coefficient.",
+    "Heterogeneous system :: A system with substances in more than one phase; solids and liquids are left out of Kp.",
+    "Total pressure :: The sum of the partial pressures of all the gases in a mixture.");
+  D("c11",
+    "Standard electrode potential :: The potential difference of a half-cell connected to a standard hydrogen electrode under standard conditions (298 K, 100 kPa, 1.00 mol dm⁻³ solutions).",
+    "Standard hydrogen electrode :: H₂ gas at 100 kPa bubbled over platinum in 1.00 mol dm⁻³ H⁺ at 298 K, defined as 0.00 V.",
+    "Salt bridge :: A connection containing an unreactive ionic solution that lets ions move to complete the circuit.",
+    "Electrochemical series :: Half-equations listed in order of standard electrode potential.",
+    "Cell emf :: The potential difference between two half-cells when no current flows, E(right) − E(left).",
+    "Conventional cell representation :: A shorthand cell diagram with the more oxidised species next to the salt bridge on each side.",
+    "Fuel cell :: A cell supplied continuously with fuel and oxidant that produces an emf without the reactants running out or needing recharging.");
+  D("c12",
+    "Brønsted–Lowry acid :: A proton donor.",
+    "Brønsted–Lowry base :: A proton acceptor.",
+    "Strong acid :: An acid that dissociates completely in water.",
+    "Weak acid :: An acid that only partially dissociates in water.",
+    "pH :: −log₁₀[H⁺].",
+    "Ionic product of water :: Kw = [H⁺][OH⁻], equal to 1.00 × 10⁻¹⁴ mol² dm⁻⁶ at 298 K.",
+    "Acid dissociation constant :: Ka = [H⁺][A⁻] / [HA].",
+    "pKa :: −log₁₀ Ka.",
+    "Equivalence point :: The point in a titration where the acid and base have reacted in the exact ratio of the equation.",
+    "Buffer solution :: A solution that resists changes in pH when small amounts of acid or alkali are added, or when it is diluted.",
+    "Neutral solution :: A solution in which [H⁺] equals [OH⁻].");
+  D("c13",
+    "Periodicity :: The repeating pattern of properties across periods of the Periodic Table.",
+    "Period :: A horizontal row of the Periodic Table.",
+    "Group :: A vertical column of the Periodic Table.",
+    "s-block, p-block, d-block :: Blocks named after the sub-level holding the highest-energy electrons.",
+    "Atomic radius :: Half the distance between the nuclei of two bonded atoms of an element.");
+  D("c14",
+    "Alkaline earth metals :: The Group 2 elements.",
+    "Group 2 reactivity trend :: Reactivity increases down the group because first and second ionisation energies decrease.",
+    "Group 2 hydroxide solubility :: Solubility increases down the group.",
+    "Group 2 sulfate solubility :: Solubility decreases down the group.",
+    "Flue gas desulfurisation :: Removal of sulfur dioxide using calcium oxide or calcium carbonate.",
+    "Titanium extraction :: TiCl₄ is reduced to titanium using magnesium.",
+    "Barium meal :: Insoluble barium sulfate swallowed to make the gut show up on X-rays.");
+  D("c15",
+    "Halogens :: The Group 7 elements.",
+    "Halide ion :: A 1− ion formed from a halogen.",
+    "Oxidising ability of halogens :: The power to accept electrons, which decreases down the group.",
+    "Reducing ability of halide ions :: The power to donate electrons, which increases down the group.",
+    "Displacement reaction :: A more reactive halogen oxidises the halide ion of a less reactive one.",
+    "Disproportionation of chlorine :: In water or cold sodium hydroxide, chlorine is both oxidised and reduced.",
+    "Silver nitrate test :: Halide ions give coloured silver halide precipitates, told apart by their solubility in ammonia.");
+  D("c16",
+    "Period 3 oxides :: Oxides from Na to S, changing from basic through amphoteric to acidic across the period.",
+    "Amphoteric :: Able to react as both an acid and a base.",
+    "Basic oxide :: An oxide that reacts with acids to form a salt, often giving an alkaline solution in water.",
+    "Acidic oxide :: An oxide that reacts with bases, often giving an acidic solution in water.",
+    "Giant ionic structure :: A regular lattice of ions with a high melting point.",
+    "Giant covalent structure :: A network of atoms joined by strong covalent bonds, with a very high melting point.");
+  D("c17",
+    "Transition element :: A d-block metal that can form one or more stable ions with a partially filled d sub-level.",
+    "Complex :: A central metal atom or ion surrounded by ligands joined by co-ordinate bonds.",
+    "Ligand :: A molecule or ion that forms a co-ordinate bond with a transition metal by donating a pair of electrons.",
+    "Co-ordination number :: The number of co-ordinate bonds to the central metal atom or ion.",
+    "Monodentate ligand :: A ligand that forms one co-ordinate bond.",
+    "Bidentate ligand :: A ligand that forms two co-ordinate bonds.",
+    "Multidentate ligand :: A ligand that forms several co-ordinate bonds.",
+    "Ligand substitution :: One ligand in a complex is replaced by another.",
+    "Chelate effect :: Replacing monodentate ligands with multidentate ones gives a more stable complex because entropy increases.",
+    "Heterogeneous catalyst :: A catalyst in a different phase from the reactants, acting at active sites on its surface.",
+    "Homogeneous catalyst :: A catalyst in the same phase as the reactants, working through an intermediate.",
+    "Catalyst poisoning :: Impurities block active sites and reduce a catalyst's effectiveness.",
+    "Autocatalysis :: A reaction catalysed by one of its own products.");
+  D("c18",
+    "Metal-aqua ion :: A metal ion surrounded by water ligands, usually [M(H₂O)₆]ⁿ⁺.",
+    "Hydrolysis of a metal-aqua ion :: A water ligand releases a proton because the metal ion polarises the O–H bond.",
+    "Lewis acid :: An electron pair acceptor.",
+    "Lewis base :: An electron pair donor.",
+    "Amphoteric hydroxide :: A hydroxide, such as aluminium hydroxide, that dissolves in both acids and bases.",
+    "Polarising power :: The ability of a small, highly charged cation to distort neighbouring electron clouds.");
+  D("c19",
+    "Homologous series :: A family of compounds with the same functional group and general formula, differing by CH₂, with similar chemical properties.",
+    "Functional group :: The atom or group of atoms responsible for the characteristic reactions of a compound.",
+    "Structural formula :: A formula showing the atoms on each carbon, such as CH₃CH₂OH.",
+    "Displayed formula :: A formula showing every atom and every bond.",
+    "Skeletal formula :: A formula showing only the carbon skeleton and functional groups.",
+    "Structural isomers :: Compounds with the same molecular formula but different structural formulae.",
+    "Stereoisomers :: Compounds with the same structural formula but a different arrangement of atoms in space.",
+    "E–Z isomerism :: Stereoisomerism from restricted rotation about a C=C bond, with two different groups on each carbon.",
+    "Mechanism :: A step-by-step description of how a reaction happens, showing electron movement.",
+    "Free radical :: A species with an unpaired electron.");
+  D("c20",
+    "Alkane :: A saturated hydrocarbon.",
+    "Saturated :: Containing only single carbon–carbon bonds.",
+    "Hydrocarbon :: A compound containing carbon and hydrogen only.",
+    "Fractional distillation :: Separation of crude oil into fractions by boiling point.",
+    "Cracking :: Breaking C–C bonds in long alkanes to make shorter alkanes and alkenes.",
+    "Complete combustion :: Burning in plenty of oxygen to give carbon dioxide and water.",
+    "Initiation :: The step in which radicals are first formed, using UV light.",
+    "Propagation :: A step in which a radical reacts and another radical is produced.",
+    "Termination :: A step in which two radicals combine.",
+    "Free-radical substitution :: A hydrogen atom is replaced by a halogen in a radical chain reaction.");
+  D("c21",
+    "Nucleophile :: An electron pair donor.",
+    "Nucleophilic substitution :: A nucleophile replaces the halogen in a halogenoalkane.",
+    "Elimination :: A reaction that removes a small molecule, here HBr, to form a C=C bond.",
+    "Base (in elimination) :: A species that accepts a proton, such as hydroxide in hot ethanol.",
+    "Heterolytic fission :: A bond breaks with both electrons going to one atom.",
+    "Homolytic fission :: A bond breaks with one electron going to each atom.",
+    "Ozone depletion :: Chlorine radicals from CFCs catalyse the breakdown of ozone.");
+  D("c22",
+    "Alkene :: An unsaturated hydrocarbon containing at least one C=C double bond.",
+    "Unsaturated :: Containing at least one carbon–carbon multiple bond.",
+    "Electrophile :: An electron pair acceptor.",
+    "Electrophilic addition :: An electrophile attacks the C=C bond and two species add across it.",
+    "Carbocation :: An ion with a positive charge on a carbon atom; tertiary are the most stable.",
+    "Major product :: The product formed in greater amount, through the more stable carbocation.",
+    "Addition polymer :: A polymer formed from alkene monomers with no other product.",
+    "Monomer :: A small molecule that joins with others to make a polymer.",
+    "Repeating unit :: The smallest part of a polymer chain that repeats.",
+    "Plasticiser :: An additive that makes a polymer more flexible by letting chains slide past each other.");
+  D("c23",
+    "Fermentation :: Glucose converted to ethanol and carbon dioxide by yeast, in the absence of air.",
+    "Biofuel :: A fuel made from renewable biological material.",
+    "Carbon neutral :: An activity with no net release of carbon dioxide to the atmosphere.",
+    "Hydration :: Addition of water, using steam and an acid catalyst for alkenes.",
+    "Primary alcohol :: The OH carbon is attached to one other carbon atom.",
+    "Secondary alcohol :: The OH carbon is attached to two other carbon atoms.",
+    "Tertiary alcohol :: The OH carbon is attached to three other carbon atoms.",
+    "Dehydration :: Elimination of water from an alcohol to form an alkene.",
+    "Reflux :: Continuous boiling and condensing so volatile substances return to the flask.");
+  D("c24",
+    "Tollens' reagent :: Ammoniacal silver nitrate; gives a silver mirror with aldehydes.",
+    "Fehling's solution :: Blue copper(II) solution; gives a brick-red precipitate with aldehydes.",
+    "Test for an alkene :: Bromine water changes from orange to colourless.",
+    "Molecular ion :: The ion formed when a whole molecule loses one electron in a mass spectrometer.",
+    "High-resolution mass spectrometry :: Mass measured precisely enough to identify a molecular formula.",
+    "Infrared spectroscopy :: Identifies bonds from the wavenumbers of radiation they absorb.",
+    "Fingerprint region :: The part of an infrared spectrum below about 1500 cm⁻¹, unique to each compound.",
+    "Greenhouse gas :: A gas whose bonds absorb infrared radiation emitted by the Earth.");
+  D("c25",
+    "Chiral centre :: A carbon atom bonded to four different groups.",
+    "Enantiomers :: Stereoisomers that are non-superimposable mirror images.",
+    "Optically active :: Able to rotate the plane of plane-polarised light.",
+    "Racemate :: An equimolar mixture of two enantiomers, with no overall optical activity.",
+    "Optical isomerism :: Stereoisomerism arising from a chiral centre.");
+  D("c26",
+    "Carbonyl group :: A carbon double bonded to oxygen.",
+    "Aldehyde :: A compound with a carbonyl group at the end of a chain, R–CHO.",
+    "Ketone :: A compound with a carbonyl group between two carbon atoms.",
+    "Nucleophilic addition :: A nucleophile attacks the δ+ carbonyl carbon and the C=O becomes a single bond.",
+    "Hydroxynitrile :: A compound with both –OH and –CN groups on the same carbon, from aldehydes or ketones with KCN and acid.",
+    "Reduction of carbonyls :: NaBH₄ in aqueous solution turns aldehydes and ketones into alcohols.");
+  D("c27",
+    "Carboxylic acid :: A compound containing the –COOH group; a weak acid.",
+    "Ester :: A compound formed from a carboxylic acid (or derivative) and an alcohol, containing –COO–.",
+    "Esterification :: Reaction of a carboxylic acid with an alcohol and an acid catalyst to give an ester and water.",
+    "Hydrolysis :: Breaking a bond by reaction with water, often with acid or alkali.",
+    "Saponification :: Alkaline hydrolysis of fats to give glycerol and soap.",
+    "Biodiesel :: A mixture of methyl esters of long-chain carboxylic acids.",
+    "Acyl group :: The RCO– group.",
+    "Acylation :: Introducing an acyl group into a molecule.",
+    "Nucleophilic addition–elimination :: A nucleophile adds to the carbonyl carbon, then a small molecule or ion is lost.",
+    "Acid anhydride :: A compound with the –CO–O–CO– group.",
+    "Acyl chloride :: A compound with the –COCl group.");
+  D("c28",
+    "Aromatic :: Containing a benzene ring.",
+    "Delocalisation :: Electrons spread over more than two atoms; in benzene, six p electrons form a ring above and below the plane.",
+    "Delocalisation stability :: Benzene is more stable than the theoretical cyclohexa-1,3,5-triene, shown by its less exothermic hydrogenation.",
+    "Electrophilic substitution :: An electrophile replaces a hydrogen on the benzene ring.",
+    "Nitration :: Replacing a ring hydrogen with –NO₂ using concentrated nitric and sulfuric acids (electrophile NO₂⁺).",
+    "Friedel–Crafts acylation :: Adding an acyl group to benzene using an acyl chloride and an AlCl₃ catalyst.");
+  D("c29",
+    "Amine :: A compound formed by replacing one or more hydrogens of ammonia with alkyl or aryl groups.",
+    "Primary amine :: One alkyl or aryl group on the nitrogen.",
+    "Secondary amine :: Two groups on the nitrogen.",
+    "Tertiary amine :: Three groups on the nitrogen.",
+    "Quaternary ammonium salt :: Nitrogen bonded to four groups with a positive charge; used as cationic surfactants.",
+    "Base strength of amines :: Depends on the availability of the lone pair: alkyl groups increase it, aryl groups decrease it.",
+    "Nitrile :: A compound containing the C≡N group.",
+    "Amide :: A compound containing –CONH₂ or a substituted version of it.");
+  D("c30",
+    "Condensation polymer :: A polymer formed when monomers join and a small molecule such as water or HCl is released.",
+    "Polyester :: A condensation polymer with ester links, from a diol and a dicarboxylic acid.",
+    "Polyamide :: A condensation polymer with amide links, from a diamine and a dicarboxylic acid, or from amino acids.",
+    "Biodegradable :: Able to be broken down by living organisms; polyesters and polyamides can be hydrolysed.",
+    "Repeating unit :: The section of the polymer chain that repeats.",
+    "Recycling :: Processing waste polymers so the material is used again.");
+  D("c31",
+    "Amino acid :: A compound with both an amine and a carboxylic acid group.",
+    "Zwitterion :: An ion with both a positive and a negative charge and no overall charge.",
+    "Peptide link :: The –CONH– amide link between amino acids.",
+    "Primary structure :: The sequence of amino acids in a protein.",
+    "Secondary structure :: Local folding into α-helices or β-pleated sheets, held by hydrogen bonds.",
+    "Tertiary structure :: The overall three-dimensional shape, held by hydrogen bonds, ionic attractions and disulfide bridges.",
+    "Enzyme :: A protein that acts as a biological catalyst.",
+    "Active site :: The part of an enzyme where the substrate binds, specific in shape and stereochemistry.",
+    "Inhibitor :: A substance that blocks an active site and slows an enzyme-catalysed reaction.",
+    "Nucleotide :: A phosphate group, a 2-deoxyribose sugar and a base joined together.",
+    "Complementary base pairing :: Adenine pairs with thymine and cytosine with guanine through hydrogen bonds.",
+    "Cisplatin action :: It bonds to guanine in DNA, preventing replication.");
+  D("c32",
+    "Synthetic route :: A sequence of reactions converting a starting material into a target molecule.",
+    "Target molecule :: The compound a synthesis is designed to make.",
+    "Atom economy aim :: Chemists choose routes with high atom economy to reduce waste.",
+    "Solvent-free route :: A synthesis without solvents, reducing hazards and waste.",
+    "Intermediate :: A compound made in one step and used in the next.");
+  D("c33",
+    "Chemical shift :: The position of an NMR peak relative to TMS, in ppm, showing the chemical environment.",
+    "TMS :: Tetramethylsilane, the reference standard, given a shift of zero.",
+    "Chemical environment :: The surroundings of an atom; equivalent atoms give one peak.",
+    "Integration :: The relative area under a ¹H NMR peak, proportional to the number of hydrogens.",
+    "Spin–spin splitting :: A peak splits into n + 1 lines when there are n hydrogens on adjacent carbons.",
+    "Deuterated solvent :: A solvent with no ¹H atoms, such as CDCl₃, so it gives no ¹H signal.");
+  D("c34",
+    "Chromatography :: Separation of a mixture by the balance between solubility in a mobile phase and retention by a stationary phase.",
+    "Mobile phase :: The liquid or gas that moves through the system.",
+    "Stationary phase :: The solid, or liquid on a solid, that stays in place.",
+    "Rf value :: The distance moved by a spot divided by the distance moved by the solvent front.",
+    "Retention time :: The time between injection and detection of a component.",
+    "Thin-layer chromatography :: Chromatography on a plate coated with a thin layer of solid.",
+    "Column chromatography :: A solvent moves down a column packed with solid, collecting separated components.",
+    "Gas chromatography :: A carrier gas takes the sample through a column coated with a high-boiling liquid.");
+})();
+
+/* Definitions by topic, for the Notes "Definitions" tab and the mock revision sets. Physics. "Term :: definition". */
+(function () {
+  const all = window.DEFS || (window.DEFS = {});
+  const D = (topic, ...list) => { all[topic] = list.map(x => { const i = x.indexOf(" :: "); return [x.slice(0, i), x.slice(i + 4)]; }); };
+
+  D("p1",
+    "SI base units :: The independent units all others are built from: kilogram, metre, second, ampere, kelvin and mole at A-level.",
+    "Random error :: An error that causes readings to scatter unpredictably about the true value. Its effect is reduced by repeating and averaging.",
+    "Systematic error :: An error that shifts every reading by the same amount or in the same proportion. Repeating does not reduce it.",
+    "Zero error :: A systematic error where an instrument gives a non-zero reading when the true value is zero.",
+    "Precision :: How closely repeated measurements agree with each other, showing little spread about the mean.",
+    "Accuracy :: How close a measurement is to the true value.",
+    "Repeatability :: The same results are obtained when the same person repeats the experiment with the same method and equipment.",
+    "Reproducibility :: The same results are obtained when a different person, method or equipment is used.",
+    "Resolution :: The smallest change in a quantity that gives a visible change in an instrument's reading.",
+    "Absolute uncertainty :: The size of the interval within which the true value is expected to lie, given in the units of the quantity.",
+    "Percentage uncertainty :: The absolute uncertainty divided by the measured value, multiplied by 100.",
+    "Order of magnitude :: The power of ten nearest to a value.");
+  D("p2",
+    "Isotopes :: Atoms with the same number of protons but different numbers of neutrons.",
+    "Proton number (Z) :: The number of protons in a nucleus.",
+    "Nucleon number (A) :: The total number of protons and neutrons in a nucleus.",
+    "Specific charge :: The charge of a particle divided by its mass, in C kg⁻¹.",
+    "Strong nuclear force :: The force between nucleons that holds the nucleus together: repulsive below about 0.5 fm, attractive up to about 3 fm.",
+    "Antiparticle :: A particle with the same rest mass as its particle but opposite charge and opposite quantum numbers.",
+    "Annihilation :: A particle and its antiparticle meet and their mass is converted into the energy of two photons.",
+    "Pair production :: A photon's energy is converted into a particle and its antiparticle.",
+    "Hadron :: A particle made of quarks, which feels the strong interaction.",
+    "Baryon :: A hadron made of three quarks. Baryon number is 1.",
+    "Meson :: A hadron made of one quark and one antiquark.",
+    "Lepton :: A fundamental particle that does not feel the strong interaction, such as the electron, muon or neutrino.",
+    "Exchange particle :: A virtual particle that transfers force, momentum and energy between two interacting particles.",
+    "Strangeness :: A quantum number carried by strange quarks, conserved in strong interactions but able to change by 0 or ±1 in weak interactions.");
+  D("p3",
+    "Photon :: A discrete packet (quantum) of electromagnetic energy, E = hf.",
+    "Photoelectric effect :: The emission of electrons from a metal surface when electromagnetic radiation above a certain frequency shines on it.",
+    "Work function :: The minimum energy needed to remove an electron from the surface of a metal.",
+    "Threshold frequency :: The minimum frequency of radiation that causes photoelectric emission from a given metal.",
+    "Stopping potential :: The minimum potential difference that stops the most energetic photoelectrons.",
+    "Electronvolt :: The energy transferred when an electron moves through a potential difference of 1 V; 1.60 × 10⁻¹⁹ J.",
+    "Ground state :: The lowest energy level an electron in an atom can occupy.",
+    "Excitation :: An electron in an atom absorbs energy and moves to a higher energy level without leaving the atom.",
+    "Ionisation :: An electron is removed completely from an atom.",
+    "Line spectrum :: A set of discrete wavelengths, produced because electrons move between discrete energy levels.",
+    "de Broglie wavelength :: The wavelength associated with a moving particle, λ = h / mv.");
+  D("p4",
+    "Progressive wave :: A wave that transfers energy from one place to another without transferring matter.",
+    "Transverse wave :: A wave whose oscillations are perpendicular to the direction of energy transfer.",
+    "Longitudinal wave :: A wave whose oscillations are parallel to the direction of energy transfer.",
+    "Amplitude :: The maximum displacement from the equilibrium position.",
+    "Wavelength :: The shortest distance between two points on a wave that are in phase.",
+    "Frequency :: The number of complete oscillations passing a point each second.",
+    "Period :: The time for one complete oscillation.",
+    "Phase difference :: The fraction of a cycle by which one oscillation leads or lags another, given as an angle.",
+    "Polarisation :: Restricting the oscillations of a transverse wave to a single plane.",
+    "Stationary wave :: A wave with fixed nodes and antinodes, formed by two progressive waves of the same frequency travelling in opposite directions and superposing. No net energy is transferred.",
+    "Node :: A point on a stationary wave where the amplitude is always zero.",
+    "Antinode :: A point on a stationary wave with maximum amplitude.",
+    "Superposition :: When waves meet, the resultant displacement is the vector sum of the individual displacements.",
+    "First harmonic :: The lowest frequency stationary wave on a system; on a string it has one antinode between two nodes.");
+  D("p5",
+    "Coherence :: Sources with the same frequency and a constant phase difference.",
+    "Path difference :: The difference in the distances travelled by two waves from their sources to a point.",
+    "Constructive interference :: Waves arrive in phase, giving maximum amplitude: path difference is a whole number of wavelengths.",
+    "Destructive interference :: Waves arrive in antiphase, giving minimum amplitude: path difference is an odd number of half wavelengths.",
+    "Monochromatic :: Having a single wavelength (frequency).",
+    "Diffraction :: The spreading of a wave as it passes through a gap or around an obstacle.",
+    "Refractive index :: The ratio of the speed of light in a vacuum to the speed of light in the material, n = c / cs.",
+    "Critical angle :: The angle of incidence in the denser medium for which the angle of refraction is 90°.",
+    "Total internal reflection :: All the light is reflected when it meets a boundary with a less dense medium at an angle greater than the critical angle.",
+    "Modal dispersion :: Pulse broadening because rays taking different paths along a fibre take different times.",
+    "Material dispersion :: Pulse broadening because different wavelengths travel at different speeds in the fibre.");
+  D("p6",
+    "Scalar :: A quantity with magnitude only.",
+    "Vector :: A quantity with both magnitude and direction.",
+    "Resultant force :: The single force with the same effect as all the forces acting on an object together.",
+    "Equilibrium :: The resultant force and the resultant moment on an object are both zero.",
+    "Moment :: Force multiplied by the perpendicular distance from the pivot to the line of action of the force.",
+    "Principle of moments :: For an object in equilibrium, the sum of clockwise moments about any point equals the sum of anticlockwise moments about that point.",
+    "Couple :: A pair of equal and opposite parallel forces that do not act along the same line.",
+    "Torque of a couple :: One of the forces multiplied by the perpendicular distance between the lines of action of the forces.",
+    "Centre of mass :: The single point at which the whole mass of an object can be considered to act; a force through it causes no rotation.");
+  D("p7",
+    "Displacement :: Distance measured in a given direction from a starting point.",
+    "Speed :: The rate of change of distance.",
+    "Velocity :: The rate of change of displacement.",
+    "Acceleration :: The rate of change of velocity.",
+    "Instantaneous velocity :: The velocity at a particular moment, given by the gradient of the tangent to a displacement–time graph.",
+    "Free fall :: Motion where the only force acting is weight.",
+    "Terminal velocity :: The constant velocity reached when resistive forces balance the driving force, so the resultant force is zero.",
+    "Projectile motion :: Motion under gravity with independent horizontal (constant velocity, ignoring drag) and vertical (constant acceleration) components.",
+    "Drag :: A resistive force from a fluid that opposes motion and increases with speed.");
+  D("p8",
+    "Newton's first law :: An object stays at rest or at constant velocity unless a resultant force acts on it.",
+    "Newton's second law :: The resultant force on an object is proportional to the rate of change of its momentum and acts in the same direction.",
+    "Newton's third law :: If object A exerts a force on object B, then B exerts a force on A that is equal in size, opposite in direction and of the same type.",
+    "Momentum :: Mass multiplied by velocity.",
+    "Impulse :: The change in momentum, equal to force multiplied by the time for which it acts.",
+    "Conservation of momentum :: The total momentum of a system is constant provided no external resultant force acts.",
+    "Elastic collision :: A collision in which both momentum and kinetic energy are conserved.",
+    "Inelastic collision :: A collision in which momentum is conserved but kinetic energy is not.",
+    "Inertia :: The resistance of an object to a change in its motion, measured by its mass.");
+  D("p9",
+    "Work done :: Force multiplied by the distance moved in the direction of the force.",
+    "Power :: The rate of doing work or of transferring energy.",
+    "Watt :: A rate of energy transfer of one joule per second.",
+    "Kinetic energy :: The energy an object has because of its motion.",
+    "Gravitational potential energy change :: The energy transferred when an object's height in a gravitational field changes, mgΔh near the Earth's surface.",
+    "Conservation of energy :: Energy cannot be created or destroyed, only transferred from one store to another.",
+    "Efficiency :: The ratio of useful output energy (or power) to total input energy (or power).");
+  D("p10",
+    "Density :: Mass per unit volume.",
+    "Hooke's law :: The extension is directly proportional to the force applied, up to the limit of proportionality.",
+    "Tensile stress :: Force per unit cross-sectional area.",
+    "Tensile strain :: Extension divided by the original length.",
+    "Young modulus :: Tensile stress divided by tensile strain, within the limit of proportionality.",
+    "Limit of proportionality :: The point beyond which stress is no longer proportional to strain.",
+    "Elastic limit :: The largest force or stress after which the material still returns to its original length.",
+    "Elastic deformation :: Deformation that is fully reversed when the force is removed.",
+    "Plastic deformation :: Permanent deformation that remains when the force is removed.",
+    "Breaking stress :: The stress at which a material fractures.",
+    "Ultimate tensile stress :: The maximum stress a material can withstand.",
+    "Brittle :: Breaking with little or no plastic deformation.",
+    "Ductile :: Able to undergo large plastic deformation and be drawn into wires.",
+    "Elastic strain energy :: The energy stored in a stretched or compressed material, equal to the area under the force–extension graph during elastic deformation.");
+  D("p11",
+    "Electric current :: The rate of flow of charge.",
+    "Potential difference :: The work done (energy transferred) per unit charge between two points.",
+    "Resistance :: The ratio of the potential difference across a component to the current in it.",
+    "Ohm's law :: The current in a conductor is proportional to the potential difference across it, provided physical conditions such as temperature stay constant.",
+    "Coulomb :: The charge passing a point in one second when the current is one ampere.",
+    "Volt :: One joule of energy transferred per coulomb of charge.",
+    "Resistivity :: A property of a material given by ρ = RA / L, in Ω m.",
+    "Superconductor :: A material with zero resistivity at or below its critical temperature.",
+    "Critical temperature :: The temperature at or below which a material becomes superconducting.",
+    "Thermistor (NTC) :: A component whose resistance decreases as its temperature rises.",
+    "Semiconductor diode :: A component that conducts readily in one direction only.");
+  D("p12",
+    "Electromotive force (emf) :: The energy transferred by a source to each coulomb of charge passing through it.",
+    "Terminal potential difference :: The potential difference across the terminals of a source, equal to the emf minus the lost volts.",
+    "Internal resistance :: The resistance inside a source, which causes energy to be transferred within it when current flows.",
+    "Lost volts :: The potential difference across the internal resistance, Ir.",
+    "Kirchhoff's first law :: The total current into a junction equals the total current out of it (conservation of charge).",
+    "Kirchhoff's second law :: Around any closed loop, the sum of the emfs equals the sum of the potential differences (conservation of energy).",
+    "Potential divider :: Components in series that share the supply potential difference in the ratio of their resistances.");
+  D("p13",
+    "Radian :: The angle subtended at the centre of a circle by an arc equal in length to the radius.",
+    "Angular speed :: The angle turned through per unit time.",
+    "Centripetal force :: The resultant force towards the centre of a circle needed to keep an object moving in a circular path.",
+    "Centripetal acceleration :: The acceleration towards the centre of the circle, v² / r or ω²r.",
+    "Period of rotation :: The time for one complete revolution.");
+  D("p14",
+    "Simple harmonic motion :: Motion in which the acceleration is proportional to the displacement from equilibrium and directed towards equilibrium.",
+    "Free oscillation :: Oscillation with no energy transfer to or from the surroundings, at the natural frequency.",
+    "Forced oscillation :: Oscillation driven by an external periodic force, at the frequency of that force.",
+    "Natural frequency :: The frequency at which a system oscillates freely.",
+    "Resonance :: The large amplitude produced when the driving frequency equals the natural frequency of the system.",
+    "Damping :: Removal of energy from an oscillating system by resistive forces, reducing its amplitude.",
+    "Light damping :: The amplitude falls gradually over many oscillations.",
+    "Critical damping :: The system returns to equilibrium in the shortest time without oscillating.",
+    "Heavy damping :: The system returns to equilibrium slowly without oscillating.");
+  D("p15",
+    "Internal energy :: The sum of the randomly distributed kinetic and potential energies of the particles in a body.",
+    "Specific heat capacity :: The energy needed to raise the temperature of 1 kg of a substance by 1 K, without a change of state.",
+    "Specific latent heat of fusion :: The energy needed to change 1 kg of a substance from solid to liquid at constant temperature.",
+    "Specific latent heat of vaporisation :: The energy needed to change 1 kg of a substance from liquid to gas at constant temperature.",
+    "First law of thermodynamics :: The increase in internal energy equals the energy supplied by heating plus the work done on the system.",
+    "Thermal equilibrium :: There is no net energy transfer between bodies at the same temperature.",
+    "Absolute zero :: The temperature at which particles have minimum internal energy; 0 K or −273 °C.");
+  D("p16",
+    "Ideal gas :: A gas that obeys pV = nRT at all temperatures and pressures.",
+    "Boyle's law :: For a fixed mass of gas at constant temperature, pressure is inversely proportional to volume.",
+    "Charles's law :: For a fixed mass of gas at constant pressure, volume is directly proportional to absolute temperature.",
+    "Pressure law :: For a fixed mass of gas at constant volume, pressure is directly proportional to absolute temperature.",
+    "Mole :: The amount of substance containing 6.02 × 10²³ particles.",
+    "Avogadro constant :: The number of particles in one mole.",
+    "Molar mass :: The mass of one mole of a substance.",
+    "Brownian motion :: The random motion of small visible particles caused by collisions with fast-moving molecules; evidence for the particle model.",
+    "Root mean square speed :: The square root of the mean of the squares of the molecular speeds.");
+  D("p17",
+    "Gravitational field :: A region in which a mass experiences a force.",
+    "Newton's law of gravitation :: The force between two point masses is proportional to the product of the masses and inversely proportional to the square of their separation.",
+    "Gravitational field strength :: The force per unit mass on a small test mass.",
+    "Gravitational potential :: The work done per unit mass in bringing a small test mass from infinity to that point.",
+    "Gravitational potential difference :: The work done per unit mass in moving between two points.",
+    "Equipotential surface :: A surface joining points of equal potential; no work is done moving along it.",
+    "Escape velocity :: The minimum speed needed to move from a point to infinity with no further energy input.",
+    "Kepler's third law :: The square of the orbital period is proportional to the cube of the orbital radius.",
+    "Geostationary orbit :: An orbit above the equator with a 24 hour period in the direction of the Earth's rotation, so the satellite stays above one point.",
+    "Synchronous orbit :: An orbit whose period equals the rotational period of the body being orbited.");
+  D("p18",
+    "Electric field :: A region in which a charge experiences a force.",
+    "Coulomb's law :: The force between two point charges is proportional to the product of the charges and inversely proportional to the square of their separation.",
+    "Electric field strength :: The force per unit positive charge.",
+    "Electric potential :: The work done per unit positive charge in bringing a small test charge from infinity to that point.",
+    "Permittivity of free space :: The constant ε₀ that sets the strength of the electric force in a vacuum.",
+    "Uniform field :: A field with the same strength and direction everywhere, shown by parallel, equally spaced lines.");
+  D("p19",
+    "Capacitance :: The charge stored per unit potential difference.",
+    "Farad :: A capacitance of one coulomb per volt.",
+    "Dielectric :: An insulating material between the plates that increases capacitance because its molecules become polarised or align with the field.",
+    "Relative permittivity :: The ratio of the capacitance with the dielectric to the capacitance with a vacuum between the plates.",
+    "Time constant :: The time for the charge, current or pd of a discharging capacitor to fall to 1/e (about 37%) of its initial value; equal to RC.",
+    "Half-life of discharge :: The time for the charge to halve, 0.69RC.");
+  D("p20",
+    "Magnetic flux density :: The force per unit current per unit length on a wire carrying current at right angles to the field.",
+    "Tesla :: The flux density that gives a force of 1 N on a 1 m wire carrying 1 A at right angles to the field.",
+    "Magnetic flux :: Flux density multiplied by the area perpendicular to the field, Φ = BA.",
+    "Weber :: The unit of magnetic flux, equal to one tesla metre squared.",
+    "Flux linkage :: Magnetic flux multiplied by the number of turns of a coil, NΦ.",
+    "Faraday's law :: The magnitude of the induced emf equals the rate of change of flux linkage.",
+    "Lenz's law :: The direction of the induced emf is such as to oppose the change that produces it.",
+    "Eddy currents :: Currents induced in a conductor by a changing flux, which cause energy losses in transformer cores.",
+    "Root mean square current :: The value of direct current that transfers the same power to a resistor as the alternating current.",
+    "Peak-to-peak voltage :: The difference between the maximum positive and maximum negative values.",
+    "Transformer efficiency :: Output power divided by input power.");
+  D("p21",
+    "Radioactive decay :: The random and spontaneous emission of radiation by an unstable nucleus.",
+    "Random decay :: It cannot be predicted which nucleus will decay next or when.",
+    "Spontaneous decay :: Decay is not affected by external conditions such as temperature or pressure.",
+    "Activity :: The number of nuclei decaying per second, measured in becquerels.",
+    "Decay constant :: The probability of a nucleus decaying per unit time.",
+    "Half-life :: The time for the number of radioactive nuclei (or the activity) to halve.",
+    "Background radiation :: Radiation present from natural and artificial sources even when no test source is near.",
+    "Count rate :: The number of counts detected per unit time.",
+    "Inverse-square law for gamma :: The intensity of gamma radiation from a point source is inversely proportional to the square of the distance.",
+    "Metastable state :: An excited nuclear state that lasts long enough to be separated before emitting gamma radiation.");
+  D("p22",
+    "Mass defect :: The difference between the mass of a nucleus and the total mass of its separate nucleons.",
+    "Binding energy :: The energy needed to separate a nucleus completely into its individual nucleons.",
+    "Binding energy per nucleon :: The binding energy divided by the nucleon number; a measure of stability.",
+    "Atomic mass unit :: One twelfth of the mass of a carbon-12 atom.",
+    "Nuclear fission :: The splitting of a large nucleus into two smaller nuclei, releasing neutrons and energy.",
+    "Nuclear fusion :: The joining of two light nuclei to form a heavier one, releasing energy.",
+    "Thermal neutron :: A slow neutron in thermal equilibrium with the moderator, able to induce fission.",
+    "Moderator :: A material that slows neutrons by elastic collisions.",
+    "Control rods :: Rods that absorb neutrons to control the rate of the chain reaction.",
+    "Coolant :: A fluid that transfers thermal energy away from the reactor core.",
+    "Critical mass :: The minimum mass of fissile material that can sustain a chain reaction.",
+    "Closest approach :: The distance at which all the kinetic energy of an alpha particle has become electric potential energy.");
+  D("p23",
+    "Angular magnification :: The angle subtended by the image at the eye divided by the angle subtended by the object at the unaided eye.",
+    "Normal adjustment :: A telescope arranged so the final image is at infinity.",
+    "Rayleigh criterion :: Two objects are just resolved when the central maximum of one falls on the first minimum of the other.",
+    "Quantum efficiency :: The percentage of incident photons that are detected.",
+    "Astronomical unit :: The mean distance from the Earth to the Sun.",
+    "Parsec :: The distance at which a radius of 1 AU subtends an angle of one arcsecond.",
+    "Light year :: The distance light travels in a vacuum in one year.",
+    "Apparent magnitude :: How bright an object appears from the Earth, on a logarithmic scale where brighter objects have smaller values.",
+    "Absolute magnitude :: The apparent magnitude an object would have at a distance of 10 parsecs.",
+    "Black body :: A body that absorbs all radiation falling on it and emits a continuous spectrum depending only on its temperature.",
+    "Schwarzschild radius :: The radius of the event horizon, within which the escape velocity exceeds the speed of light.",
+    "Supernova :: A star showing a rapid, enormous increase in absolute magnitude.",
+    "Neutron star :: A very dense remnant composed mainly of neutrons.",
+    "Black hole :: An object whose escape velocity is greater than the speed of light.",
+    "Hubble's law :: The recessional speed of a galaxy is proportional to its distance.",
+    "Quasar :: A very distant, very powerful object with a large redshift, powered by a supermassive black hole.",
+    "Exoplanet :: A planet orbiting a star other than the Sun.");
+  D("p24",
+    "Accommodation :: The change in shape of the eye lens to focus on objects at different distances.",
+    "Power of a lens :: The reciprocal of the focal length in metres, in dioptres.",
+    "Myopia :: Short sight: distant objects focus in front of the retina; corrected with a diverging lens.",
+    "Hypermetropia :: Long sight: near objects focus behind the retina; corrected with a converging lens.",
+    "Astigmatism :: Uneven curvature of the eye, corrected with a cylindrical lens.",
+    "Threshold of hearing :: The minimum intensity a normal ear can detect at 1 kHz, 1.0 × 10⁻¹² W m⁻².",
+    "Intensity level :: 10 log (I / I₀), in decibels.",
+    "Acoustic impedance :: The density of a material multiplied by the speed of sound in it.",
+    "Piezoelectric effect :: A crystal changes shape when a pd is applied, and produces a pd when deformed.",
+    "Attenuation coefficient :: The fraction of intensity removed per unit distance, μ.",
+    "Half-value thickness :: The thickness of material that halves the intensity of the radiation.",
+    "Effective half-life :: The time for the activity in the body to halve, from both physical decay and biological removal.");
+  D("p25",
+    "Moment of inertia :: The sum of mr² for all parts of a body about an axis; its resistance to angular acceleration.",
+    "Angular velocity :: The rate of change of angular displacement.",
+    "Angular acceleration :: The rate of change of angular velocity.",
+    "Torque :: Force multiplied by the perpendicular distance from the axis; equal to Iα.",
+    "Angular momentum :: Moment of inertia multiplied by angular velocity.",
+    "Conservation of angular momentum :: Angular momentum is constant when no external torque acts.",
+    "Angular impulse :: Torque multiplied by the time for which it acts; the change in angular momentum.",
+    "Flywheel :: A rotating mass used to store kinetic energy and smooth out variations in speed.",
+    "Isothermal process :: A change at constant temperature.",
+    "Adiabatic process :: A change with no heat transfer to or from the gas.",
+    "Indicated power :: The power developed in the cylinders, from the area of the p–V loop.",
+    "Brake power :: The useful output power at the shaft.",
+    "Friction power :: Indicated power minus brake power.",
+    "Second law of thermodynamics :: A heat engine must transfer some energy to a cold sink; it cannot convert all the heat from a hot source into work.");
+  D("p26",
+    "Thermionic emission :: The release of electrons from a heated metal surface.",
+    "Specific charge of the electron :: The charge of an electron divided by its mass.",
+    "Corpuscular theory :: Newton's idea that light is a stream of particles.",
+    "Huygens' principle :: Every point on a wavefront acts as a source of secondary wavelets.",
+    "Ultraviolet catastrophe :: The failure of classical theory, which predicted unlimited intensity at short wavelengths for black-body radiation.",
+    "Inertial frame of reference :: A frame moving at constant velocity, in which Newton's first law holds.",
+    "Postulates of special relativity :: Physical laws have the same form in all inertial frames, and the speed of light in a vacuum is the same for all observers.",
+    "Proper time :: The time between two events measured in the frame where they happen at the same place.",
+    "Proper length :: The length of an object measured in the frame where it is at rest.",
+    "Rest energy :: The energy of an object at rest, m₀c².");
+  D("p27",
+    "MOSFET :: A transistor controlled by the voltage on its gate, with a very high input resistance.",
+    "Zener diode :: A diode used in reverse breakdown to give a constant reference voltage.",
+    "Photodiode :: A diode whose reverse current is proportional to the light intensity.",
+    "Hall effect sensor :: A device giving a voltage that depends on the magnetic flux density.",
+    "Analogue signal :: A signal that can take any value in a continuous range.",
+    "Digital signal :: A signal that takes only discrete values.",
+    "Sampling :: Measuring an analogue signal at regular intervals to convert it to digital form.",
+    "Open-loop gain :: The gain of an operational amplifier with no feedback.",
+    "Negative feedback :: Part of the output is fed back to the inverting input, reducing the gain and widening the bandwidth.",
+    "Bandwidth :: The range of frequencies over which the gain or power stays above half its maximum power value.",
+    "Modulation :: Varying a carrier wave in step with an information signal.",
+    "Multiplexing :: Sending several signals along one channel.");
+})();
+
 /* Latest information used by the Predicted paper section. Claude updates this file when you ask for a refresh
    (use the "Ask for an update" button on Past papers > Predicted paper). `boosts` raise or lower a topic's likelihood. */
 window.INTEL = {
@@ -5979,7 +6614,7 @@ function vwPanelApply() {
   const c = document.getElementById("vw-pages"), f = c ? c.scrollTop / Math.max(1, c.scrollHeight) : 0;
   setTimeout(() => layoutPages(f), 80);
 }
-const psQ = () => (ui.ps && !ui.ps.done && ui.pracTab !== "cards") ? QIDX[ui.ps.ids[ui.ps.i]] : null;
+const psQ = () => (ui.ps && !ui.ps.done && ui.pracTab !== "cards" && ui.pracTab !== "mock") ? QIDX[ui.ps.ids[ui.ps.i]] : null;
 const helpKey = () => VW.open ? (vwKey() || "note") : (psQ() ? "q:" + psQ().id : "");
 function psPanelApply() {
   if (VW.open) return;
@@ -6629,7 +7264,7 @@ let PR = null, PRACSIG = null;
 // Take on the practice place saved on another device.
 function usePractice(d) {
   try { if (d) localStorage.setItem(PR_KEY, JSON.stringify(d)); else localStorage.removeItem(PR_KEY); } catch (e) { /* ignore */ }
-  PR = null; PRACSIG = null; ui.cp = null;
+  PR = null; PRACSIG = null; ui.cp = null; ui.mock = null;
 }
 function prac() {
   if (PR) return PR;
@@ -6644,15 +7279,17 @@ function prac() {
   for (const s of ["phys", "chem"]) {
     const x = (o && o[s]) || {};
     if (x.pf) { PR[s].pf = Object.assign(defaultPF(), x.pf); if (PR[s].pf.topics) PR[s].pf.topics = PR[s].pf.topics.filter(id => TOPICS[id] || PRAC[id]); }
+    if (o && o.mock && o.mock[s]) (ui.mock = ui.mock || {})[s] = Object.assign({ topics: [], year: 0, minutes: 45, seed: 1 }, o.mock[s], { built: null });
     if (o && o.cp && o.cp[s]) (ui.cp = ui.cp || {})[s] = Object.assign({ topics: [], minutes: 60, mc: s === "phys", weighted: true, seed: 1 }, o.cp[s], { built: null });
   }
   return PR;
 }
 function savePractice() {
-  const P2 = prac(), p = P2.ps, out = { cp: {}, session: p && !p.done ? Object.assign({}, p, { elapsed: Date.now() - p.t0 }) : null };
+  const P2 = prac(), p = P2.ps, out = { cp: {}, mock: {}, session: p && !p.done ? Object.assign({}, p, { elapsed: Date.now() - p.t0 }) : null };
   for (const s of ["phys", "chem"]) {
     out[s] = { pf: P2[s].pf || null };
     if (ui.cp && ui.cp[s]) out.cp[s] = Object.assign({}, ui.cp[s], { built: null });
+    if (ui.mock && ui.mock[s]) out.mock[s] = Object.assign({}, ui.mock[s], { built: null });
   }
   try { localStorage.setItem(PR_KEY, JSON.stringify(out)); } catch (e) { /* storage unavailable */ }
   // share it with the other devices when the choices or the session really change (not just the clock or scrolling)
@@ -6660,11 +7297,11 @@ function savePractice() {
   if (PRACSIG === null) { PRACSIG = sig; if (!S.prac.t && out.session) { S.prac = { t: 1, d: out }; save(); } }
   else if (sig !== PRACSIG) { PRACSIG = sig; S.prac = { t: Date.now(), d: out }; save(); }
 }
-function clearPractice() { PR = { phys: {}, chem: {}, ps: null }; ui.cp = null; try { localStorage.removeItem(PR_KEY); } catch (e) { /* ignore */ } }
+function clearPractice() { PR = { phys: {}, chem: {}, ps: null }; ui.cp = null; ui.mock = null; try { localStorage.removeItem(PR_KEY); } catch (e) { /* ignore */ } }
 Object.defineProperty(ui, "ps", { get: () => prac().ps, set: v => { prac().ps = v; } });
 Object.defineProperty(ui, "pf", { get: () => prac()[cur()].pf || null, set: v => { prac()[cur()].pf = v; } });
 const openSession = () => !!(ui.ps && !ui.ps.done);
-const onQuestion = () => view === "practice" && ui.pracTab !== "cards" && openSession();
+const onQuestion = () => view === "practice" && ui.pracTab !== "cards" && ui.pracTab !== "mock" && openSession();
 const sessionSubj = () => { const q = ui.ps && QIDX[ui.ps.ids[ui.ps.i]]; return q ? SUBJ[q.subj].name : ""; };
 // Remember how far down the question you were, and go back there when you return to it.
 addEventListener("scroll", () => { if (onQuestion() && !(typeof VW === "object" && VW.open)) ui.ps.y = window.scrollY; }, { passive: true });
@@ -7212,6 +7849,109 @@ function stripTop(h) {
   return h;
 }
 
+/* ---------- Definitions, by topic ---------- */
+const defsFor = t => (window.DEFS || {})[t.id] || [];
+// Each definition can also be asked as a one-mark question in a mock revision set. These stay out of the question bank,
+// so they don't change its counts or the practice scores.
+const DEFQ = {};
+for (const t of Object.values(TOPICS)) DEFQ[t.id] = defsFor(t).map(([term, text]) => {
+  const id = "def-" + t.id + "-" + term.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return QIDX[id] = { id, t: t.id, subj: t.subj, k: "w", d: 1, m: 1, def: true, p: [{ q: "Define, or state what is meant by: " + term, m: 1, l: 3, u: "", s: [text], a: "" }] };
+});
+function defsTab() {
+  const sc = cur(), s = SUBJ[sc], open = ui.noteOpen || (ui.noteOpen = {}), test = !!ui.defTest, term = (ui.defSearch || "").trim().toLowerCase();
+  const only = ui.defOnly && ui.defOnly.subj === sc ? ui.defOnly.ids : null;
+  let total = 0;
+  const years = [12, 13].map(y => {
+    const topics = s.topics.filter(t => yearOf(t) === y && optOK(t) && (!only || only.includes(t.id))).map(t => {
+      const list = defsFor(t).filter(d => !term || (d[0] + " " + d[1]).toLowerCase().includes(term));
+      if (!list.length) return "";
+      total += list.length;
+      const key = "def-" + t.id, isOpen = term || only ? true : !!open[key];
+      return `<details class="disc def-topic" data-key="${key}" ${isOpen ? "open" : ""}><summary>${chipT(t)}<span class="item-main"><b>${esc(t.t)}</b></span><span class="chip">${list.length}</span></summary>
+        <div class="def-list">${list.map(([a, b]) => test ? `<details class="def"><summary>${esc(a)}</summary><p>${esc(b)}</p></details>` : `<div class="def"><b>${esc(a)}</b><p>${esc(b)}</p></div>`).join("")}</div></details>`;
+    }).join("");
+    return topics && `<section class="year-block"><h3>Year ${y}</h3>${topics}</section>`;
+  }).join("");
+  return `<p class="muted">Key definitions for every topic, written in exam-style wording. Check any you rely on against your specification and mark schemes.</p>
+    <div class="row def-tools"><label class="field" for="def-search">Search<input id="def-search" type="search" data-input="def-search" value="${esc(ui.defSearch || "")}" placeholder="For example: isotope"></label>
+    <button class="btn small ${test ? "primary" : ""}" data-act="def-test" aria-pressed="${test}">${test ? "Showing terms only" : "Test myself"}</button>${only ? `<button class="btn small ghost" data-act="def-all">Show every topic</button>` : ""}</div>
+    <div id="def-results" class="stack">${years || `<div class="empty">No definition matches that search.</div>`}</div>
+    <p class="muted small">${total} definitions shown.${test ? " Say each one, then tap the term to check it." : ""}</p>`;
+}
+
+/* ---------- Mock revision: the topics on your mock, in the time you have ---------- */
+const MOCK_TIMES = [20, 45, 60, 90, 120];
+const MOCK_TYPES = [["def", "definitions"], ["mcq", "multiple choice"], ["calc", "calculations"], ["explain", "explain and describe"], ["prac", "practical"], ["long", "long answer"]];
+const mockState = s => ((ui.mock = ui.mock || {})[s]) || (ui.mock[s] = { topics: [], year: 0, minutes: 45, seed: 1, built: null });
+function mockType(q) {
+  if (q.def) return "def";
+  if (q.k === "mcq") return "mcq";
+  if (q.rp) return "prac";
+  if (q.p.some(p => p.u || /\b(calculate|determine|work out|how many|find the)\b/i.test(p.q))) return "calc";
+  if (q.m >= 6 || q.p.some(p => p.m >= 4)) return "long";
+  return "explain";
+}
+// Minutes a question is likely to take, at roughly the pace of the real papers.
+const mockMins = q => q.def ? 1 : q.k === "mcq" ? 1.5 : q.m * 1.35;
+// Goes round the chosen topics (weakest first), giving each a different kind of question every time round, until the time is used.
+function buildMock(s, st) {
+  const r = rngSeed(st.seed + 7), ids = inYear(st.topics, st.year), weak = {};
+  priorities(s).forEach(p => { weak[p.t.id] = p.score; });
+  const chosen = new Set(ids);
+  const rows = ids.map(id => {
+    const list = PRAC[id] ? qList(s).filter(q => q.rp === id)
+      : qList(s).filter(q => q.t === id && !chosen.has(q.rp)).concat(DEFQ[id] || []);
+    const pools = {};
+    for (const q of shuffleWith(list, r)) (pools[mockType(q)] = pools[mockType(q)] || []).push(q);
+    // questions not tried yet come first
+    for (const k in pools) pools[k].sort((a, b) => (!!(S.qs[a.id] || {}).n) - (!!(S.qs[b.id] || {}).n));
+    return { id, pools, score: weak[PRAC[id] ? PRAC[id].topic : id] || 0 };
+  }).sort((a, b) => b.score - a.score);
+  const picked = [], used = {}, count = {}, covered = new Set();
+  let left = st.minutes, added = true;
+  for (let round = 0; added && left > 0.5; round++) {
+    added = false;
+    rows.forEach((row, i) => {
+      // the kinds of question this topic can still offer that fit the time left, the least used kind first
+      const fits = MOCK_TYPES.map(([k], j) => ({ k, turn: (j - i - round + 600) % MOCK_TYPES.length })).filter(x => (row.pools[x.k] || []).some(q => mockMins(q) <= left + 0.5));
+      if (!fits.length) return;
+      fits.sort((a, b) => (count[a.k] || 0) + (used[row.id + a.k] || 0) * 3 - (count[b.k] || 0) - (used[row.id + b.k] || 0) * 3 || a.turn - b.turn);
+      const k = fits[0].k, n = row.pools[k].findIndex(q => mockMins(q) <= left + 0.5), q = row.pools[k].splice(n, 1)[0];
+      picked.push(q); left -= mockMins(q); count[k] = (count[k] || 0) + 1; used[row.id + k] = (used[row.id + k] || 0) + 1; covered.add(row.id); added = true;
+    });
+  }
+  return { ids: picked.map(q => q.id), count, minutes: Math.round(st.minutes - Math.max(0, left)), marks: picked.reduce((n, q) => n + q.m, 0), covered: covered.size, topics: rows.length };
+}
+function mockTab() {
+  const s = cur(), st = mockState(s), sub = SUBJ[s], sel = new Set(inYear(st.topics, st.year)), picked = new Set(st.topics), b = st.built;
+  const all = pracGroups(s).concat({ id: "rp", name: "Required practicals", topics: practicalChips(s) });
+  const groups = [12, 13].map(y => {
+    const off = !!st.year && st.year !== y;
+    const secs = all.map(sec => {
+      const ts = sec.topics.filter(t => pickYear(t.id) === y && (optOK(t) || picked.has(t.id)));
+      if (!ts.length) return "";
+      const allOn = ts.every(t => sel.has(t.id));
+      return `<div class="topic-group"><div class="row topic-group-head"><span class="field-l">${esc(sec.name)}</span><button class="btn small ghost" data-act="mk-sec" data-v="${sec.id}" data-y="${y}" ${off ? "disabled" : ""}>${allOn ? "Clear" : "Select all"}</button></div>
+        <div class="topic-chips">${ts.map(t => `<button class="topic-chip" data-act="mk-tog" data-v="${t.id}" aria-pressed="${sel.has(t.id)}" ${off ? "disabled" : ""}><span class="mono">${esc(t.code)}</span>${esc(t.t)}</button>`).join("")}</div></div>`;
+    }).join("");
+    return secs && `<div class="year-block${off ? " off" : ""}"><h3>Year ${y}</h3>${secs}</div>`;
+  }).join("");
+  const yearPick = `<div class="row" style="gap:6px" role="group" aria-label="Year">${[[0, "Both years"], [12, "Year 12"], [13, "Year 13"]].map(([v, l]) => `<button class="btn small ${st.year === v ? "primary" : ""}" data-act="mk-year" data-v="${v}" aria-pressed="${st.year === v}">${l}</button>`).join("")}</div>`;
+  const topicIds = [...new Set([...sel].map(id => PRAC[id] ? PRAC[id].topic : id))];
+  return `${openSession() ? `<section class="card"><b>You have a practice session open.</b><p class="small muted">Finish it before starting a mock set. Your mock topics can still be chosen below.</p><div><button class="btn primary" data-act="resume">Carry on with it</button></div></section>` : ""}
+  <section class="card"><div class="panel-head"><div class="stack" style="gap:2px"><h2 class="card-title">1. What's on your mock?</h2><span class="muted small">${sel.size ? `${sel.size} selected` : "Tap every topic and required practical that's coming up."}</span></div>${picked.size ? `<button class="btn small ghost" data-act="mk-none">Clear all</button>` : ""}</div>${yearPick}${groups}</section>
+  <section class="card"><h2 class="card-title">2. How long have you got to revise?</h2>
+    <div class="row" style="gap:6px">${MOCK_TIMES.map(m => `<button class="btn small ${st.minutes === m ? "primary" : ""}" data-act="mk-min" data-v="${m}" aria-pressed="${st.minutes === m}">${fmtMins(m)}</button>`).join("")}</div>
+    <p class="small muted">You get a mix of definitions, multiple choice, calculations, explanations, practical and long-answer questions, spread across your topics with your weakest first.</p>
+    <div class="row"><button class="btn primary" data-act="mk-build" ${sel.size ? "" : "disabled"}>Make my revision set</button>${b ? `<button class="btn" data-act="mk-start" ${openSession() ? "disabled" : ""}>Start ${b.ids.length} questions</button><button class="btn ghost" data-act="mk-shuffle">Different questions</button>` : ""}</div>
+    ${b ? `<div class="stack" style="gap:8px"><p><b>${b.ids.length} questions, ${b.marks} marks, about ${fmtMins(Math.max(1, b.minutes))}.</b></p>
+      <div class="row" style="gap:6px">${MOCK_TYPES.filter(([k]) => b.count[k]).map(([k, l]) => `<span class="chip">${b.count[k]} ${l}</span>`).join("")}</div>
+      <p class="small muted">${b.covered < b.topics ? `This time covers ${b.covered} of your ${b.topics} topics, weakest first. Choose longer to cover them all.` : `Every one of your ${b.topics} topics and practicals is covered.`}</p></div>` : ""}
+    ${sel.size ? `<div class="row" style="gap:6px"><button class="btn small ghost" data-act="mk-defs" data-v="${topicIds.join(",")}">Read the definitions for these topics</button></div>` : ""}
+  </section>`;
+}
+
 /* ---------- Revision priorities ---------- */
 function topicEvidence(t) {
   let pg = 0, po = 0, ag = 0, ao = 0, lapses = 0;
@@ -7283,13 +8023,13 @@ V.progress = () => {
 
 /* ---------- Practice (questions, bank, flashcard quiz) ---------- */
 V.practice = () => {
-  const tab = ui.pracTab === "cards" ? "cards" : "questions";
-  if (ui.ps && tab === "questions") return (ui.ps.done ? "" : tabsHTML("prac-tab", tab, [["questions", "Exam questions"], ["cards", "Flashcards"]])) + practiceSession();
+  const tab = ui.pracTab === "cards" || ui.pracTab === "mock" ? ui.pracTab : "questions", due = dueCount();
+  const tabs = tabsHTML("prac-tab", tab, [["questions", "Exam questions"], ["mock", "Mock"], ["cards", "Flashcards", due ? (due > 99 ? "99+" : due) : ""]]);
+  if (ui.ps && tab === "questions") return (ui.ps.done ? "" : tabs) + practiceSession();
   if (tab === "cards" && ui.study) return V.study();
-  const sub = SUBJ[cur()], due = dueCount();
-  return pageHead(`${sub.name} ${sub.code}`, "Practice", tab === "cards" ? "Spaced-repetition flashcards. Cards you find hard come back sooner." : `${qList(cur()).length} exam-style questions with mark schemes. Choose topics, write your answer, then mark it yourself or with AI.`)
-    + tabsHTML("prac-tab", tab, [["questions", "Exam questions"], ["cards", "Flashcards", due ? (due > 99 ? "99+" : due) : ""]])
-    + (tab === "cards" ? stripTop(V.study()) : practiceSetup());
+  const sub = SUBJ[cur()];
+  return pageHead(`${sub.name} ${sub.code}`, "Practice", tab === "cards" ? "Spaced-repetition flashcards. Cards you find hard come back sooner." : tab === "mock" ? "Short of time? Choose what's on your mock and get a mixed set that fits the time you have." : `${qList(cur()).length} exam-style questions with mark schemes. Choose topics, write your answer, then mark it yourself or with AI.`)
+    + tabs + (tab === "cards" ? stripTop(V.study()) : tab === "mock" ? mockTab() : practiceSetup());
 };
 
 /* ---------- Reference (equations, data sheet, practicals) ---------- */
@@ -7483,11 +8223,11 @@ function studyTab() {
 V.notes = () => {
   if (ui.noteTab === "summ" && ui.topic && TOPICS[ui.topic]) return topicDetail(TOPICS[ui.topic]);
   const sub = SUBJ[cur()];
-  const tabs = [["study", "Study notes"]].concat(OFFLINE ? [["notes", "PMT notes"]] : [], [["rp", "Required practicals"], ["summ", "Spec ratings"]]);
+  const tabs = [["study", "Study notes"], ["defs", "Definitions"]].concat(OFFLINE ? [["notes", "PMT notes"]] : [], [["rp", "Required practicals"], ["summ", "Spec ratings"]]);
   const tab = tabs.some(t => t[0] === ui.noteTab) ? ui.noteTab : "study";
   return pageHead(`${sub.name} ${sub.code}`, "Notes", "Colour-coded study notes with diagrams, required practicals, and your confidence ratings." + (OFFLINE ? " The PMT notes tab holds the detailed PDFs." : ""))
     + tabsHTML("note-tab", tab, tabs)
-    + (tab === "rp" ? rpTab() : tab === "summ" ? summaries() : tab === "notes" ? notesTab() : studyTab());
+    + (tab === "defs" ? defsTab() : tab === "rp" ? rpTab() : tab === "summ" ? summaries() : tab === "notes" ? notesTab() : studyTab());
 };
 function summaries() {
   const s = SUBJ[cur()];
@@ -8346,6 +9086,17 @@ const ACT = {
   "pred-start": el => { const s = cur(), b = ui.predBuilt && ui.predBuilt[s + el.dataset.v]; if (!b) return; startPractice({ ids: b.ids, random: false, minutes: timeMins(b.time), label: `Predicted ${SUBJ[s].name} ${el.dataset.v}` }); },
   "intel-ask": () => { ui.intelAsk = !ui.intelAsk; render(); },
   "intel-copy": async () => { const t = intelPrompt(); try { await navigator.clipboard.writeText(t); toast("Request copied. Paste it to Claude."); } catch (e) { const n = document.getElementById("intel-text"); if (n) { n.focus(); n.select(); } toast("Select the text and copy it."); } },
+  "mk-tog": el => { const st = mockState(cur()), v = el.dataset.v; st.topics = st.topics.includes(v) ? st.topics.filter(x => x !== v) : st.topics.concat(v); st.built = null; render(); },
+  "mk-sec": el => { const s = cur(), st = mockState(s), y = +el.dataset.y, group = el.dataset.v === "rp" ? practicalChips(s) : (pracGroups(s).find(g => g.id === el.dataset.v) || { topics: [] }).topics; const ids = group.filter(t => pickYear(t.id) === y && (optOK(t) || st.topics.includes(t.id))).map(t => t.id), all = ids.every(id => st.topics.includes(id)); st.topics = all ? st.topics.filter(id => !ids.includes(id)) : [...new Set(st.topics.concat(ids))]; st.built = null; render(); },
+  "mk-year": el => { const st = mockState(cur()); st.year = +el.dataset.v; st.built = null; render(); },
+  "mk-none": () => { const st = mockState(cur()); st.topics = []; st.built = null; render(); },
+  "mk-min": el => { const s = cur(), st = mockState(s); st.minutes = +el.dataset.v; if (st.built) st.built = buildMock(s, st); render(); },
+  "mk-build": () => { const s = cur(), st = mockState(s); if (!inYear(st.topics, st.year).length) { toast("Choose at least one topic or practical"); return; } st.built = buildMock(s, st); render(); toast("Your revision set is ready"); },
+  "mk-shuffle": () => { const s = cur(), st = mockState(s); st.seed++; st.built = buildMock(s, st); render(); toast("Picked different questions"); },
+  "mk-start": () => { const st = mockState(cur()), b = st.built; if (b) startPractice({ ids: b.ids, random: false, n: 0, minutes: st.minutes, label: "Mock revision" }); },
+  "mk-defs": el => { ui.defOnly = { subj: cur(), ids: el.dataset.v.split(",") }; ui.defSearch = ""; ui.noteTab = "defs"; go("notes"); window.scrollTo(0, 0); },
+  "def-test": () => { ui.defTest = !ui.defTest; render(); },
+  "def-all": () => { ui.defOnly = null; render(); },
   "prac-tab": el => { ui.pracTab = el.dataset.v; render(); },
   "nt-pick": el => { ui.noteTopic = el.dataset.v; render(); window.scrollTo(0, 0); },
   "note-open": el => openNote(NOTE_PATHS[+el.dataset.v]),
@@ -8529,6 +9280,7 @@ const INPUT = {
   },
   notes: el => { S.notes[el.dataset.v] = el.value; clearTimeout(notesTimer); notesTimer = setTimeout(save, 600); },
   "tutor-ans": el => { ui.tutor.ans = el.value; },
+  "def-search": el => { ui.defSearch = el.value; const t = document.createElement("div"); t.innerHTML = defsTab(); const a = document.getElementById("def-results"), b = t.querySelector("#def-results"); if (a && b) a.replaceWith(b); },
   qtext: el => { S.qtext[el.dataset.v] = el.value; clearTimeout(notesTimer); notesTimer = setTimeout(save, 600); },
   "photo-note": el => { ui.tutor.imgNote = el.value; },
   fsearch: el => {
