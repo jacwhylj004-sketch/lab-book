@@ -554,7 +554,7 @@ kbd { font-family: var(--f-mono); font-size: .76rem; padding: 2px 7px; border-ra
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261127-1013";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261127-1017";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -6236,7 +6236,7 @@ function qFilter(f) {
   return qList(cur()).filter(q => TOPICS[q.t] && (f.topic ? q.t === f.topic : optOK(TOPICS[q.t]))
     && (!f.kind || f.kind === "all" || q.k === f.kind) && (!f.diff || q.d === +f.diff)
     && (!f.flagged || (S.qs[q.id] || {}).f) && (!f.untried || !(S.qs[q.id] || {}).n)
-    && (!f.topics || f.topics.includes(q.t) || f.topics.includes(q.rp)) && (!term || qText(q).toLowerCase().includes(term) || TOPICS[q.t].t.toLowerCase().includes(term)));
+    && (!f.topics || f.topics.includes(q.t) || f.topics.includes(q.rp)) && (!f.year || yearOf(TOPICS[q.t]) === f.year) && (!term || qText(q).toLowerCase().includes(term) || TOPICS[q.t].t.toLowerCase().includes(term)));
 }
 function startPractice(f) {
   if (openSession()) { ui.pracTab = "questions"; go("practice"); toast("You have a session open. Tap Finish session first."); return; }
@@ -6336,20 +6336,26 @@ const pracGroups = s => s !== "phys" ? SUBJ[s].sections.map(sec => ({ id: sec.id
   : Object.entries(PHYS_AREAS).map(([n, name]) => ({ id: n, name, topics: SUBJ[s].topics.filter(t => !t.opt && t.code.split(".").slice(0, 2).join(".") === n) }))
     .concat({ id: "opt", name: "Options (Paper 3B)", topics: SUBJ[s].topics.filter(t => t.opt) });
 function practiceSetup() {
-  const f = ui.pf || (ui.pf = defaultPF()), sel = new Set(f.topics || []), count = qFilter({ ...f, topics: sel.size ? [...sel] : null }).length;
+  const f = ui.pf || (ui.pf = defaultPF()), picked = new Set(f.topics || []), sel = new Set(inYear(f.topics || [], f.year)), count = qFilter({ ...f, topics: sel.size ? [...sel] : null }).length;
   const flagged = qList(cur()).filter(q => (S.qs[q.id] || {}).f).length;
   const sub = SUBJ[cur()], pri = priorities(cur()).slice(0, 5);
-  const groups = pracGroups(cur()).concat({ id: "rp", name: "Required practicals", topics: practicalChips(cur()) }).map(sec => {
-    const ts = sec.topics.filter(t => optOK(t) || sel.has(t.id));
-    if (!ts.length) return "";
-    const allOn = ts.every(t => sel.has(t.id));
-    return `<div class="topic-group"><div class="row topic-group-head"><span class="field-l">${esc(sec.name)}</span><button class="btn small ghost" data-act="pf-sec" data-v="${sec.id}">${allOn ? "Clear" : "Select all"}</button></div>
-      <div class="topic-chips">${ts.map(t => { const n = qList(cur()).filter(q => q.t === t.id || q.rp === t.id).length; return `<button class="topic-chip" data-act="pf-tog" data-v="${t.id}" aria-pressed="${sel.has(t.id)}"><span class="mono">${esc(t.code)}</span>${esc(t.t)}<span class="tc-n">${n}</span></button>`; }).join("")}</div></div>`;
+  const all = pracGroups(cur()).concat({ id: "rp", name: "Required practicals", topics: practicalChips(cur()) });
+  const groups = [12, 13].map(y => {
+    const off = !!f.year && f.year !== y;
+    const secs = all.map(sec => {
+      const ts = sec.topics.filter(t => pickYear(t.id) === y && (optOK(t) || picked.has(t.id)));
+      if (!ts.length) return "";
+      const allOn = ts.every(t => sel.has(t.id));
+      return `<div class="topic-group"><div class="row topic-group-head"><span class="field-l">${esc(sec.name)}</span><button class="btn small ghost" data-act="pf-sec" data-v="${sec.id}" data-y="${y}" ${off ? "disabled" : ""}>${allOn ? "Clear" : "Select all"}</button></div>
+      <div class="topic-chips">${ts.map(t => { const n = qList(cur()).filter(q => q.t === t.id || q.rp === t.id).length; return `<button class="topic-chip" data-act="pf-tog" data-v="${t.id}" aria-pressed="${sel.has(t.id)}" ${off ? "disabled" : ""}><span class="mono">${esc(t.code)}</span>${esc(t.t)}<span class="tc-n">${n}</span></button>`; }).join("")}</div></div>`;
+    }).join("");
+    return secs && `<div class="year-block${off ? " off" : ""}"><h3>Year ${y}</h3>${secs}</div>`;
   }).join("");
+  const yearPick = `<div class="row" style="gap:6px" role="group" aria-label="Year">${[[0, "Both years"], [12, "Year 12"], [13, "Year 13"]].map(([v, l]) => `<button class="btn small ${(f.year || 0) === v ? "primary" : ""}" data-act="pf-year" data-v="${v}" aria-pressed="${(f.year || 0) === v}">${l}</button>`).join("")}</div>`;
   return `<section class="card">
-    <div class="panel-head"><div class="stack" style="gap:2px"><h2 class="card-title">Topics</h2><span class="muted small">${sel.size ? `${sel.size} selected` : "All topics. Tap topics or practicals to choose specific ones."}</span></div>
-      <div class="row" style="gap:6px">${pri.length ? `<button class="btn small" data-act="pf-weak">My 5 priority topics</button>` : ""}${sel.size ? `<button class="btn small ghost" data-act="pf-none">Clear all</button>` : ""}</div></div>
-    ${groups}
+    <div class="panel-head"><div class="stack" style="gap:2px"><h2 class="card-title">Topics</h2><span class="muted small">${sel.size ? `${sel.size} selected` : `All ${f.year ? "Year " + f.year + " " : ""}topics. Tap topics or practicals to choose specific ones.`}</span></div>
+      <div class="row" style="gap:6px">${pri.length ? `<button class="btn small" data-act="pf-weak">My 5 priority topics</button>` : ""}${picked.size ? `<button class="btn small ghost" data-act="pf-none">Clear all</button>` : ""}</div></div>
+    ${yearPick}${groups}
   </section>
   <section class="card">
     <div class="setup-grid">
@@ -7057,7 +7063,10 @@ const yearOf = t => (t.y ? t.y === 1 : t.sec === "p-core1") ? 12 : 13;
 // A section's name when it sits under a year heading.
 const secName = sec => sec.id === "p-core1" || sec.id === "p-core2" ? "Core topics" : sec.id === "p-opt" ? "Options (Paper 3B)" : sec.name;
 // The chosen topics that go into the paper. With one year picked, ticks in the other year are kept but left out.
-const cpTopics = st => st.topics.filter(id => (TOPICS[id] || PRAC[id]) && (!st.year || yearOf(TOPICS[PRAC[id] ? PRAC[id].topic : id]) === st.year));
+// The year of a topic or required practical, and a list of picks cut down to one year (0 or nothing means both).
+const pickYear = id => yearOf(TOPICS[PRAC[id] ? PRAC[id].topic : id]);
+const inYear = (ids, year) => ids.filter(id => (TOPICS[id] || PRAC[id]) && (!year || pickYear(id) === year));
+const cpTopics = st => inYear(st.topics, st.year);
 function buildCustom(s, st) {
   const { M, mc } = cpMarks(s, st), w = st.weighted ? topicWeights(s) : null, rate = marksRate(s);
   const items = cpTopics(st).map(id => ({ tid: id, score: w ? (w[PRAC[id] ? PRAC[id].topic : id] || 0) + 0.02 : 1 }));
@@ -7407,7 +7416,7 @@ const ACT = {
   "pf-kind": el => { ui.pf.kind = el.dataset.v; render(); },
   "pf-diff": el => { ui.pf.diff = +el.dataset.v; render(); },
   "pf-n": el => { ui.pf.n = +el.dataset.v; render(); },
-  "pf-start": () => { const f = ui.pf, ts = f.topics && f.topics.length ? f.topics : null; startPractice({ ...f, topic: "", topics: ts, label: ts && ts.length === 1 ? pickName(ts[0]) : ts ? `${ts.length} ${ts.every(id => PRAC[id]) ? "required practicals" : ts.some(id => PRAC[id]) ? "topics and practicals" : "topics"}` : f.kind === "mcq" ? "Multiple choice practice" : f.kind === "w" ? "Written practice" : "Mixed practice" }); },
+  "pf-start": () => { const f = ui.pf, eff = inYear(f.topics || [], f.year), ts = eff.length ? eff : null; startPractice({ ...f, topic: "", topics: ts, label: ts && ts.length === 1 ? pickName(ts[0]) : ts ? `${ts.length} ${ts.every(id => PRAC[id]) ? "required practicals" : ts.some(id => PRAC[id]) ? "topics and practicals" : "topics"}` : (f.year ? `Year ${f.year}: ` : "") + (f.kind === "mcq" ? "Multiple choice practice" : f.kind === "w" ? "Written practice" : "Mixed practice") }); },
   "ps-pick": el => { const ps = ui.ps, id = ps.ids[ps.i], q = QIDX[id]; if (ps.pick[id] != null) return; ps.pick[id] = +el.dataset.v; recordQ(id, ps.pick[id] === q.a ? q.m : 0, q.m); render(); },
   "ps-show": () => { const ps = ui.ps; ps.shown[ps.ids[ps.i]] = true; render(); },
   "ps-save": () => {
@@ -7465,9 +7474,10 @@ const ACT = {
   "prog-tab": el => { ui.progTab = el.dataset.v; if (view !== "progress") go("progress"); else { render(); window.scrollTo(0, 0); } },
   "ref-tab": el => { ui.refTab = el.dataset.v; render(); },
   "pf-tog": el => { const f = ui.pf, s = new Set(f.topics || []); s.has(el.dataset.v) ? s.delete(el.dataset.v) : s.add(el.dataset.v); f.topics = [...s]; render(); },
-  "pf-sec": el => { const f = ui.pf, s = new Set(f.topics || []), ts = (el.dataset.v === "rp" ? practicalChips(cur()) : pracGroups(cur()).find(g => g.id === el.dataset.v).topics.filter(optOK)).map(t => t.id); const allOn = ts.every(id => s.has(id)); ts.forEach(id => allOn ? s.delete(id) : s.add(id)); f.topics = [...s]; render(); },
+  "pf-sec": el => { const f = ui.pf, s = new Set(f.topics || []), ts = (el.dataset.v === "rp" ? practicalChips(cur()) : pracGroups(cur()).find(g => g.id === el.dataset.v).topics.filter(optOK)).map(t => t.id).filter(id => pickYear(id) === +el.dataset.y); const allOn = ts.every(id => s.has(id)); ts.forEach(id => allOn ? s.delete(id) : s.add(id)); f.topics = [...s]; render(); },
   "pf-none": () => { ui.pf.topics = []; render(); },
-  "pf-weak": () => { ui.pf.topics = priorities(cur()).slice(0, 5).map(p => p.t.id); render(); toast("Selected your 5 priority topics"); },
+  "pf-year": el => { ui.pf.year = +el.dataset.v; render(); },
+  "pf-weak": () => { ui.pf.year = 0; ui.pf.topics = priorities(cur()).slice(0, 5).map(p => p.t.id); render(); toast("Selected your 5 priority topics"); },
   "pf-weak-go": () => startPractice({ topics: priorities(cur()).slice(0, 5).map(p => p.t.id), n: 10, label: "Priority topics" }),
   "ps-ai": () => markQuestionAI(),
   "vw-ai": () => { if (!gemReady()) { leaveViewer(() => { go("prefs"); toast("Add your Gemini key to use AI marking."); }); return; } markPaperAI(); },
