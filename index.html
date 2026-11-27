@@ -605,7 +605,7 @@ kbd { font-family: var(--f-mono); font-size: .76rem; padding: 2px 7px; border-ra
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261127-1441";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261127-1442";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -6117,6 +6117,7 @@ async function cloudSync() {
     toast("Synced with your other device");
   } catch (e) { CSX.msg = e.message; toast(e.message); if (e.code === 401) csPut(null); }
   CSX.busy = false; render();
+  useSync();
 }
 // A safety copy of this device's data is kept just before every sync (the last 3), so a sync can always be undone.
 const SNAP_KEY = "labbook-presync";
@@ -6128,7 +6129,7 @@ function snapshotBeforeSync() {
 function cloudPanel() {
   const c = csGet(), ok = !!c.token, when = c.last ? new Date(c.last).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
   return `<section class="panel"><div class="panel-head"><div class="stack" style="gap:2px"><h2>Cloud sync</h2><span class="muted small">${ok ? (when ? "Last synced " + when : "Connected. Not synced yet.") : "Keep your devices in step"}</span></div>${ok ? `<button class="btn primary" data-act="cloud-sync" ${CSX.busy ? "disabled" : ""}>${CSX.busy ? "Syncing…" : "Sync now"}</button>` : ""}</div>
-    <p class="small">Press Sync on each device. It merges both copies, so finishing a question on one device and syncing shows it as done on the others. It syncs your usage time, flashcard progress, question results, marks, ratings, notes, typed answers, exams and mistakes. It does not copy papers, notes PDFs or handwriting, and your theme stays per device.</p>
+    <p class="small">Press Sync on each device. It merges both copies, so finishing a question on one device and syncing shows it as done on the others. It syncs your usage time, flashcard progress, question results, marks, ratings, notes, typed answers, exams and mistakes. It does not copy papers, notes PDFs or handwriting, and your theme stays per device. Your usage time also syncs by itself; everything else waits for you to press Sync.</p>
     ${CSX.msg ? `<p class="small" id="cs-msg">${esc(CSX.msg)}</p>` : ""}
     ${ok ? `<p class="small"><b>Removing things:</b> if you remove an exam date, a result, a mistake or a card, or a question result (the Remove my result button on a question), it is removed on your other device too after you sync. Each removal has an Undo for a few seconds.</p>
       ${snaps().length ? `<div class="row"><button class="btn small" data-act="cloud-restore">Undo the last sync on this device</button><span class="muted small">Restores the copy saved at ${new Date(snaps().slice(-1)[0].at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span></div>` : ""}
@@ -6566,6 +6567,56 @@ document.addEventListener("visibilitychange", () => {
 });
 addEventListener("pagehide", () => { if (!document.hidden) useTick(true); useFlush(); });
 
+// Usage time syncs by itself. It has its own file in the private sync gist, so this reads and writes nothing else:
+// everything else is still synced only when you press Sync.
+const CS_USE = "labbook-usage.json";
+const UX = { busy: false, tried: 0, err: "" };
+const useCanon = u => JSON.stringify(mergeUse(u, {}), (k, v) => v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map(n => [n, v[n]])) : v);
+async function useSync(minGap = 0) {
+  const c = csGet();
+  if (!OFFLINE || !c.token || UX.busy || CSX.busy || Date.now() - UX.tried < minGap || navigator.onLine === false) return;
+  UX.busy = true; UX.tried = Date.now();
+  let changed = false;
+  try {
+    let id = c.gistId;
+    if (!id) { const g = (await ghApi("/gists?per_page=100")).find(x => x.description === CS_DESC && x.files && x.files[CS_FILE]); if (g) id = g.id; }
+    if (id) { // no gist yet means the first full sync hasn't happened: it creates one
+      const g = await ghApi("/gists/" + id), f = g.files && g.files[CS_USE];
+      let remote = {};
+      if (f) { let txt = f.content; if (f.truncated || txt == null) txt = await (await fetch(f.raw_url)).text(); try { remote = JSON.parse(txt).use || {}; } catch (e) { remote = {}; } }
+      useTick(false);
+      const before = useCanon(S.use);
+      S.use = mergeUse(S.use, remote); useDirty = true; useFlush();
+      const after = useCanon(S.use); changed = before !== after;
+      if (!f || after !== useCanon(remote)) await ghApi("/gists/" + id, { method: "PATCH", body: JSON.stringify({ files: { [CS_USE]: { content: JSON.stringify({ v: 1, use: S.use }) } } }) });
+      if (csGet().token === c.token) csPut(Object.assign({}, csGet(), { gistId: id, useAt: Date.now() }));
+      if (UX.err) changed = true;
+      UX.err = "";
+    }
+  } catch (e) { changed = UX.err !== e.message; UX.err = e.message; }
+  UX.busy = false;
+  if (view === "usage") useRedraw(changed);
+}
+// Redraw the Usage page after a sync, keeping the table open if it was.
+function useRedraw(changed) {
+  const line = document.getElementById("ux-synced");
+  if (!changed) { if (line) line.textContent = useSyncText(); return; }
+  const open = !!document.querySelector(".ux details[open]"), y = window.scrollY;
+  render();
+  const d = document.querySelector(".ux details"); if (d && open) d.open = true;
+  window.scrollTo(0, y);
+}
+function useSyncText() {
+  const c = csGet();
+  if (!c.token) return "To add up your devices, connect cloud sync in Settings. Usage time then syncs by itself.";
+  if (UX.err) return "Your time couldn't sync just now. " + UX.err + " It will try again by itself.";
+  return "Usage time syncs between your devices by itself." + (c.useAt ? " Last updated " + new Date(c.useAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + "." : "");
+}
+setTimeout(() => useSync(), 3000);
+setInterval(() => { if (!document.hidden) useSync(110e3); }, 30e3);
+document.addEventListener("visibilitychange", () => useSync(20e3)); // on return, and on leaving to send the latest time
+addEventListener("online", () => useSync());
+
 const NB = String.fromCharCode(160); // keeps a number and its unit on the same line
 const fmtUse = s => { if (s <= 0) return "0" + NB + "min"; if (s < 60) return "<1" + NB + "min"; const m = Math.round(s / 60); return m < 60 ? m + NB + "min" : Math.floor(m / 60) + NB + "h" + (m % 60 ? " " + (m % 60) + NB + "min" : ""); };
 const USE_RANGES = [["day", "Day", "Today"], ["week", "Week", "Past 7 days"], ["month", "Month", "Past 30 days"], ["year", "Year", "Past 12 months"]];
@@ -6642,6 +6693,7 @@ let useResize = null;
 addEventListener("resize", () => { clearTimeout(useResize); useResize = setTimeout(() => { if (view === "usage") render(); }, 200); });
 V.usage = () => {
   useTick(false);
+  useSync(30e3);
   const range = useRangeNow(), [, , label] = USE_RANGES.find(r => r[0] === range), list = useSeries(range), days = useTotals();
   const sums = {}; for (const [id] of USE_RANGES) sums[id] = useSum(id, days);
   const { p, c, keys, used } = sums[range];
@@ -6656,7 +6708,6 @@ V.usage = () => {
     for (const [day, x] of Object.entries(byDay)) if (keys.has(day)) { d.p += x[0]; d.c += x[1]; }
   }
   const devices = Object.values(kinds).filter(d => d.p + d.c >= 1).sort((a, b) => b.p + b.c - a.p - a.c);
-  const synced = csGet();
   // time recorded before hours were kept counts in the totals but has no place on the day graph
   const unplaced = range === "day" ? p + c - list.reduce((t, e) => t + e.p + e.c, 0) : 0;
   const unit = range === "day" ? "Hour" : range === "year" ? "Month" : "Day";
@@ -6675,7 +6726,7 @@ V.usage = () => {
   </section>
   <section class="panel ux"><div class="panel-head"><h2>By device</h2><span class="muted small">${label}</span></div>
     ${devices.length ? devices.map(d => `<div class="row small" style="justify-content:space-between"><b>${esc(d.name)}</b><span class="mono">Physics ${fmtUse(d.p)} · Chemistry ${fmtUse(d.c)}</span></div>`).join("") : `<p class="muted small">Nothing recorded yet.</p>`}
-    ${OFFLINE ? `<p class="small muted">${synced.token ? "Press Sync on each device to bring its time in." + (synced.last ? " Last synced " + new Date(synced.last).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + "." : "") : "To add up your devices, connect cloud sync in Settings, then press Sync on each one."}</p><div class="row">${synced.token ? `<button class="btn small" data-act="cloud-sync" ${CSX.busy ? "disabled" : ""}>${CSX.busy ? "Syncing…" : "Sync now"}</button>` : `<button class="btn small" data-act="go" data-v="prefs">Open Settings</button>`}</div>` : ""}
+    ${OFFLINE ? `<p class="small muted" id="ux-synced">${esc(useSyncText())}</p>${csGet().token ? "" : `<div class="row"><button class="btn small" data-act="go" data-v="prefs">Open Settings</button></div>`}` : ""}
     <p class="small muted">Time counts while Lab Book is on screen and you've touched it in the last 3 minutes, or a paper timer is running. It goes to the subject you're working in.</p>
   </section>`;
 };
@@ -7994,7 +8045,7 @@ V.prefs = () => {
   ${OFFLINE ? `<section class="panel"><h2>Stored papers and notes</h2><p class="small">${storedCount()} of ${totalCount()} past paper files and ${noteStored()} of ${noteTotal()} notes files are stored on this device. Import them from the Past papers and Notes pages.</p>
     ${ui.confirmClearPapers ? `<div class="confirm"><b>Remove all stored papers and notes?</b><span class="small">This frees up space. Your marks, ticks and handwriting stay, but you'd need to import the zips again to open papers and notes.</span><div class="row"><button class="btn danger" data-act="papers-clear-yes">Remove files</button><button class="btn" data-act="papers-clear-no">Cancel</button></div></div>` : `<div><button class="btn" data-act="papers-clear">Remove stored files</button></div>`}</section>` : ""}
   <section class="panel"><h2>Start again</h2>
-    ${ui.confirmReset ? `<div class="confirm"><b>Erase all progress?</b><span class="small">This deletes your flashcard history, ratings, notes, papers, exams, mistakes and usage time on every device. It can't be undone.</span><div class="row"><button class="btn danger" data-act="reset-yes">Erase everything</button><button class="btn" data-act="reset-no">Cancel</button></div></div>` : `<div><button class="btn danger" data-act="reset">Erase all progress</button></div>`}
+    ${ui.confirmReset ? `<div class="confirm"><b>Erase all progress?</b><span class="small">This deletes your flashcard history, ratings, notes, papers, exams and mistakes on every device. It can't be undone.</span><div class="row"><button class="btn danger" data-act="reset-yes">Erase everything</button><button class="btn" data-act="reset-no">Cancel</button></div></div>` : `<div><button class="btn danger" data-act="reset">Erase all progress</button></div>`}
   </section>
   <section class="panel"><h2>Diagnostics</h2><p class="muted small">See what the app is doing and why something isn't working. ${NOPEN ? "" : "Turn on the live pen log to watch every pen event on screen while you write or erase in a paper."}</p>
     <div class="row">${NOPEN ? "" : `<button class="btn ${ui.dbgPen ? "primary" : ""}" data-act="dbg-pen">${ui.dbgPen ? "Live pen log: on" : "Show live pen log"}</button>`}<button class="btn" data-act="dbg-copy">Copy report</button></div>
