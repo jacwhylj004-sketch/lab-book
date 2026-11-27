@@ -225,6 +225,13 @@ button.item:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); 
 .nt-sec > summary::-webkit-details-marker { display: none; }
 .nt-sec > summary:hover { background: var(--surface-2); }
 .nt-sec[open] > summary { color: var(--accent); }
+.rp-year > summary { list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 48px; padding: 10px 12px; font-weight: 600; font-size: 1.1rem; cursor: pointer; border-radius: 14px; }
+.rp-year > summary::-webkit-details-marker { display: none; }
+.rp-year > summary:hover { background: var(--surface-2); }
+.rp-year > summary::before { content: "▸"; color: var(--muted); }
+.rp-year[open] > summary { color: var(--accent); margin-bottom: 6px; }
+.rp-year[open] > summary::before { content: "▾"; }
+.rp-year > summary > span:first-of-type { margin-right: auto; }
 .nt-link { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; background: none; padding: 9px 12px 9px 16px; border-radius: 12px; font-size: .92rem; cursor: pointer; line-height: 1.3; }
 .nt-link:hover { background: var(--surface-2); }
 .nt-link.on { background: var(--accent-soft); font-weight: 600; }
@@ -547,7 +554,7 @@ kbd { font-family: var(--f-mono); font-size: .76rem; padding: 2px 7px; border-ra
 </style>
 <div id="app"></div>
 
-<script>window.OFFLINE = true; window.BUILD = "20261127-0904";</script>
+<script>window.OFFLINE = true; window.BUILD = "20261127-0940";</script>
 <script src="vendor/pdf.min.js"></script><script src="vendor/jszip.min.js"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
 <script>
@@ -5689,9 +5696,13 @@ function rpTab() {
   const pdf = n => OFFLINE ? [].concat(N.rp || []).find(r => r.n === n) : null;
   const skills = OFFLINE ? [].concat(N.skills || []) : [];
   return (OFFLINE ? notesImportPanel() : "") + `<p class="muted">${done} of ${list.length} marked confident. Paper 3 tests these directly, and practical questions appear on every paper. Learn the method, the measurements and how to reduce uncertainty.${OFFLINE ? ` Each practical has Physics &amp; Maths Tutor's annotated write-up with diagrams: open it${NOPEN ? "" : " and annotate it with the S Pen"}.` : ""}</p>
-  <div class="stack">${list.map(p => { const f = pdf(p.n); return `<details class="disc"><summary><span class="chip ${p.subj}">RP${p.n}</span><span class="item-main"><b>${esc(p.t)}</b></span>${S.rp[p.id] ? '<span class="chip green">Confident</span>' : ""}</summary>
+  ${[12, 13].map(y => {
+    const ps = list.filter(p => yearOf(TOPICS[p.topic]) === y), key = "rpy-" + sc + y; if (!ps.length) return "";
+    return `<details class="rp-year" data-key="${key}" ${(ui.noteOpen || {})[key] === false ? "" : "open"}><summary><span>Year ${y}</span><span class="chip">${ps.filter(p => S.rp[p.id]).length}/${ps.length} confident</span></summary>
+  <div class="stack">${ps.map(p => { const f = pdf(p.n); return `<details class="disc"><summary><span class="chip ${p.subj}">RP${p.n}</span><span class="item-main"><b>${esc(p.t)}</b></span>${S.rp[p.id] ? '<span class="chip green">Confident</span>' : ""}</summary>
     <div class="body nt-rp">${rpBlocks(p, ((window.NC || {}).rp || {})[p.id])}${f ? `<div class="list">${noteBtn(f.p, "Annotated notes and diagrams", "Physics & Maths Tutor · RP " + f.n + " · " + (f.kb >= 1024 ? (f.kb / 1024).toFixed(1) + " MB" : f.kb + " KB"))}</div>` : ""}
-      <div class="row"><button class="btn small ${S.rp[p.id] ? "" : "primary"}" data-act="rp" data-v="${p.id}">${S.rp[p.id] ? "Mark as not confident" : "Mark as confident"}</button><button class="btn small" data-act="open-topic" data-v="${p.topic}">Go to topic</button></div></div></details>`; }).join("")}</div>
+      <div class="row"><button class="btn small ${S.rp[p.id] ? "" : "primary"}" data-act="rp" data-v="${p.id}">${S.rp[p.id] ? "Mark as not confident" : "Mark as confident"}</button><button class="btn small" data-act="open-topic" data-v="${p.topic}">Go to topic</button></div></div></details>`; }).join("")}</div></details>`;
+  }).join("")}
   ${skills.length ? `<section class="panel"><h2>Practical skills</h2><div class="list">${skills.map(f => noteBtn(f.p, f.t, "Physics & Maths Tutor · " + (f.kb >= 1024 ? (f.kb / 1024).toFixed(1) + " MB" : f.kb + " KB"))).join("")}</div></section>` : ""}`;
 }
 /* ---------- Study notes: colour-coded blocks, diagrams, topic tree ---------- */
